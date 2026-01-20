@@ -83,9 +83,9 @@ export const getPrompt = cache(async () => {
 });
 
 /**
- * Get prompt by type (company or person)
+ * Get prompt by type (company, person, or company_overview)
  */
-export const getPromptByType = cache(async (type: "company" | "person") => {
+export const getPromptByType = cache(async (type: "company" | "person" | "company_overview") => {
   const [prompt] = await db
     .select()
     .from(prompts)
@@ -119,7 +119,7 @@ export async function savePrompt(content: string) {
 /**
  * Save or update prompt by type
  */
-export async function savePromptByType(type: "company" | "person", content: string) {
+export async function savePromptByType(type: "company" | "person" | "company_overview", content: string) {
   const existing = await getPromptByType(type);
 
   if (existing) {

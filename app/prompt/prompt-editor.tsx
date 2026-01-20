@@ -2,22 +2,24 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { IconDeviceFloppy, IconLoader2, IconBuilding, IconUser } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconLoader2, IconBuilding, IconUser, IconInfoCircle } from "@tabler/icons-react";
 
 interface PromptEditorProps {
   companyPromptContent: string;
   personPromptContent: string;
+  companyOverviewContent: string;
 }
 
-export function PromptEditor({ companyPromptContent, personPromptContent }: PromptEditorProps) {
-  const [activeTab, setActiveTab] = useState<"company" | "person">("company");
+export function PromptEditor({ companyPromptContent, personPromptContent, companyOverviewContent }: PromptEditorProps) {
+  const [activeTab, setActiveTab] = useState<"company" | "person" | "company_overview">("company_overview");
   const [companyContent, setCompanyContent] = useState(companyPromptContent);
   const [personContent, setPersonContent] = useState(personPromptContent);
+  const [overviewContent, setOverviewContent] = useState(companyOverviewContent);
   const [isPending, startTransition] = useTransition();
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  const currentContent = activeTab === "company" ? companyContent : personContent;
-  const setCurrentContent = activeTab === "company" ? setCompanyContent : setPersonContent;
+  const currentContent = activeTab === "company" ? companyContent : activeTab === "person" ? personContent : overviewContent;
+  const setCurrentContent = activeTab === "company" ? setCompanyContent : activeTab === "person" ? setPersonContent : setOverviewContent;
 
   const handleSave = () => {
     setSaveStatus("saving");
@@ -48,6 +50,7 @@ export function PromptEditor({ companyPromptContent, personPromptContent }: Prom
   };
 
   const tabs = [
+    { id: "company_overview" as const, label: "Company Overview", icon: IconInfoCircle },
     { id: "company" as const, label: "Company", icon: IconBuilding },
     { id: "person" as const, label: "Person", icon: IconUser },
   ];
@@ -82,15 +85,18 @@ export function PromptEditor({ companyPromptContent, personPromptContent }: Prom
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
           <p className="text-sm text-muted-foreground mb-2">
-            Configure the prompt template used when researching{" "}
-            {activeTab === "company" ? "companies" : "people"}.
+            {activeTab === "company_overview"
+              ? "Add details about your business so the agent has context on what you are building."
+              : `Configure the prompt template used when researching ${activeTab === "company" ? "companies" : "people"}.`}
           </p>
 
           <div className="space-y-4">
             <textarea
               value={currentContent}
               onChange={(e) => setCurrentContent(e.target.value)}
-              placeholder={`Enter your ${activeTab} research prompt template...`}
+              placeholder={activeTab === "company_overview"
+                ? "Enter details about your business, products, services, target customers, value proposition, etc..."
+                : `Enter your ${activeTab} research prompt template...`}
               className="w-full h-96 bg-white/5 border border-white/5 p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
 
@@ -101,7 +107,7 @@ export function PromptEditor({ companyPromptContent, personPromptContent }: Prom
                 ) : (
                   <IconDeviceFloppy className="w-4 h-4 mr-2" />
                 )}
-                Save {activeTab === "company" ? "Company" : "Person"} Prompt
+                Save {activeTab === "company_overview" ? "Company Overview" : activeTab === "company" ? "Company Prompt" : "Person Prompt"}
               </Button>
 
               {saveStatus === "saved" && (

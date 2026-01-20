@@ -5,9 +5,10 @@ import { IconTypography } from "@tabler/icons-react";
 export const dynamic = "force-dynamic";
 
 export default async function PromptPage() {
-  const [companyPrompt, personPrompt] = await Promise.all([
+  const [companyPrompt, personPrompt, companyOverviewPrompt] = await Promise.all([
     getPromptByType("company"),
     getPromptByType("person"),
+    getPromptByType("company_overview"),
   ]);
 
   return (
@@ -22,6 +23,7 @@ export default async function PromptPage() {
       <PromptEditor
         companyPromptContent={companyPrompt?.content || ""}
         personPromptContent={personPrompt?.content || ""}
+        companyOverviewContent={companyOverviewPrompt?.content || ""}
       />
     </>
   );

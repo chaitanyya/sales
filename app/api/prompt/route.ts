@@ -5,13 +5,13 @@ import { badRequest, jsonSuccess, serverError } from "@/lib/api/responses";
 
 const promptSchema = z.object({
   content: z.string().min(1, "Prompt content is required"),
-  type: z.enum(["company", "person"]).default("company"),
+  type: z.enum(["company", "person", "company_overview"]).default("company"),
 });
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = (searchParams.get("type") || "company") as "company" | "person";
+    const type = (searchParams.get("type") || "company") as "company" | "person" | "company_overview";
 
     const prompt = await getPromptByType(type);
     if (!prompt) {

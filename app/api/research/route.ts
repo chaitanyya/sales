@@ -60,9 +60,16 @@ Country: ${lead.country || "N/A"}`;
 function buildResearchPrompt(
   basePrompt: string,
   lead: Lead,
-  outputPaths: { companyProfile: string; people: string }
+  outputPaths: { companyProfile: string; people: string },
+  companyContext?: string
 ): string {
-  return `${formatLeadContext(lead)}
+  const contextSection = companyContext ? `<WhatWeDo>
+${companyContext}
+</WhatWeDo>
+
+` : "";
+
+  return `${contextSection}${formatLeadContext(lead)}
 
 ${basePrompt}
 
@@ -170,9 +177,16 @@ function buildPersonResearchPrompt(
   basePrompt: string,
   person: Person,
   lead: Lead,
-  outputPath: string
+  outputPath: string,
+  companyContext?: string
 ): string {
-  return `${formatPersonContext(person, lead)}
+  const contextSection = companyContext ? `<WhatWeDo>
+${companyContext}
+</WhatWeDo>
+
+` : "";
+
+  return `${contextSection}${formatPersonContext(person, lead)}
 
 ${basePrompt}
 
@@ -244,7 +258,10 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
 
   await db.update(leads).set({ researchStatus: "in_progress" }).where(eq(leads.id, leadId));
 
-  const dbPrompt = await getPromptByType("company");
+  const [dbPrompt, companyOverview] = await Promise.all([
+    getPromptByType("company"),
+    getPromptByType("company_overview"),
+  ]);
   if (!dbPrompt && !customPrompt) {
     return badRequest("No company prompt configured. Please set a prompt in the Prompt settings.");
   }
@@ -262,10 +279,15 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
   const companyProfilePath = path.join(leadDir, "company_profile.md");
   const peoplePath = path.join(leadDir, "people.json");
 
-  const fullPrompt = buildResearchPrompt(customPrompt || dbPrompt!.content, lead, {
-    companyProfile: companyProfilePath,
-    people: peoplePath,
-  });
+  const fullPrompt = buildResearchPrompt(
+    customPrompt || dbPrompt!.content,
+    lead,
+    {
+      companyProfile: companyProfilePath,
+      people: peoplePath,
+    },
+    companyOverview?.content
+  );
 
   // Generate jobId first so callbacks can use it immediately
   const jobId = randomUUID();
@@ -351,7 +373,10 @@ async function handlePersonResearch(personId: number, customPrompt?: string) {
 
   await updatePersonResearch(personId, { researchStatus: "in_progress" });
 
-  const dbPrompt = await getPromptByType("person");
+  const [dbPrompt, companyOverview] = await Promise.all([
+    getPromptByType("person"),
+    getPromptByType("company_overview"),
+  ]);
   if (!dbPrompt && !customPrompt) {
     return badRequest(
       "No person prompt configured. Please set a person prompt in the Prompt settings."
@@ -374,7 +399,8 @@ async function handlePersonResearch(personId: number, customPrompt?: string) {
     customPrompt || dbPrompt!.content,
     person,
     lead,
-    profilePath
+    profilePath,
+    companyOverview?.content
   );
 
   const fullName = `${person.firstName} ${person.lastName}`;

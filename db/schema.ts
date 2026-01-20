@@ -61,7 +61,7 @@ export type NewPerson = typeof people.$inferInsert;
 
 export const prompts = sqliteTable("prompts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  type: text("type", { enum: ["company", "person"] })
+  type: text("type", { enum: ["company", "person", "company_overview"] })
     .notNull()
     .default("company"),
   content: text("content").notNull(),

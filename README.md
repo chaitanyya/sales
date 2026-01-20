@@ -1,4 +1,4 @@
-# Claude Code for Sales/GTM!
+# AI Agents for Sales/GTM
 
 AI-powered sales lead research and qualification system. Qual helps sales teams research companies and individuals, then automatically score and qualify leads based on configurable criteria.
 

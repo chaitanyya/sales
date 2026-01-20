@@ -12,6 +12,23 @@ AI-powered sales lead research and qualification system. Qual helps sales teams 
 - **Customizable Prompts** - Edit the prompts used for company and person research
 - **Flexible Scoring Config** - Define required characteristics, demand signifiers, and scoring weights
 
+## Screenshots
+
+### Lead List
+View all your leads with research status, industry tags, and qualification scores at a glance.
+
+![Lead List](/public/1.png)
+
+### Company Profile
+AI-generated research profiles with company overview, products, services, and key information.
+
+![Company Profile](/public/2.png)
+
+### Lead Scoring
+Detailed scoring breakdown showing required characteristics, demand signifiers, and AI assessment.
+
+![Lead Scoring](/public/3.png)
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+ or [Bun](https://bun.sh/) 1.0+
@@ -22,8 +39,8 @@ AI-powered sales lead research and qualification system. Qual helps sales teams 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-org/qual.git
-cd qual
+git clone https://github.com/chaitanyya/sales.git
+cd sales
 ```
 
 2. Install dependencies:

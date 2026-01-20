@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Generated files
+drizzle/
+next-env.d.ts
+
+# Lock files
+bun.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

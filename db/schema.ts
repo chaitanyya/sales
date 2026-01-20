@@ -1,0 +1,122 @@
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+
+export const leads = sqliteTable("leads", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  // Company info (required)
+  companyName: text("company_name").notNull(),
+  website: text("website"),
+  industry: text("industry"),
+  subIndustry: text("sub_industry"),
+  employees: integer("employees"),
+  employeeRange: text("employee_range"),
+  revenue: real("revenue"),
+  revenueRange: text("revenue_range"),
+  companyLinkedinUrl: text("company_linkedin_url"),
+  // Location
+  city: text("city"),
+  state: text("state"),
+  country: text("country"),
+  // Status
+  researchStatus: text("research_status", {
+    enum: ["pending", "in_progress", "completed", "failed"],
+  }).default("pending"),
+  researchedAt: integer("researched_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  // Research content stored as markdown
+  companyProfile: text("company_profile"),
+});
+
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
+
+// People table - stores all people associated with leads
+export const people = sqliteTable("people", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email"),
+  title: text("title"),
+  managementLevel: text("management_level"),
+  linkedinUrl: text("linkedin_url"),
+  yearJoined: integer("year_joined"),
+  // Research content for this person
+  personProfile: text("person_profile"),
+  // Research status for person-level research
+  researchStatus: text("research_status", {
+    enum: ["pending", "in_progress", "completed", "failed"],
+  }).default("pending"),
+  researchedAt: integer("researched_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type Person = typeof people.$inferSelect;
+export type NewPerson = typeof people.$inferInsert;
+
+export const prompts = sqliteTable("prompts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type", { enum: ["company", "person"] })
+    .notNull()
+    .default("company"),
+  content: text("content").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type Prompt = typeof prompts.$inferSelect;
+export type NewPrompt = typeof prompts.$inferInsert;
+
+// Scoring configuration table
+export const scoringConfig = sqliteTable("scoring_config", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().default("default"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  requiredCharacteristics: text("required_characteristics").notNull(), // JSON
+  demandSignifiers: text("demand_signifiers").notNull(), // JSON
+  tierHotMin: integer("tier_hot_min").notNull().default(80),
+  tierWarmMin: integer("tier_warm_min").notNull().default(50),
+  tierNurtureMin: integer("tier_nurture_min").notNull().default(30),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type ScoringConfig = typeof scoringConfig.$inferSelect;
+export type NewScoringConfig = typeof scoringConfig.$inferInsert;
+
+// Lead scores table
+export const leadScores = sqliteTable("lead_scores", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  leadId: integer("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  configId: integer("config_id")
+    .notNull()
+    .references(() => scoringConfig.id),
+  passesRequirements: integer("passes_requirements", { mode: "boolean" }).notNull(),
+  requirementResults: text("requirement_results").notNull(), // JSON
+  totalScore: integer("total_score").notNull(),
+  scoreBreakdown: text("score_breakdown").notNull(), // JSON
+  tier: text("tier", { enum: ["hot", "warm", "nurture", "disqualified"] }).notNull(),
+  scoringNotes: text("scoring_notes"),
+  scoredAt: integer("scored_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export type LeadScore = typeof leadScores.$inferSelect;
+export type NewLeadScore = typeof leadScores.$inferInsert;

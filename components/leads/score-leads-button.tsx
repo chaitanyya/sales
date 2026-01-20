@@ -54,7 +54,7 @@ export function ScoreLeadsButton({ unscoredCount, totalCount }: ScoreLeadsButton
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 text-xs" disabled={isScoring}>
+        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={isScoring}>
           {isScoring ? (
             <IconLoader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
           ) : (

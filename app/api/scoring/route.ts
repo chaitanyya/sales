@@ -13,11 +13,10 @@ import {
   saveLeadScore,
 } from "@/lib/db/queries";
 import {
-  spawnClaude,
-  setActiveJob,
-  removeActiveJob,
-  ExitReason,
-} from "@/lib/research/spawn-claude";
+  ResearchService,
+  ResearchServiceLive,
+} from "@/lib/research/research-service";
+import { ExitReason } from "@/lib/research/claude-effect";
 import {
   initializeJob,
   setJobStatus,
@@ -27,6 +26,7 @@ import {
 import { badRequest, notFound, serverError, jsonSuccess } from "@/lib/api/responses";
 import { buildScoringPrompt } from "@/lib/scoring/prompt-builder";
 import { parseScoringResult } from "@/lib/scoring/result-parser";
+import { Effect } from "effect";
 
 export { getJobOutput, getJobStatus, clearJobOutput } from "@/lib/research/job-state";
 
@@ -122,7 +122,7 @@ async function processLeadsSequentially(
 
       appendJobEntry(jobId, {
         type: "info",
-        content: `✓ Completed scoring for ${leadInfo.companyName}`,
+        content: `Completed scoring for ${leadInfo.companyName}`,
         timestamp: Date.now(),
       });
     } catch (error) {
@@ -170,51 +170,56 @@ async function scoreSingleLead(
 
   const prompt = buildScoringPrompt({ ...lead, people }, config, outputPath);
 
-  return new Promise((resolve, reject) => {
-    const claudeProcess = spawnClaude({
-      prompt,
-      workingDir: process.cwd(),
-      timeout: 5 * 60 * 1000, // 5 minute timeout for scoring
-      onData: (data) => {
-        // Forward output to parent job
-        processClaudeOutput(parentJobId, data);
-      },
-      onExit: async (code: number, reason?: ExitReason) => {
-        removeActiveJob(`scoring_${leadId}`);
+  // Use Effect-based ResearchService with Promise wrapper for sequential processing
+  return new Promise<void>((resolve, reject) => {
+    const program = Effect.gen(function* () {
+      const service = yield* ResearchService;
 
-        if (reason === "timeout") {
-          reject(new Error("Scoring timed out"));
-          return;
-        }
-
-        if (code !== 0) {
-          reject(new Error(`Scoring process exited with code ${code}`));
-          return;
-        }
-
-        // Parse the result
-        try {
-          const resultJson = fs.readFileSync(outputPath, "utf-8");
-          const result = parseScoringResult(resultJson, config);
-
-          // Save to database
-          await saveLeadScore(leadId, config.id, result);
-
-          // Clean up
-          try {
-            fs.rmSync(scoringDir, { recursive: true, force: true });
-          } catch {
-            // Ignore cleanup errors
+      const result = yield* service.startResearch({
+        prompt,
+        workingDir: process.cwd(),
+        timeoutMs: 5 * 60 * 1000, // 5 minute timeout for scoring
+        onData: (data) => {
+          // Forward output to parent job
+          processClaudeOutput(parentJobId, data);
+        },
+        onExit: async (code: number, reason?: ExitReason) => {
+          if (reason === "timeout") {
+            reject(new Error("Scoring timed out"));
+            return;
           }
 
-          revalidatePath(`/lead/${leadId}`);
-          resolve();
-        } catch (parseError) {
-          reject(new Error(`Failed to parse scoring result: ${parseError}`));
-        }
-      },
+          if (code !== 0) {
+            reject(new Error(`Scoring process exited with code ${code}`));
+            return;
+          }
+
+          // Parse the result
+          try {
+            const resultJson = fs.readFileSync(outputPath, "utf-8");
+            const scoringResult = parseScoringResult(resultJson, config);
+
+            // Save to database
+            await saveLeadScore(leadId, config.id, scoringResult);
+
+            // Clean up
+            try {
+              fs.rmSync(scoringDir, { recursive: true, force: true });
+            } catch {
+              // Ignore cleanup errors
+            }
+
+            revalidatePath(`/lead/${leadId}`);
+            resolve();
+          } catch (parseError) {
+            reject(new Error(`Failed to parse scoring result: ${parseError}`));
+          }
+        },
+      });
+
+      return result;
     });
 
-    setActiveJob(`scoring_${leadId}`, claudeProcess);
+    Effect.runPromise(program.pipe(Effect.provide(ResearchServiceLive))).catch(reject);
   });
 }

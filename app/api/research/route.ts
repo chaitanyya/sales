@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import path from "path";
 import fs from "fs";
+import { Effect } from "effect";
 import {
   getPromptByType,
   deletePeopleForLead,
@@ -15,11 +16,10 @@ import {
   getLead,
 } from "@/lib/db/queries";
 import {
-  spawnClaude,
-  setActiveJob,
-  removeActiveJob,
-  ExitReason,
-} from "@/lib/research/spawn-claude";
+  ResearchService,
+  runWithResearchService,
+} from "@/lib/research/research-service";
+import { ExitReason } from "@/lib/research/claude-effect";
 import {
   initializeJob,
   setJobStatus,
@@ -244,8 +244,6 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
 
   await db.update(leads).set({ researchStatus: "in_progress" }).where(eq(leads.id, leadId));
 
-  const jobId = randomUUID();
-
   const dbPrompt = await getPromptByType("company");
   if (!dbPrompt && !customPrompt) {
     return badRequest("No company prompt configured. Please set a prompt in the Prompt settings.");
@@ -269,43 +267,74 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
     people: peoplePath,
   });
 
+  // Generate jobId first so callbacks can use it immediately
+  const jobId = randomUUID();
+
+  // Initialize job state before starting research
   initializeJob(jobId, `Starting research for ${lead.companyName}...`);
 
-  const claudeProcess = spawnClaude({
-    prompt: fullPrompt,
-    workingDir: process.cwd(),
-    onData: (data) => processClaudeOutput(jobId, data),
-    onExit: async (code: number, reason?: ExitReason) => {
-      removeActiveJob(jobId);
+  // Use Effect-based ResearchService
+  const program = Effect.gen(function* () {
+    const service = yield* ResearchService;
 
-      if (reason === "timeout") {
-        setJobStatus(jobId, "timeout");
-        appendJobEntry(jobId, {
-          type: "error",
-          content: "Research timed out after 10 minutes",
-          timestamp: Date.now(),
-        });
-        await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
-      } else if (code === 0) {
-        setJobStatus(jobId, "completed");
-        await handleResearchComplete(leadId, leadDir, companyProfilePath, peoplePath);
-      } else {
-        setJobStatus(jobId, "error");
-        await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
-      }
+    const result = yield* service.startResearch({
+      jobId, // Pass the pre-generated jobId
+      prompt: fullPrompt,
+      workingDir: process.cwd(),
+      timeoutMs: 10 * 60 * 1000, // 10 minutes
+      onData: (data) => processClaudeOutput(jobId, data),
+      onExit: async (code: number, reason?: ExitReason) => {
+        if (reason === "timeout") {
+          setJobStatus(jobId, "timeout");
+          appendJobEntry(jobId, {
+            type: "error",
+            content: "Research timed out after 10 minutes",
+            timestamp: Date.now(),
+          });
+          await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+        } else if (code === 0) {
+          setJobStatus(jobId, "completed");
+          await handleResearchComplete(leadId, leadDir, companyProfilePath, peoplePath);
+        } else {
+          setJobStatus(jobId, "error");
+          await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+        }
 
-      revalidatePath("/");
-      revalidatePath(`/lead/${leadId}`);
-    },
+        revalidatePath("/");
+        revalidatePath(`/lead/${leadId}`);
+      },
+    });
+
+    return result;
   });
 
-  setActiveJob(jobId, claudeProcess);
+  try {
+    const result = await runWithResearchService(program);
 
-  return jsonSuccess({
-    jobId,
-    leadId,
-    status: "started",
-  });
+    return jsonSuccess({
+      jobId, // Use pre-generated jobId
+      leadId,
+      status: result.status,
+    });
+  } catch (error) {
+    // Handle typed Effect errors
+    const err = error as { _tag?: string; message?: string };
+    if (err._tag === "QueueTimeoutError") {
+      await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+      return serverError("Server busy - queue timeout. Please try again later.");
+    }
+    if (err._tag === "ClaudeNotFoundError") {
+      await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+      return serverError("Claude CLI not found. Please check server configuration.");
+    }
+    if (err._tag === "ClaudeSpawnError") {
+      await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+      return serverError("Failed to start research process.");
+    }
+    console.error("Research error:", error);
+    await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+    return serverError("Failed to start research");
+  }
 }
 
 async function handlePersonResearch(personId: number, customPrompt?: string) {
@@ -321,8 +350,6 @@ async function handlePersonResearch(personId: number, customPrompt?: string) {
   }
 
   await updatePersonResearch(personId, { researchStatus: "in_progress" });
-
-  const jobId = randomUUID();
 
   const dbPrompt = await getPromptByType("person");
   if (!dbPrompt && !customPrompt) {
@@ -351,42 +378,74 @@ async function handlePersonResearch(personId: number, customPrompt?: string) {
   );
 
   const fullName = `${person.firstName} ${person.lastName}`;
+
+  // Generate jobId first so callbacks can use it immediately
+  const jobId = randomUUID();
+
+  // Initialize job state before starting research
   initializeJob(jobId, `Starting research for ${fullName}...`);
 
-  const claudeProcess = spawnClaude({
-    prompt: fullPrompt,
-    workingDir: process.cwd(),
-    onData: (data) => processClaudeOutput(jobId, data),
-    onExit: async (code: number, reason?: ExitReason) => {
-      removeActiveJob(jobId);
+  // Use Effect-based ResearchService
+  const program = Effect.gen(function* () {
+    const service = yield* ResearchService;
 
-      if (reason === "timeout") {
-        setJobStatus(jobId, "timeout");
-        appendJobEntry(jobId, {
-          type: "error",
-          content: "Research timed out after 10 minutes",
-          timestamp: Date.now(),
-        });
-        await updatePersonResearch(personId, { researchStatus: "failed" });
-      } else if (code === 0) {
-        setJobStatus(jobId, "completed");
-        await handlePersonResearchComplete(personId, personDir, profilePath);
-      } else {
-        setJobStatus(jobId, "error");
-        await updatePersonResearch(personId, { researchStatus: "failed" });
-      }
+    const result = yield* service.startResearch({
+      jobId, // Pass the pre-generated jobId
+      prompt: fullPrompt,
+      workingDir: process.cwd(),
+      timeoutMs: 10 * 60 * 1000, // 10 minutes
+      onData: (data) => processClaudeOutput(jobId, data),
+      onExit: async (code: number, reason?: ExitReason) => {
+        if (reason === "timeout") {
+          setJobStatus(jobId, "timeout");
+          appendJobEntry(jobId, {
+            type: "error",
+            content: "Research timed out after 10 minutes",
+            timestamp: Date.now(),
+          });
+          await updatePersonResearch(personId, { researchStatus: "failed" });
+        } else if (code === 0) {
+          setJobStatus(jobId, "completed");
+          await handlePersonResearchComplete(personId, personDir, profilePath);
+        } else {
+          setJobStatus(jobId, "error");
+          await updatePersonResearch(personId, { researchStatus: "failed" });
+        }
 
-      revalidatePath("/people");
-      revalidatePath(`/people/${personId}`);
-      revalidatePath(`/lead/${person.leadId}`);
-    },
+        revalidatePath("/people");
+        revalidatePath(`/people/${personId}`);
+        revalidatePath(`/lead/${person.leadId}`);
+      },
+    });
+
+    return result;
   });
 
-  setActiveJob(jobId, claudeProcess);
+  try {
+    const result = await runWithResearchService(program);
 
-  return jsonSuccess({
-    jobId,
-    personId,
-    status: "started",
-  });
+    return jsonSuccess({
+      jobId, // Use pre-generated jobId
+      personId,
+      status: result.status,
+    });
+  } catch (error) {
+    // Handle typed Effect errors
+    const err = error as { _tag?: string; message?: string };
+    if (err._tag === "QueueTimeoutError") {
+      await updatePersonResearch(personId, { researchStatus: "failed" });
+      return serverError("Server busy - queue timeout. Please try again later.");
+    }
+    if (err._tag === "ClaudeNotFoundError") {
+      await updatePersonResearch(personId, { researchStatus: "failed" });
+      return serverError("Claude CLI not found. Please check server configuration.");
+    }
+    if (err._tag === "ClaudeSpawnError") {
+      await updatePersonResearch(personId, { researchStatus: "failed" });
+      return serverError("Failed to start research process.");
+    }
+    console.error("Research error:", error);
+    await updatePersonResearch(personId, { researchStatus: "failed" });
+    return serverError("Failed to start research");
+  }
 }

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconDeviceFloppy, IconLoader2, IconPlus, IconTrash } from "@tabler/icons-react";
+import { toast } from "sonner";
 import type {
   RequiredCharacteristic,
   DemandSignifier,
@@ -21,10 +22,10 @@ interface ScoringConfigEditorProps {
 export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps) {
   const [config, setConfig] = useState(initialConfig);
   const [isPending, startTransition] = useTransition();
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = () => {
-    setSaveStatus("saving");
+    setIsSaving(true);
     startTransition(async () => {
       try {
         const response = await fetch("/api/scoring/config", {
@@ -47,16 +48,17 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
           if (data.id && !config.id) {
             setConfig((prev) => ({ ...prev, id: data.id }));
           }
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus("idle"), 2000);
+          toast.success("Configuration saved");
         } else {
-          setSaveStatus("error");
-          setTimeout(() => setSaveStatus("idle"), 3000);
+          const errorData = await response.json().catch(() => ({}));
+          toast.error("Failed to save configuration", {
+            description: errorData.error || "An unexpected error occurred",
+          });
         }
       } catch (error) {
-        console.error("Failed to save config:", error);
-        setSaveStatus("error");
-        setTimeout(() => setSaveStatus("idle"), 3000);
+        toast.error("Failed to save configuration");
+      } finally {
+        setIsSaving(false);
       }
     });
   };
@@ -314,21 +316,14 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
 
         {/* Save */}
         <div className="flex items-center gap-3 pt-4 border-t border-white/5">
-          <Button onClick={handleSave} disabled={isPending || saveStatus === "saving"}>
-            {isPending || saveStatus === "saving" ? (
+          <Button onClick={handleSave} disabled={isPending || isSaving}>
+            {isPending || isSaving ? (
               <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <IconDeviceFloppy className="w-4 h-4 mr-2" />
             )}
             Save Configuration
           </Button>
-
-          {saveStatus === "saved" && (
-            <span className="text-sm text-green-500">Saved successfully!</span>
-          )}
-          {saveStatus === "error" && (
-            <span className="text-sm text-red-500">Failed to save. Please try again.</span>
-          )}
         </div>
       </div>
     </div>

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { IconPlus, IconLoader2 } from "@tabler/icons-react";
 import { addLead } from "@/app/lead/actions";
+import { toast } from "sonner";
 
 export function AddLeadModal() {
   const router = useRouter();
@@ -44,8 +45,9 @@ export function AddLeadModal() {
       setOpen(false);
       setFormData({ companyName: "", website: "", city: "", state: "", country: "" });
       router.refresh();
+      toast.success("Lead added successfully");
     } catch (error) {
-      console.error("Failed to add lead:", error);
+      toast.error("Failed to add lead");
     } finally {
       setLoading(false);
     }

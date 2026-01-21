@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { StreamPanelWrapper } from "@/components/stream-panel/stream-panel-wrapper";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -40,6 +41,7 @@ export default function RootLayout({
           <Sidebar />
           <StreamPanelWrapper>{children}</StreamPanelWrapper>
         </div>
+        <Toaster />
       </body>
     </html>
   );

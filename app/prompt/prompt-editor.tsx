@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { IconDeviceFloppy, IconLoader2, IconBuilding, IconUser, IconInfoCircle, IconMessageCircle } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 interface PromptEditorProps {
   companyPromptContent: string;
@@ -18,7 +19,7 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
   const [overviewContent, setOverviewContent] = useState(companyOverviewContent);
   const [conversationContent, setConversationContent] = useState(conversationTopicsContent);
   const [isPending, startTransition] = useTransition();
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [isSaving, setIsSaving] = useState(false);
 
   const getCurrentContent = () => {
     switch (activeTab) {
@@ -41,7 +42,7 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
   const currentContent = getCurrentContent();
 
   const handleSave = () => {
-    setSaveStatus("saving");
+    setIsSaving(true);
     startTransition(async () => {
       try {
         const response = await fetch("/api/prompt", {
@@ -54,16 +55,17 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
         });
 
         if (response.ok) {
-          setSaveStatus("saved");
-          setTimeout(() => setSaveStatus("idle"), 2000);
+          toast.success("Prompt saved");
         } else {
-          setSaveStatus("error");
-          setTimeout(() => setSaveStatus("idle"), 3000);
+          const errorData = await response.json().catch(() => ({}));
+          toast.error("Failed to save prompt", {
+            description: errorData.error || "An unexpected error occurred",
+          });
         }
       } catch (error) {
-        console.error("Failed to save prompt:", error);
-        setSaveStatus("error");
-        setTimeout(() => setSaveStatus("idle"), 3000);
+        toast.error("Failed to save prompt");
+      } finally {
+        setIsSaving(false);
       }
     });
   };
@@ -125,21 +127,14 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
             />
 
             <div className="flex items-center gap-3">
-              <Button onClick={handleSave} disabled={isPending || saveStatus === "saving"}>
-                {isPending || saveStatus === "saving" ? (
+              <Button onClick={handleSave} disabled={isPending || isSaving}>
+                {isPending || isSaving ? (
                   <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <IconDeviceFloppy className="w-4 h-4 mr-2" />
                 )}
                 Save {activeTab === "company_overview" ? "Company Overview" : activeTab === "company" ? "Company Prompt" : activeTab === "person" ? "Person Prompt" : "Conversation Prompt"}
               </Button>
-
-              {saveStatus === "saved" && (
-                <span className="text-sm text-green-500">Saved successfully!</span>
-              )}
-              {saveStatus === "error" && (
-                <span className="text-sm text-red-500">Failed to save. Please try again.</span>
-              )}
             </div>
           </div>
         </div>

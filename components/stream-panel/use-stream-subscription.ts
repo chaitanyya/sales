@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import { StreamManager, StreamManagerCallbacks } from "@/lib/stream";
+import { toast } from "sonner";
 
 export function useStreamSubscription() {
   const {
@@ -83,7 +84,7 @@ export function useStreamSubscription() {
     try {
       await fetch(`/api/research/${jobId}/kill`, { method: "POST" });
     } catch (error) {
-      console.error("Failed to kill job:", error);
+      toast.error("Failed to stop job");
     }
     StreamManager.unsubscribe(jobId);
     removeTab(jobId);

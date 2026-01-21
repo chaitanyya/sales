@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconTargetArrow, IconLoader2 } from "@tabler/icons-react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { toast } from "sonner";
 
 interface RescoreButtonProps {
   leadId: number;
@@ -38,9 +39,14 @@ export function RescoreButton({ leadId, companyName, size = "default" }: Rescore
           });
           setOpen(true);
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error("Failed to start scoring", {
+          description: errorData.error || "An unexpected error occurred",
+        });
       }
     } catch (error) {
-      console.error("Failed to start scoring:", error);
+      toast.error("Failed to start scoring");
     } finally {
       setIsScoring(false);
     }

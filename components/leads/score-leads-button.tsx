@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { IconTargetArrow, IconChevronDown, IconLoader2 } from "@tabler/icons-react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { toast } from "sonner";
 
 interface ScoreLeadsButtonProps {
   unscoredCount: number;
@@ -43,9 +44,14 @@ export function ScoreLeadsButton({ unscoredCount, totalCount }: ScoreLeadsButton
           });
           setOpen(true);
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error("Failed to start scoring", {
+          description: errorData.error || "An unexpected error occurred",
+        });
       }
     } catch (error) {
-      console.error("Failed to start scoring:", error);
+      toast.error("Failed to start scoring");
     } finally {
       setIsScoring(false);
     }

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { IconPlus, IconLoader2 } from "@tabler/icons-react";
 import { addPerson } from "@/app/people/actions";
+import { toast } from "sonner";
 
 type Lead = {
   id: number;
@@ -56,8 +57,9 @@ export function AddPersonModal({ leads }: { leads: Lead[] }) {
       setOpen(false);
       setFormData({ firstName: "", lastName: "", email: "", title: "", leadId: "" });
       router.refresh();
+      toast.success("Person added successfully");
     } catch (error) {
-      console.error("Failed to add person:", error);
+      toast.error("Failed to add person");
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, memo } from "react";
+import { memo } from "react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import { ClientLogEntry, LogEntryType } from "@/lib/types/claude";
 import { cn } from "@/lib/utils";
@@ -18,16 +18,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export function StreamPanelContent() {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { tabs, activeTabId } = useStreamPanelStore();
 
   const activeTab = tabs.find((t) => t.jobId === activeTabId);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [activeTab?.logs]);
 
   if (!activeTab) {
     return (
@@ -38,7 +31,7 @@ export function StreamPanelContent() {
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       {activeTab.logs.map((log) => (
         <ActivityEntry key={log.id} entry={log} />
       ))}
@@ -48,6 +41,7 @@ export function StreamPanelContent() {
           <span className="text-sm">Processing...</span>
         </div>
       )}
+      <div ref={(el) => el?.scrollIntoView()} />
     </div>
   );
 }

@@ -22,7 +22,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           <IconAlertTriangle className="size-4" />
         ),
         error: (
-          <IconCircleX className="size-4" />
+          <IconCircleX className="size-4 text-destructive" />
         ),
         loading: (
           <IconLoader2 className="size-4 animate-spin" />
@@ -38,7 +38,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast items-start!",
+          icon: "mt-0.5",
+          title: "text-foreground!",
+          description: "text-muted-foreground!",
+          error: "text-destructive!",
         },
       }}
       {...props}

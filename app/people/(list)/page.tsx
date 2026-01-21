@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import {
   IconSearch,
   IconUsers,
-  IconChevronDown,
-  IconPlus,
   IconBuilding,
 } from "@tabler/icons-react";
 import { AddPersonModal } from "@/components/people/add-person-modal";
-import { STATUS_CONFIG, STATUS_ORDER, StatusType } from "@/lib/constants/status-config";
+import { STATUS_CONFIG, STATUS_ORDER, type StatusType } from "@/lib/constants/status-config";
+import { CollapsibleStatusGroup } from "@/components/ui/collapsible-status-group";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
@@ -53,30 +52,16 @@ export default async function PeoplePage() {
           const peopleInStatus = groupedPeople[status];
           if (!peopleInStatus || peopleInStatus.length === 0) return null;
 
-          const config = STATUS_CONFIG[status];
-          const StatusIcon = config.icon;
-
           return (
-            <div key={status}>
-              {/* Status group header */}
-              <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
-                <button className="p-0.5 hover:bg-white/10 rounded">
-                  <IconChevronDown className="w-3 h-3 text-muted-foreground" />
-                </button>
-                <StatusIcon className={`w-4 h-4 ${config.color}`} />
-                <span className="font-medium">{config.label}</span>
-                <span className="text-muted-foreground text-xs">{peopleInStatus.length}</span>
-                <div className="flex-1" />
-                <button className="p-1 hover:bg-white/10 rounded opacity-0 group-hover:opacity-100">
-                  <IconPlus className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-              </div>
-
-              {/* Person rows */}
+            <CollapsibleStatusGroup
+              key={status}
+              status={status}
+              count={peopleInStatus.length}
+            >
               {peopleInStatus.map((person) => (
                 <PersonRow key={person.id} person={person} />
               ))}
-            </div>
+            </CollapsibleStatusGroup>
           );
         })}
       </div>
@@ -104,11 +89,11 @@ function PersonRow({ person }: { person: PersonWithCompany }) {
   const fullName = `${person.firstName} ${person.lastName}`;
 
   return (
-    <div className="group flex items-center gap-3 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
+    <div className="group flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
+      {/* Spacer to align with header toggle button */}
+      <div className="w-4 shrink-0" />
       {/* Status icon - fixed width */}
-      <div className="w-4 shrink-0">
-        <StatusIcon className={`w-4 h-4 ${config.color}`} />
-      </div>
+      <StatusIcon className={`w-4 h-4 ${config.color} shrink-0`} />
 
       {/* Name and Title */}
       <Link href={`/people/${person.id}`} className="flex-1 min-w-0 truncate">

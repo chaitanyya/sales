@@ -22,6 +22,8 @@ import {
 } from "@tabler/icons-react";
 import type { ParsedLeadScore } from "@/lib/types/scoring";
 import { ScoreBreakdown } from "@/components/leads/score-breakdown";
+import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { toast } from "sonner";
 
 interface LeadResearchPanelProps {
   lead: Lead;
@@ -37,6 +39,7 @@ export function LeadResearchPanel({
   score,
 }: LeadResearchPanelProps) {
   const [activeTab, setActiveTab] = useState<"company" | "people" | "score">("company");
+  const [isScoring, setIsScoring] = useState(false);
 
   const { startAction, isStarting } = useAgentAction({
     entityId: lead.id,
@@ -46,7 +49,47 @@ export function LeadResearchPanel({
     killEndpoint: "/api/research",
   });
 
+  const addTab = useStreamPanelStore((state) => state.addTab);
+  const setOpen = useStreamPanelStore((state) => state.setOpen);
+
   const startResearch = () => startAction({ body: { leadId: lead.id } });
+
+  const handleScore = async () => {
+    setIsScoring(true);
+    try {
+      const response = await fetch("/api/scoring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id, mode: "single" }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.jobId) {
+          addTab({
+            jobId: data.jobId,
+            label: `Score: ${lead.companyName}`,
+            type: "company",
+            entityId: lead.id,
+            status: "running",
+          });
+          setOpen(true);
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error("Failed to start scoring", {
+          description: errorData.error || "An unexpected error occurred",
+        });
+      }
+    } catch {
+      toast.error("Failed to start scoring");
+    } finally {
+      setIsScoring(false);
+    }
+  };
+
+  const showResearchButton = activeTab !== "score";
+  const showScoreButton = activeTab === "score";
 
   const hasCompany = !!companyResearch;
   const hasPeople = people.length > 0;
@@ -107,14 +150,26 @@ export function LeadResearchPanel({
             Score {score && <span className="text-xs opacity-60">({score.totalScore})</span>}
           </button>
         </div>
-        <Button variant="outline" size="sm" onClick={startResearch} disabled={isStarting}>
-          {isStarting ? (
-            <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <IconRefresh className="h-4 w-4 mr-2" />
-          )}
-          {isStarting ? "Starting..." : "Re-run Research"}
-        </Button>
+        {showResearchButton && (
+          <Button variant="outline" size="sm" onClick={startResearch} disabled={isStarting}>
+            {isStarting ? (
+              <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <IconRefresh className="h-4 w-4 mr-2" />
+            )}
+            {isStarting ? "Starting..." : "Re-run Research"}
+          </Button>
+        )}
+        {showScoreButton && (
+          <Button variant="outline" size="sm" onClick={handleScore} disabled={isScoring}>
+            {isScoring ? (
+              <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <IconTargetArrow className="h-4 w-4 mr-2" />
+            )}
+            {isScoring ? "Scoring..." : "Score"}
+          </Button>
+        )}
       </div>
 
       <div className="min-h-[300px]">

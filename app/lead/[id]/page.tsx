@@ -18,7 +18,6 @@ import {
 } from "@tabler/icons-react";
 import { LeadResearchPanel } from "@/components/lead/lead-research-panel";
 import { ScoreCard } from "@/components/leads/score-bars";
-import { RescoreButton } from "@/components/leads/rescore-button";
 import { STATUS_CONFIG, StatusType } from "@/lib/constants/status-config";
 
 // Revalidate data every 30 seconds
@@ -204,16 +203,13 @@ export default async function LeadDetailPage({ params }: PageProps) {
         </div>
 
         {/* Right sidebar - Company Properties */}
-        <aside className="w-64 border-l border-white/5 overflow-y-scroll scroll-stable shrink-0">
+        <aside className="w-64 border-l bg-black/95 border-white/5 overflow-y-scroll scroll-stable shrink-0">
           <div className="p-4">
             {/* Score Section */}
             <div className="mb-6 pb-4 border-b border-white/5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Score
-                </h3>
-                <RescoreButton leadId={leadId} companyName={lead.companyName} size="sm" />
-              </div>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                Score
+              </h3>
               <ScoreCard score={score} />
             </div>
 

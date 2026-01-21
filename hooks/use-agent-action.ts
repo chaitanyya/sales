@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { useStreamPanelStore, StreamTabType } from "@/lib/store/stream-panel-store";
 
 interface UseAgentActionOptions {
@@ -49,7 +50,11 @@ export function useAgentAction(options: UseAgentActionOptions) {
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || `Failed to start action: ${res.statusText}`);
+          const errorMessage = data.error || `Failed to start action: ${res.statusText}`;
+          toast.error("Failed to start research", {
+            description: errorMessage,
+          });
+          return { success: false, error: new Error(errorMessage) };
         }
 
         const { jobId } = data;
@@ -71,6 +76,9 @@ export function useAgentAction(options: UseAgentActionOptions) {
         return { jobId, success: true };
       } catch (error) {
         console.error("Failed to start action:", error);
+        toast.error("Failed to start research", {
+          description: error instanceof Error ? error.message : "An unexpected error occurred",
+        });
         return { success: false, error };
       } finally {
         setIsStarting(false);

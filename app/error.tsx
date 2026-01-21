@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { IconCircleX } from "@tabler/icons-react";
 
@@ -11,10 +10,6 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("Application error:", error);
-  }, [error]);
-
   return (
     <div className="flex h-screen items-center justify-center bg-black">
       <div className="text-center max-w-md px-4">

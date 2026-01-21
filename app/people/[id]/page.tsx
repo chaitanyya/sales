@@ -201,7 +201,7 @@ export default async function PersonDetailPage({ params }: PageProps) {
         </div>
 
         {/* Right sidebar - Person Properties */}
-        <aside className="w-64 border-l border-white/5 overflow-y-scroll scroll-stable shrink-0">
+        <aside className="w-64 border-l bg-blck/95 border-white/5 overflow-y-scroll scroll-stable shrink-0">
           <div className="p-4">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4">
               Person

@@ -6,10 +6,6 @@ import {
   IconSearch,
   IconBuilding,
   IconChevronDown,
-  IconCircle,
-  IconCircleCheck,
-  IconCircleX,
-  IconLoader2,
   IconChevronRight,
   IconPlus,
 } from "@tabler/icons-react";
@@ -17,24 +13,14 @@ import { ScoreBars } from "@/components/leads/score-bars";
 import { ScoreLeadsButton } from "@/components/leads/score-leads-button";
 import { AddLeadModal } from "@/components/leads/add-lead-modal";
 import type { ParsedLeadScore } from "@/lib/types/scoring";
+import { STATUS_CONFIG, STATUS_ORDER, StatusType } from "@/lib/constants/status-config";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
 
-type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-const statusConfig: Record<StatusType, { label: string; icon: typeof IconCircle; color: string }> =
-  {
-    pending: { label: "Pending", icon: IconCircle, color: "text-muted-foreground" },
-    in_progress: { label: "In Progress", icon: IconLoader2, color: "text-yellow-500" },
-    completed: { label: "Completed", icon: IconCircleCheck, color: "text-green-500" },
-    failed: { label: "Failed", icon: IconCircleX, color: "text-red-500" },
-  };
-
 export default async function Page() {
   const { groupedLeads, tierCounts, counts } = await getLeadsGroupedByStatusWithScores();
 
-  const statusOrder: StatusType[] = ["completed", "in_progress", "pending", "failed"];
 
   return (
     <>
@@ -71,11 +57,11 @@ export default async function Page() {
 
       {/* List content */}
       <div className="flex-1 overflow-auto">
-        {statusOrder.map((status) => {
+        {STATUS_ORDER.map((status) => {
           const leadsInStatus = groupedLeads[status];
           if (!leadsInStatus || leadsInStatus.length === 0) return null;
 
-          const config = statusConfig[status];
+          const config = STATUS_CONFIG[status];
           const StatusIcon = config.icon;
 
           return (
@@ -114,7 +100,7 @@ function LeadRow({
   score: ParsedLeadScore | null;
 }) {
   const status = (lead.researchStatus || "pending") as StatusType;
-  const config = statusConfig[status];
+  const config = STATUS_CONFIG[status];
   const StatusIcon = config.icon;
 
   // Format location

@@ -3,6 +3,7 @@ import { db, leads, prompts, people, scoringConfig, leadScores } from "@/db";
 import { eq, asc, desc } from "drizzle-orm";
 import { NewPerson, NewScoringConfig } from "@/db/schema";
 import type { ParsedScoringConfig, ParsedLeadScore, ScoringTier } from "@/lib/types/scoring";
+import { groupByStatus, getStatusCounts } from "./status-utils";
 
 /**
  * Get a single lead by ID
@@ -43,29 +44,12 @@ export const getAdjacentLeads = cache(async (currentId: number) => {
  */
 export const getLeadsGroupedByStatus = cache(async () => {
   const allLeads = await getAllLeads();
-
-  type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-  const groupedLeads = allLeads.reduce(
-    (acc, lead) => {
-      const status = (lead.researchStatus || "pending") as StatusType;
-      if (!acc[status]) acc[status] = [];
-      acc[status].push(lead);
-      return acc;
-    },
-    {} as Record<StatusType, typeof allLeads>
-  );
+  const groupedLeads = groupByStatus(allLeads, (lead) => lead.researchStatus);
 
   return {
     allLeads,
     groupedLeads,
-    counts: {
-      all: allLeads.length,
-      pending: groupedLeads.pending?.length || 0,
-      inProgress: groupedLeads.in_progress?.length || 0,
-      completed: groupedLeads.completed?.length || 0,
-      failed: groupedLeads.failed?.length || 0,
-    },
+    counts: getStatusCounts(groupedLeads),
   };
 });
 
@@ -168,17 +152,7 @@ export const getPeopleGroupedByStatus = cache(async () => {
     .innerJoin(leads, eq(people.leadId, leads.id))
     .orderBy(asc(people.lastName), asc(people.firstName));
 
-  type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-  const groupedPeople = allPeople.reduce(
-    (acc, person) => {
-      const status = (person.researchStatus || "pending") as StatusType;
-      if (!acc[status]) acc[status] = [];
-      acc[status].push(person);
-      return acc;
-    },
-    {} as Record<StatusType, typeof allPeople>
-  );
+  const groupedPeople = groupByStatus(allPeople, (person) => person.researchStatus);
 
   return {
     allPeople,
@@ -299,29 +273,12 @@ export const getAdjacentPeople = cache(async (currentId: number) => {
  */
 export const getPeopleGroupedByOwnStatus = cache(async () => {
   const allPeople = await getAllPeople();
-
-  type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-  const groupedPeople = allPeople.reduce(
-    (acc, person) => {
-      const status = (person.researchStatus || "pending") as StatusType;
-      if (!acc[status]) acc[status] = [];
-      acc[status].push(person);
-      return acc;
-    },
-    {} as Record<StatusType, typeof allPeople>
-  );
+  const groupedPeople = groupByStatus(allPeople, (person) => person.researchStatus);
 
   return {
     allPeople,
     groupedPeople,
-    counts: {
-      all: allPeople.length,
-      pending: groupedPeople.pending?.length || 0,
-      inProgress: groupedPeople.in_progress?.length || 0,
-      completed: groupedPeople.completed?.length || 0,
-      failed: groupedPeople.failed?.length || 0,
-    },
+    counts: getStatusCounts(groupedPeople),
   };
 });
 
@@ -476,18 +433,7 @@ export const getLeadsWithScores = cache(async () => {
  */
 export const getLeadsGroupedByStatusWithScores = cache(async () => {
   const leadsWithScores = await getLeadsWithScores();
-
-  type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-  const groupedLeads = leadsWithScores.reduce(
-    (acc, lead) => {
-      const status = (lead.researchStatus || "pending") as StatusType;
-      if (!acc[status]) acc[status] = [];
-      acc[status].push(lead);
-      return acc;
-    },
-    {} as Record<StatusType, typeof leadsWithScores>
-  );
+  const groupedLeads = groupByStatus(leadsWithScores, (lead) => lead.researchStatus);
 
   // Count by tier
   const tierCounts = {
@@ -509,13 +455,7 @@ export const getLeadsGroupedByStatusWithScores = cache(async () => {
   return {
     allLeads: leadsWithScores,
     groupedLeads,
-    counts: {
-      all: leadsWithScores.length,
-      pending: groupedLeads.pending?.length || 0,
-      inProgress: groupedLeads.in_progress?.length || 0,
-      completed: groupedLeads.completed?.length || 0,
-      failed: groupedLeads.failed?.length || 0,
-    },
+    counts: getStatusCounts(groupedLeads),
     tierCounts,
   };
 });

@@ -8,18 +8,16 @@ import {
   IconChevronUp,
   IconStar,
   IconDotsVertical,
-  IconCircle,
-  IconLoader2,
-  IconCircleCheck,
-  IconCircleX,
   IconBuilding,
   IconBrandLinkedin,
   IconMail,
   IconCalendar,
   IconBriefcase,
   IconUser,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { PersonProfileTabs } from "@/components/people/person-profile-tabs";
+import { STATUS_CONFIG, StatusType } from "@/lib/constants/status-config";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
@@ -48,33 +46,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-const statusConfig: Record<
-  StatusType,
-  { label: string; icon: typeof IconCircle; color: string; bgColor: string }
-> = {
-  pending: {
-    label: "Pending",
-    icon: IconCircle,
-    color: "text-muted-foreground",
-    bgColor: "bg-muted-foreground/20",
-  },
-  in_progress: {
-    label: "In Progress",
-    icon: IconLoader2,
-    color: "text-yellow-500",
-    bgColor: "bg-yellow-500/20",
-  },
-  completed: {
-    label: "Completed",
-    icon: IconCircleCheck,
-    color: "text-green-500",
-    bgColor: "bg-green-500/20",
-  },
-  failed: { label: "Failed", icon: IconCircleX, color: "text-red-500", bgColor: "bg-red-500/20" },
-};
-
 export default async function PersonDetailPage({ params }: PageProps) {
   const { id } = await params;
   const personId = parseInt(id, 10);
@@ -94,7 +65,7 @@ export default async function PersonDetailPage({ params }: PageProps) {
 
   const fullName = `${person.firstName} ${person.lastName}`;
   const status = (person.researchStatus || "pending") as StatusType;
-  const config = statusConfig[status];
+  const config = STATUS_CONFIG[status];
   const StatusIcon = config.icon;
 
   return (

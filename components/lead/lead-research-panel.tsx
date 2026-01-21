@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Lead, Person } from "@/db/schema";
 import { Button } from "@/components/ui/button";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import { EmptyState, SmallEmptyState } from "@/components/ui/empty-state";
+import { useAgentAction } from "@/hooks/use-agent-action";
 import {
   IconPlayerPlay,
   IconUser,
@@ -19,7 +20,6 @@ import {
   IconLoader2,
   IconTargetArrow,
 } from "@tabler/icons-react";
-import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import type { ParsedLeadScore } from "@/lib/types/scoring";
 import { ScoreBreakdown } from "@/components/leads/score-breakdown";
 
@@ -37,81 +37,38 @@ export function LeadResearchPanel({
   score,
 }: LeadResearchPanelProps) {
   const [activeTab, setActiveTab] = useState<"company" | "people" | "score">("company");
-  const [isStarting, setIsStarting] = useState(false);
-  const addTab = useStreamPanelStore((state) => state.addTab);
-  const findTabByEntity = useStreamPanelStore((state) => state.findTabByEntity);
+
+  const { startAction, isStarting } = useAgentAction({
+    entityId: lead.id,
+    entityType: "company",
+    entityLabel: lead.companyName,
+    apiEndpoint: "/api/research",
+    killEndpoint: "/api/research",
+  });
+
+  const startResearch = () => startAction({ body: { leadId: lead.id } });
 
   const hasCompany = !!companyResearch;
   const hasPeople = people.length > 0;
   const hasAnyContent = hasCompany || hasPeople;
 
-  const startResearch = async () => {
-    setIsStarting(true);
-
-    try {
-      // Kill existing research for this entity if running
-      const existingTab = findTabByEntity(lead.id, "company");
-      if (existingTab && existingTab.status === "running") {
-        try {
-          await fetch(`/api/research/${existingTab.jobId}/kill`, { method: "POST" });
-        } catch (error) {
-          console.error("Failed to kill existing research:", error);
-        }
-      }
-
-      const res = await fetch("/api/research", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: lead.id }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to start research: ${res.statusText}`);
-      }
-
-      const { jobId } = data;
-
-      // Add tab to stream panel (will replace existing tab for same entity)
-      addTab({
-        jobId,
-        label: lead.companyName,
-        type: "company",
-        entityId: lead.id,
-        status: "running",
-      });
-    } catch (error) {
-      console.error("Failed to start research:", error);
-    } finally {
-      setIsStarting(false);
-    }
-  };
-
-  // If no content exists, show empty state with research button
   if (!hasAnyContent) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-          <IconFileText className="w-6 h-6 text-muted-foreground" />
-        </div>
-        <h3 className="text-sm font-medium mb-1">No research available</h3>
-        <p className="text-sm text-muted-foreground max-w-sm mb-4">
-          Research data for this company hasn&apos;t been generated yet.
-        </p>
-        <Button onClick={startResearch} disabled={isStarting}>
-          {isStarting ? (
-            <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <IconPlayerPlay className="h-4 w-4 mr-2" />
-          )}
-          {isStarting ? "Starting..." : "Start Research"}
-        </Button>
-      </div>
+      <EmptyState
+        icon={IconFileText}
+        title="No research available"
+        description="Research data for this company hasn't been generated yet."
+        action={{
+          label: "Start Research",
+          loadingLabel: "Starting...",
+          onClick: startResearch,
+          isLoading: isStarting,
+          icon: IconPlayerPlay,
+        }}
+      />
     );
   }
 
-  // Show research content with tabs
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -161,7 +118,7 @@ export function LeadResearchPanel({
       </div>
 
       <div className="min-h-[300px]">
-        {activeTab === "company" && <MarkdownContent content={companyResearch} />}
+        {activeTab === "company" && <CompanyContent content={companyResearch} />}
         {activeTab === "people" && <PeopleList people={people} />}
         {activeTab === "score" && <ScoreContent score={score} />}
       </div>
@@ -169,35 +126,16 @@ export function LeadResearchPanel({
   );
 }
 
-function MarkdownContent({ content }: { content: string | null }) {
+function CompanyContent({ content }: { content: string | null }) {
   if (!content) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
-          <IconBuilding className="w-5 h-5 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">No company research available yet.</p>
-      </div>
-    );
+    return <SmallEmptyState icon={IconBuilding} message="No company research available yet." />;
   }
-
-  return (
-    <article className="prose prose-sm prose-invert max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-xl prose-h2:text-lg prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-base prose-h3:mt-6 prose-h3:mb-3 prose-p:text-muted-foreground prose-p:leading-relaxed prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-strong:text-foreground prose-strong:font-semibold prose-code:text-primary prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-[''] prose-code:after:content-[''] prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10 prose-blockquote:border-l-primary prose-blockquote:bg-white/[0.02] prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:not-italic prose-li:text-muted-foreground prose-li:marker:text-muted-foreground/50 prose-table:text-sm prose-th:text-left prose-th:font-medium prose-th:text-foreground prose-th:border-b prose-th:border-white/10 prose-th:pb-2 prose-td:border-b prose-td:border-white/5 prose-td:py-2 prose-hr:border-white/10">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-    </article>
-  );
+  return <MarkdownRenderer content={content} />;
 }
 
 function PeopleList({ people }: { people: Person[] }) {
   if (people.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
-          <IconUsers className="w-5 h-5 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">No people data available yet.</p>
-      </div>
-    );
+    return <SmallEmptyState icon={IconUsers} message="No people data available yet." />;
   }
 
   return (
@@ -281,14 +219,10 @@ function PeopleList({ people }: { people: Person[] }) {
 function ScoreContent({ score }: { score: ParsedLeadScore | null | undefined }) {
   if (!score) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
-          <IconTargetArrow className="w-5 h-5 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          No score data available yet. Score this lead to see the breakdown.
-        </p>
-      </div>
+      <SmallEmptyState
+        icon={IconTargetArrow}
+        message="No score data available yet. Score this lead to see the breakdown."
+      />
     );
   }
 

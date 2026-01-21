@@ -5,27 +5,14 @@ import {
   IconSearch,
   IconUsers,
   IconChevronDown,
-  IconCircle,
-  IconCircleCheck,
-  IconCircleX,
-  IconLoader2,
   IconPlus,
   IconBuilding,
 } from "@tabler/icons-react";
 import { AddPersonModal } from "@/components/people/add-person-modal";
+import { STATUS_CONFIG, STATUS_ORDER, StatusType } from "@/lib/constants/status-config";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
-
-type StatusType = "pending" | "in_progress" | "completed" | "failed";
-
-const statusConfig: Record<StatusType, { label: string; icon: typeof IconCircle; color: string }> =
-  {
-    pending: { label: "Pending", icon: IconCircle, color: "text-muted-foreground" },
-    in_progress: { label: "In Progress", icon: IconLoader2, color: "text-yellow-500" },
-    completed: { label: "Completed", icon: IconCircleCheck, color: "text-green-500" },
-    failed: { label: "Failed", icon: IconCircleX, color: "text-red-500" },
-  };
 
 export default async function PeoplePage() {
   const [{ groupedPeople }, allLeads] = await Promise.all([
@@ -33,7 +20,6 @@ export default async function PeoplePage() {
     getAllLeads(),
   ]);
 
-  const statusOrder: StatusType[] = ["completed", "in_progress", "pending", "failed"];
 
   // Prepare leads for the dropdown (just id and companyName)
   const leadsForDropdown = allLeads.map((lead) => ({
@@ -63,11 +49,11 @@ export default async function PeoplePage() {
 
       {/* List content */}
       <div className="flex-1 overflow-auto">
-        {statusOrder.map((status) => {
+        {STATUS_ORDER.map((status) => {
           const peopleInStatus = groupedPeople[status];
           if (!peopleInStatus || peopleInStatus.length === 0) return null;
 
-          const config = statusConfig[status];
+          const config = STATUS_CONFIG[status];
           const StatusIcon = config.icon;
 
           return (
@@ -112,7 +98,7 @@ type PersonWithCompany = {
 
 function PersonRow({ person }: { person: PersonWithCompany }) {
   const status = (person.researchStatus || "pending") as StatusType;
-  const config = statusConfig[status];
+  const config = STATUS_CONFIG[status];
   const StatusIcon = config.icon;
 
   const fullName = `${person.firstName} ${person.lastName}`;

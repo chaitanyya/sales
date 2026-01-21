@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import { StreamManager, StreamManagerCallbacks } from "@/lib/stream";
 import { toast } from "sonner";
 
 export function useStreamSubscription() {
+  const router = useRouter();
   const {
     tabs,
     appendLogs,
@@ -25,6 +27,8 @@ export function useStreamSubscription() {
       },
       onComplete: (jobId) => {
         updateStatus(jobId, "completed");
+        // Refresh server components to pick up the newly updated data
+        router.refresh();
       },
       onError: (jobId, message) => {
         // Add error log entry
@@ -57,6 +61,7 @@ export function useStreamSubscription() {
     updateConnectionStatus,
     incrementLastEventIndex,
     getLastEventIndex,
+    router,
   ]);
 
   // Subscribe/unsubscribe based on tab status

@@ -7,8 +7,12 @@ import {
   IconSettings,
   IconTargetArrow,
 } from "@tabler/icons-react";
+import { getOnboardingStatus } from "@/lib/db/queries";
+import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 
-export function Sidebar() {
+export async function Sidebar() {
+  const status = await getOnboardingStatus();
+
   return (
     <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-[#1a1a1d]">
       {/* Workspace header */}
@@ -72,6 +76,9 @@ export function Sidebar() {
           </div>
         </div>
       </nav>
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist status={status} />
 
       {/* Bottom section */}
       <div className="p-2 border-t border-white/5">

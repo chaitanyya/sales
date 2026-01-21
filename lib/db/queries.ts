@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { db, leads, prompts, people, scoringConfig, leadScores } from "@/db";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, asc, desc, sql, isNotNull } from "drizzle-orm";
 import { NewPerson, NewScoringConfig } from "@/db/schema";
 import type { ParsedScoringConfig, ParsedLeadScore, ScoringTier } from "@/lib/types/scoring";
 import { groupByStatus, getStatusCounts } from "./status-utils";
@@ -563,3 +563,52 @@ export async function insertPerson(data: {
     .returning({ id: people.id });
   return inserted.id;
 }
+
+// ============================================
+// Onboarding Status Queries
+// ============================================
+
+export type OnboardingStatus = {
+  hasLead: boolean;
+  hasResearchedLead: boolean;
+  hasScoredLead: boolean;
+  hasResearchedPerson: boolean;
+  hasConversationTopics: boolean;
+};
+
+/**
+ * Derive onboarding completion status from existing data
+ */
+export const getOnboardingStatus = cache(async (): Promise<OnboardingStatus> => {
+  const [leadCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(leads);
+
+  const [researchedLead] = await db
+    .select()
+    .from(leads)
+    .where(eq(leads.researchStatus, "completed"))
+    .limit(1);
+
+  const [scoredLead] = await db.select().from(leadScores).limit(1);
+
+  const [researchedPerson] = await db
+    .select()
+    .from(people)
+    .where(eq(people.researchStatus, "completed"))
+    .limit(1);
+
+  const [personWithTopics] = await db
+    .select()
+    .from(people)
+    .where(isNotNull(people.conversationTopics))
+    .limit(1);
+
+  return {
+    hasLead: leadCount.count > 0,
+    hasResearchedLead: !!researchedLead,
+    hasScoredLead: !!scoredLead,
+    hasResearchedPerson: !!researchedPerson,
+    hasConversationTopics: !!personWithTopics,
+  };
+});

@@ -24,7 +24,7 @@ import {
   processClaudeOutput,
 } from "@/lib/research/job-state";
 import { badRequest, notFound, serverError, jsonSuccess } from "@/lib/api/responses";
-import { buildScoringPrompt } from "@/lib/scoring/prompt-builder";
+import { buildScoringPrompt } from "@/lib/prompts";
 import { parseScoringResult } from "@/lib/scoring/result-parser";
 import { Effect } from "effect";
 

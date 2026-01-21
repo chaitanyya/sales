@@ -6,46 +6,46 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   IconPlayerPlay,
-  IconUser,
+  IconMessageCircle,
   IconFileText,
   IconLoader2,
 } from "@tabler/icons-react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 
-interface PersonResearchPanelProps {
+interface PersonConversationPanelProps {
   personId: number;
   personName: string;
-  personProfile: string | null;
+  conversationTopics: string | null;
   companyName: string;
 }
 
-export function PersonResearchPanel({
+export function PersonConversationPanel({
   personId,
   personName,
-  personProfile,
+  conversationTopics,
   companyName,
-}: PersonResearchPanelProps) {
+}: PersonConversationPanelProps) {
   const [isStarting, setIsStarting] = useState(false);
   const addTab = useStreamPanelStore((state) => state.addTab);
   const findTabByEntity = useStreamPanelStore((state) => state.findTabByEntity);
 
-  const hasProfile = !!personProfile;
+  const hasTopics = !!conversationTopics;
 
-  const startResearch = async () => {
+  const startGeneration = async () => {
     setIsStarting(true);
 
     try {
-      // Kill existing research for this entity if running
-      const existingTab = findTabByEntity(personId, "person");
+      // Kill existing generation for this entity if running
+      const existingTab = findTabByEntity(personId, "conversation");
       if (existingTab && existingTab.status === "running") {
         try {
-          await fetch(`/api/research/${existingTab.jobId}/kill`, { method: "POST" });
+          await fetch(`/api/conversation/${existingTab.jobId}/kill`, { method: "POST" });
         } catch (error) {
-          console.error("Failed to kill existing research:", error);
+          console.error("Failed to kill existing generation:", error);
         }
       }
 
-      const res = await fetch("/api/research", {
+      const res = await fetch("/api/conversation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ personId }),
@@ -54,7 +54,7 @@ export function PersonResearchPanel({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `Failed to start research: ${res.statusText}`);
+        throw new Error(data.error || `Failed to start generation: ${res.statusText}`);
       }
 
       const { jobId } = data;
@@ -62,45 +62,45 @@ export function PersonResearchPanel({
       // Add tab to stream panel (will replace existing tab for same entity)
       addTab({
         jobId,
-        label: personName,
-        type: "person",
+        label: `${personName} - Conversation`,
+        type: "conversation",
         entityId: personId,
         status: "running",
       });
     } catch (error) {
-      console.error("Failed to start research:", error);
+      console.error("Failed to start conversation generation:", error);
     } finally {
       setIsStarting(false);
     }
   };
 
-  // If no profile exists, show empty state with research button
-  if (!hasProfile) {
+  // If no topics exist, show empty state with generate button
+  if (!hasTopics) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
           <IconFileText className="w-6 h-6 text-muted-foreground" />
         </div>
-        <h3 className="text-sm font-medium mb-1">No research available</h3>
+        <h3 className="text-sm font-medium mb-1">No conversation topics</h3>
         <p className="text-sm text-muted-foreground max-w-sm mb-4">
-          Research data for {personName} at {companyName} hasn&apos;t been generated yet.
+          Generate personalized conversation topics for {personName} at {companyName}.
         </p>
-        <Button onClick={startResearch} disabled={isStarting}>
+        <Button onClick={startGeneration} disabled={isStarting}>
           {isStarting ? (
             <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
           ) : (
             <IconPlayerPlay className="h-4 w-4 mr-2" />
           )}
-          {isStarting ? "Starting..." : "Start Research"}
+          {isStarting ? "Starting..." : "Generate Topics"}
         </Button>
       </div>
     );
   }
 
-  // Show person profile content
+  // Show conversation topics content
   return (
     <div className="min-h-[300px]">
-      <MarkdownContent content={personProfile} />
+      <MarkdownContent content={conversationTopics} />
     </div>
   );
 }
@@ -110,9 +110,9 @@ function MarkdownContent({ content }: { content: string | null }) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
-          <IconUser className="w-5 h-5 text-muted-foreground" />
+          <IconMessageCircle className="w-5 h-5 text-muted-foreground" />
         </div>
-        <p className="text-sm text-muted-foreground">No person research available yet.</p>
+        <p className="text-sm text-muted-foreground">No conversation topics available yet.</p>
       </div>
     );
   }

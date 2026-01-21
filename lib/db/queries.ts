@@ -83,9 +83,9 @@ export const getPrompt = cache(async () => {
 });
 
 /**
- * Get prompt by type (company, person, or company_overview)
+ * Get prompt by type (company, person, company_overview, or conversation_topics)
  */
-export const getPromptByType = cache(async (type: "company" | "person" | "company_overview") => {
+export const getPromptByType = cache(async (type: "company" | "person" | "company_overview" | "conversation_topics") => {
   const [prompt] = await db
     .select()
     .from(prompts)
@@ -119,7 +119,7 @@ export async function savePrompt(content: string) {
 /**
  * Save or update prompt by type
  */
-export async function savePromptByType(type: "company" | "person" | "company_overview", content: string) {
+export async function savePromptByType(type: "company" | "person" | "company_overview" | "conversation_topics", content: string) {
   const existing = await getPromptByType(type);
 
   if (existing) {
@@ -236,6 +236,8 @@ export const getPerson = cache(async (id: number) => {
       personProfile: people.personProfile,
       researchStatus: people.researchStatus,
       researchedAt: people.researchedAt,
+      conversationTopics: people.conversationTopics,
+      conversationGeneratedAt: people.conversationGeneratedAt,
       createdAt: people.createdAt,
       // Company info
       companyName: leads.companyName,
@@ -332,6 +334,19 @@ export async function updatePersonResearch(
     personProfile?: string;
     researchStatus?: "pending" | "in_progress" | "completed" | "failed";
     researchedAt?: Date;
+  }
+) {
+  await db.update(people).set(data).where(eq(people.id, personId));
+}
+
+/**
+ * Update person conversation topics
+ */
+export async function updatePersonConversation(
+  personId: number,
+  data: {
+    conversationTopics?: string;
+    conversationGeneratedAt?: Date;
   }
 ) {
   await db.update(people).set(data).where(eq(people.id, personId));

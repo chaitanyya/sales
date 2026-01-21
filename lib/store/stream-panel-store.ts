@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { ClientLogEntry, JobStatus } from "@/lib/types/claude";
 import { ConnectionStatus } from "@/lib/stream";
 
-export type StreamTabType = "company" | "person";
+export type StreamTabType = "company" | "person" | "conversation";
 
 export interface StreamTab {
   jobId: string;

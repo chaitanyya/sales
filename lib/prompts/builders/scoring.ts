@@ -1,14 +1,13 @@
-import type { Lead, Person } from "@/db/schema";
 import type {
   ParsedScoringConfig,
   RequiredCharacteristic,
   DemandSignifier,
 } from "@/lib/types/scoring";
+import { formatLeadContext, type LeadWithPeople } from "../formatters";
 
-interface LeadWithPeople extends Lead {
-  people: Person[];
-}
-
+/**
+ * Format required characteristics for the scoring prompt
+ */
 function formatRequiredCharacteristics(characteristics: RequiredCharacteristic[]): string {
   const enabled = characteristics.filter((c) => c.enabled);
   if (enabled.length === 0) return "No required characteristics defined.";
@@ -16,6 +15,9 @@ function formatRequiredCharacteristics(characteristics: RequiredCharacteristic[]
   return enabled.map((c, i) => `${i + 1}. ${c.name}\n   - ${c.description}`).join("\n");
 }
 
+/**
+ * Format demand signifiers with weights for the scoring prompt
+ */
 function formatDemandSignifiers(signifiers: DemandSignifier[]): string {
   const enabled = signifiers.filter((s) => s.enabled);
   if (enabled.length === 0) return "No demand signifiers defined.";
@@ -30,43 +32,14 @@ function formatDemandSignifiers(signifiers: DemandSignifier[]): string {
     .join("\n");
 }
 
-function formatLeadContext(lead: LeadWithPeople): string {
-  const parts = [
-    `Company Name: ${lead.companyName}`,
-    `Website: ${lead.website || "N/A"}`,
-    `Industry: ${lead.industry || "N/A"}`,
-    `Sub-Industry: ${lead.subIndustry || "N/A"}`,
-    `Employees: ${lead.employees || "N/A"}`,
-    `Employee Range: ${lead.employeeRange || "N/A"}`,
-    `Revenue: ${lead.revenue || "N/A"}`,
-    `Revenue Range: ${lead.revenueRange || "N/A"}`,
-    `LinkedIn: ${lead.companyLinkedinUrl || "N/A"}`,
-    `City: ${lead.city || "N/A"}`,
-    `State: ${lead.state || "N/A"}`,
-    `Country: ${lead.country || "N/A"}`,
-  ];
-
-  if (lead.companyProfile) {
-    parts.push(`\nCompany Research Profile:\n${lead.companyProfile}`);
-  }
-
-  if (lead.people.length > 0) {
-    parts.push(`\nKey People (${lead.people.length}):`);
-    for (const person of lead.people) {
-      const name = `${person.firstName} ${person.lastName}`;
-      const title = person.title || "Unknown title";
-      const email = person.email || "No email";
-      const linkedin = person.linkedinUrl || "No LinkedIn";
-      parts.push(`  - ${name}, ${title} (${email}, ${linkedin})`);
-      if (person.personProfile) {
-        parts.push(`    Profile: ${person.personProfile.slice(0, 200)}...`);
-      }
-    }
-  }
-
-  return parts.join("\n");
-}
-
+/**
+ * Build a scoring prompt for lead evaluation
+ *
+ * @param lead - The lead with associated people
+ * @param config - The scoring configuration
+ * @param outputPath - Path where Claude should write the JSON result
+ * @returns Complete prompt string for scoring
+ */
 export function buildScoringPrompt(
   lead: LeadWithPeople,
   config: ParsedScoringConfig,
@@ -76,10 +49,15 @@ export function buildScoringPrompt(
   const enabledSignifiers = config.demandSignifiers.filter((s) => s.enabled);
   const totalWeight = enabledSignifiers.reduce((sum, s) => sum + s.weight, 0);
 
+  const leadContext = formatLeadContext(lead, {
+    includeProfile: true,
+    includePeople: true,
+  });
+
   return `You are a lead scoring analyst. Your task is to evaluate the following company as a sales lead and provide a detailed scoring assessment.
 
 COMPANY INFORMATION:
-${formatLeadContext(lead)}
+${leadContext}
 
 SCORING CRITERIA:
 

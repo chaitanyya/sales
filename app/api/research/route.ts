@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { db, leads, Lead, Person } from "@/db";
+import { db, leads } from "@/db";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { z } from "zod";
@@ -27,6 +27,7 @@ import {
   processClaudeOutput,
 } from "@/lib/research/job-state";
 import { badRequest, notFound, serverError, jsonSuccess } from "@/lib/api/responses";
+import { buildResearchPrompt, buildPersonResearchPrompt } from "@/lib/prompts";
 
 // Re-export job state accessors for use by other routes (e.g., SSE streaming)
 export { getJobOutput, getJobStatus, clearJobOutput } from "@/lib/research/job-state";
@@ -40,57 +41,6 @@ const researchRequestSchema = z
   .refine((data) => data.leadId || data.personId, {
     message: "Either leadId or personId must be provided",
   });
-
-function formatLeadContext(lead: Lead): string {
-  return `CONTEXT - Company Information:
-Company Name: ${lead.companyName}
-Website: ${lead.website || "N/A"}
-Industry: ${lead.industry || "N/A"}
-Sub-Industry: ${lead.subIndustry || "N/A"}
-Employees: ${lead.employees || "N/A"}
-Employee Range: ${lead.employeeRange || "N/A"}
-Revenue: ${lead.revenue || "N/A"}
-Revenue Range: ${lead.revenueRange || "N/A"}
-LinkedIn: ${lead.companyLinkedinUrl || "N/A"}
-City: ${lead.city || "N/A"}
-State: ${lead.state || "N/A"}
-Country: ${lead.country || "N/A"}`;
-}
-
-function buildResearchPrompt(
-  basePrompt: string,
-  lead: Lead,
-  outputPaths: { companyProfile: string; people: string },
-  companyContext?: string
-): string {
-  const contextSection = companyContext ? `<WhatWeDo>
-${companyContext}
-</WhatWeDo>
-
-` : "";
-
-  return `${contextSection}${formatLeadContext(lead)}
-
-${basePrompt}
-
-IMPORTANT: When you have completed your research, save the outputs to these files:
-1. Company profile: ${outputPaths.companyProfile}
-2. People: ${outputPaths.people}
-
-For the people.json file, output a JSON array of objects with this structure:
-[
-  {
-    "firstName": "First Name",
-    "lastName": "Last Name",
-    "title": "Job Title",
-    "email": "email@company.com or null if unknown",
-    "linkedinUrl": "https://linkedin.com/in/... or null if unknown",
-    "yearJoined": 2020 or null if unknown
-  }
-]
-Include key people at the company that you discovered during research.
-`;
-}
 
 async function handleResearchComplete(
   leadId: number,
@@ -159,42 +109,6 @@ async function handleResearchComplete(
   } catch {
     console.log("Cleanup error");
   }
-}
-
-function formatPersonContext(person: Person, lead: Lead): string {
-  return `CONTEXT - Person Information:
-Name: ${person.firstName} ${person.lastName}
-Title: ${person.title || "N/A"}
-Email: ${person.email || "N/A"}
-LinkedIn: ${person.linkedinUrl || "N/A"}
-Management Level: ${person.managementLevel || "N/A"}
-Year Joined: ${person.yearJoined || "N/A"}
-
-${formatLeadContext(lead)}`;
-}
-
-function buildPersonResearchPrompt(
-  basePrompt: string,
-  person: Person,
-  lead: Lead,
-  outputPath: string,
-  companyContext?: string
-): string {
-  const contextSection = companyContext ? `<WhatWeDo>
-${companyContext}
-</WhatWeDo>
-
-` : "";
-
-  return `${contextSection}${formatPersonContext(person, lead)}
-
-${basePrompt}
-
-IMPORTANT: When you have completed your research, save the person profile to this file:
-${outputPath}
-
-The file should be a markdown document containing the person's profile, background, experience, and any relevant information you discovered.
-`;
 }
 
 async function handlePersonResearchComplete(

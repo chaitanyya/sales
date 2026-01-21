@@ -19,7 +19,7 @@ import {
   IconBriefcase,
   IconUser,
 } from "@tabler/icons-react";
-import { PersonResearchPanel } from "@/components/people/person-research-panel";
+import { PersonProfileTabs } from "@/components/people/person-profile-tabs";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
@@ -166,11 +166,12 @@ export default async function PersonDetailPage({ params }: PageProps) {
               </Link>
             </p>
 
-            {/* Research content */}
-            <PersonResearchPanel
+            {/* Profile tabs */}
+            <PersonProfileTabs
               personId={person.id}
               personName={fullName}
               personProfile={person.personProfile}
+              conversationTopics={person.conversationTopics}
               companyName={person.companyName}
             />
 

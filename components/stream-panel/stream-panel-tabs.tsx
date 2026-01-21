@@ -95,7 +95,7 @@ function TabItem({ tab, isActive, onClick, onClose }: TabItemProps) {
     <button
       onClick={onClick}
       className={cn(
-        "group flex border-b-2 border-white/5 items-center gap-2 px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
+        "group flex border-b-2 border-white/5 items-center gap-2 px-3 py-2 text-sm transition-colors whitespace-nowrap",
         isActive ? "bg-white/5 text-foreground border-white/20" : "text-muted-foreground"
       )}
     >

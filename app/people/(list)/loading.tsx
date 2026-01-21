@@ -24,7 +24,7 @@ export default function PeopleLoading() {
         {/* Status group 1 */}
         <div>
           {/* Status group header */}
-          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
             <div className="p-0.5">
               <Skeleton className="w-3 h-3 rounded" />
             </div>
@@ -38,7 +38,7 @@ export default function PeopleLoading() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 px-3 py-1.5 border-b border-white/5 text-sm"
+              className="flex items-center gap-3 px-3 py-2 border-b border-white/5 text-sm"
             >
               {/* Status icon in w-4 container */}
               <div className="w-4 shrink-0">
@@ -65,7 +65,7 @@ export default function PeopleLoading() {
         {/* Status group 2 */}
         <div>
           {/* Status group header */}
-          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
             <div className="p-0.5">
               <Skeleton className="w-3 h-3 rounded" />
             </div>
@@ -79,7 +79,7 @@ export default function PeopleLoading() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 px-3 py-1.5 border-b border-white/5 text-sm"
+              className="flex items-center gap-3 px-3 py-2 border-b border-white/5 text-sm"
             >
               <div className="w-4 shrink-0">
                 <Skeleton className="w-4 h-4 rounded" />

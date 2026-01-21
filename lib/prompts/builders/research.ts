@@ -25,28 +25,24 @@ export function buildResearchPrompt(
   companyContext?: string
 ): string {
   const whatWeDo = formatWhatWeDo(companyContext);
-  const leadContext = formatLeadContext(lead, { includeHeader: true });
+  const leadContext = formatLeadContext(lead);
 
-  return `${whatWeDo}${leadContext}
+  return `${whatWeDo}<TargetCompany>
+${leadContext}
+</TargetCompany>
 
+<ResearchInstructions>
 ${basePrompt}
+</ResearchInstructions>
 
-IMPORTANT: When you have completed your research, save the outputs to these files:
-1. Company profile: ${outputPaths.companyProfile}
-2. People: ${outputPaths.people}
+<OutputRequirements>
+Save your research to these files:
+1. Company profile (markdown): ${outputPaths.companyProfile}
+2. Key contacts (JSON array): ${outputPaths.people}
 
-For the people.json file, output a JSON array of objects with this structure:
-[
-  {
-    "firstName": "First Name",
-    "lastName": "Last Name",
-    "title": "Job Title",
-    "email": "email@company.com or null if unknown",
-    "linkedinUrl": "https://linkedin.com/in/... or null if unknown",
-    "yearJoined": 2020 or null if unknown
-  }
-]
-Include key people at the company that you discovered during research.
+People JSON format:
+[{"firstName": "...", "lastName": "...", "title": "...", "email": "... or null", "linkedinUrl": "... or null", "yearJoined": 2020 or null}]
+</OutputRequirements>
 `;
 }
 
@@ -68,18 +64,24 @@ export function buildPersonResearchPrompt(
   companyContext?: string
 ): string {
   const whatWeDo = formatWhatWeDo(companyContext);
-  const personContext = formatPersonContext(person, lead, {
-    includeHeader: true,
-    includeCompanyContext: true,
-  });
+  const personContext = formatPersonContext(person, lead);
+  const leadContext = formatLeadContext(lead);
 
-  return `${whatWeDo}${personContext}
+  return `${whatWeDo}<TargetPerson>
+${personContext}
+</TargetPerson>
 
+<TargetCompany>
+${leadContext}
+</TargetCompany>
+
+<ResearchInstructions>
 ${basePrompt}
+</ResearchInstructions>
 
-IMPORTANT: When you have completed your research, save the person profile to this file:
-${outputPath}
-
-The file should be a markdown document containing the person's profile, background, experience, and any relevant information you discovered.
+<OutputRequirements>
+Save the person profile to: ${outputPath}
+Format: Markdown document with profile, background, and research findings.
+</OutputRequirements>
 `;
 }

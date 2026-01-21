@@ -67,7 +67,7 @@ export default async function Page() {
           return (
             <div key={status}>
               {/* Status group header */}
-              <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+              <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
                 <button className="p-0.5 hover:bg-white/10 rounded">
                   <IconChevronDown className="w-3 h-3 text-muted-foreground" />
                 </button>
@@ -110,7 +110,7 @@ function LeadRow({
   const domain = lead.website?.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0] || null;
 
   return (
-    <div className="group flex items-center gap-2 px-3 py-1.5 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
+    <div className="group flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
       {/* Status icon */}
       <StatusIcon className={`w-4 h-4 ${config.color} shrink-0`} />
 

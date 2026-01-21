@@ -22,17 +22,21 @@ export function buildConversationPrompt(
   const personContext = formatPersonContext(person, lead);
   const leadContext = formatLeadContext(lead);
 
-  return `${whatWeDo}CONTEXT - Person Information:
+  return `${whatWeDo}<TargetPerson>
 ${personContext}
+</TargetPerson>
 
-CONTEXT - Company Information:
+<TargetCompany>
 ${leadContext}
+</TargetCompany>
 
+<ConversationInstructions>
 ${conversationTopicsPrompt}
+</ConversationInstructions>
 
-IMPORTANT: When you have completed generating conversation topics, save the output to this file:
-${outputPath}
-
-The file should be a markdown document containing conversation topics, talking points, and any relevant information for engaging with this person.
+<OutputRequirements>
+Save conversation topics to: ${outputPath}
+Format: Markdown document with talking points and engagement strategies.
+</OutputRequirements>
 `;
 }

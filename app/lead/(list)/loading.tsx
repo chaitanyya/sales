@@ -24,7 +24,7 @@ export default function Loading() {
         {/* Status group 1 */}
         <div>
           {/* Status group header */}
-          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
             <div className="p-0.5">
               <Skeleton className="w-3 h-3 rounded" />
             </div>
@@ -38,7 +38,7 @@ export default function Loading() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 px-3 py-1.5 border-b border-white/5 text-sm"
+              className="flex items-center gap-2 px-3 py-2 border-b border-white/5 text-sm"
             >
               {/* Status icon */}
               <Skeleton className="w-4 h-4 rounded shrink-0" />
@@ -59,7 +59,7 @@ export default function Loading() {
         {/* Status group 2 */}
         <div>
           {/* Status group header */}
-          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+          <div className="sticky top-0 bg-black/95 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
             <div className="p-0.5">
               <Skeleton className="w-3 h-3 rounded" />
             </div>
@@ -73,7 +73,7 @@ export default function Loading() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 px-3 py-1.5 border-b border-white/5 text-sm"
+              className="flex items-center gap-2 px-3 py-2 border-b border-white/5 text-sm"
             >
               <Skeleton className="w-4 h-4 rounded shrink-0" />
               <div className="flex-1 flex items-center gap-1.5 min-w-0">

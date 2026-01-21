@@ -59,7 +59,7 @@ export default async function PeoplePage() {
           return (
             <div key={status}>
               {/* Status group header */}
-              <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-1.5 text-sm border-b border-white/5">
+              <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
                 <button className="p-0.5 hover:bg-white/10 rounded">
                   <IconChevronDown className="w-3 h-3 text-muted-foreground" />
                 </button>
@@ -104,7 +104,7 @@ function PersonRow({ person }: { person: PersonWithCompany }) {
   const fullName = `${person.firstName} ${person.lastName}`;
 
   return (
-    <div className="group flex items-center gap-3 px-3 py-1.5 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
+    <div className="group flex items-center gap-3 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm">
       {/* Status icon - fixed width */}
       <div className="w-4 shrink-0">
         <StatusIcon className={`w-4 h-4 ${config.color}`} />

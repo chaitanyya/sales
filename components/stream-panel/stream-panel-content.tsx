@@ -12,6 +12,7 @@ import {
   IconWorld,
   IconClock,
   IconMessage,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,16 +38,14 @@ export function StreamPanelContent() {
   }
 
   return (
-    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 space-y-0">
+    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       {activeTab.logs.map((log) => (
         <ActivityEntry key={log.id} entry={log} />
       ))}
       {activeTab.status === "running" && (
-        <div className="flex items-center gap-2 py-1 px-3">
-          <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
-            <IconLoader2 className="h-3 w-3 text-muted-foreground animate-spin" />
-          </div>
-          <span className="text-sm text-muted-foreground">Processing...</span>
+        <div className="flex items-center gap-2 py-2 px-3 text-muted-foreground">
+          <IconLoader2 className="h-3 w-3 animate-spin" />
+          <span className="text-sm">Processing...</span>
         </div>
       )}
     </div>
@@ -54,87 +53,56 @@ export function StreamPanelContent() {
 }
 
 const ActivityEntry = memo(function ActivityEntry({ entry }: { entry: ClientLogEntry }) {
-  if (entry.type === "assistant") {
-    return <AssistantEntry entry={entry} />;
-  }
+  if (entry.content === "") return null;
 
   const color = getLogColor(entry.type);
-
-  if (entry.content === "") {
-    return null;
-  }
+  const isAssistant = entry.type === "assistant";
 
   return (
-    <div className="group py-1 px-3 rounded-md hover:bg-white/[0.02] transition-colors">
-      <div className="flex items-center gap-2">
-        <div
-          className={cn(
-            "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0",
-            color
-          )}
-        >
-          {getLogIcon(entry.type)}
-        </div>
-        <span className="flex-1 text-sm truncate min-w-0">
-          {entry.toolName && <span className="text-foreground">[{entry.toolName}] </span>}
-          <span className="text-muted-foreground">{entry.content}</span>
-        </span>
-        <span className="text-xs text-muted-foreground/50 flex-shrink-0">
-          {formatTime(entry.timestamp)}
-        </span>
+    <div className="flex items-start gap-2 py-2 px-3 border-b border-dashed border-muted hover:bg-muted/50 transition-colors">
+      <div className={cn("w-4 h-4 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5", color)}>
+        {getLogIcon(entry.type)}
       </div>
-    </div>
-  );
-});
 
-// Special component for assistant messages with markdown rendering
-const AssistantEntry = memo(function AssistantEntry({ entry }: { entry: ClientLogEntry }) {
-  return (
-    <div className="group py-2 px-3 rounded-md hover:bg-white/[0.02] transition-colors">
-      <div className="flex gap-2">
-        <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-2">
-          <IconMessage className="h-3 w-3 text-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div
-            className="prose prose-sm prose-invert max-w-none text-sm
-            prose-headings:text-foreground prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-2
-            prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
-            prose-p:text-foreground/90 prose-p:my-1.5 prose-p:leading-relaxed
-            prose-strong:text-foreground prose-strong:font-semibold
-            prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:text-foreground/90
-            prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
-            prose-code:text-xs prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-            prose-pre:bg-white/5 prose-pre:text-xs prose-pre:p-2 prose-pre:rounded-md
-            prose-blockquote:border-l-2 prose-blockquote:border-white/20 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:text-foreground/70
-            prose-table:text-xs prose-th:text-foreground prose-td:text-foreground/80
-          "
-          >
+      <div className="flex-1 min-w-0 text-sm">
+        {isAssistant ? (
+          <div className="prose-terminal-compact max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.content}</ReactMarkdown>
           </div>
-          <span className="text-xs text-muted-foreground/50 mt-1 block">
-            {formatTime(entry.timestamp)}
-          </span>
-        </div>
+        ) : (
+          <>
+            {entry.toolName && <span className={cn("font-medium", color)}>[{entry.toolName}] </span>}
+            <span className="text-muted-foreground">{entry.content}</span>
+          </>
+        )}
       </div>
+
+      <span className="text-[10px] text-muted-foreground/40 flex-shrink-0 tabular-nums">
+        {formatTime(entry.timestamp)}
+      </span>
     </div>
   );
 });
 
 function getLogIcon(type: LogEntryType) {
+  const cls = "h-2.5 w-2.5";
   switch (type) {
     case "system":
-      return <IconSettings className="h-3 w-3" />;
+      return <IconSettings className={cls} />;
+    case "assistant":
+      return <IconMessage className={cls} />;
     case "tool_use":
-      return <IconArrowRight className="h-3 w-3" />;
+      return <IconArrowRight className={cls} />;
     case "error":
-      return <IconCircleX className="h-3 w-3" />;
+      return <IconCircleX className={cls} />;
     case "browser":
-      return <IconWorld className="h-3 w-3" />;
+      return <IconWorld className={cls} />;
     case "progress":
-      return <IconClock className="h-3 w-3 animate-pulse" />;
+      return <IconClock className={cn(cls, "animate-pulse")} />;
+    case "redirect":
+      return <IconExternalLink className={cls} />;
     default:
-      return <div className="h-3 w-3 rounded-full bg-current opacity-40" />;
+      return <div className="h-1.5 w-1.5 rounded-full bg-current opacity-40" />;
   }
 }
 
@@ -154,6 +122,8 @@ function getLogColor(type: LogEntryType) {
       return "text-cyan-500";
     case "progress":
       return "text-muted-foreground";
+    case "redirect":
+      return "text-orange-400";
     default:
       return "text-muted-foreground";
   }

@@ -7,6 +7,116 @@ import {
 
 const MAX_TOOL_RESULT_LENGTH = 500;
 
+/**
+ * Extract text content from tool result content (handles MCP array format)
+ */
+function extractToolResultContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .filter((c): c is { type: string; text: string } =>
+        typeof c === "object" &&
+        c !== null &&
+        c.type === "text" &&
+        typeof c.text === "string"
+      )
+      .map((c) => c.text)
+      .join("\n");
+  }
+
+  return JSON.stringify(content);
+}
+
+/**
+ * Format tool names for display (handles MCP prefixes and snake_case)
+ * Examples:
+ *   "mcp__claude-in-chrome__get_page_text" → "Chrome: Get Page Text"
+ *   "mcp__some-server__do_something" → "Some Server: Do Something"
+ *   "WebSearch" → "Web Search"
+ *   "Read" → "Read"
+ */
+function formatToolName(toolName: string): string {
+  // Handle MCP tools: mcp__server-name__tool_name
+  if (toolName.startsWith("mcp__")) {
+    const parts = toolName.replace("mcp__", "").split("__");
+    if (parts.length >= 2) {
+      const serverName = parts[0]
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+        .replace("Claude In Chrome", "Chrome"); // Shorten common ones
+
+      const actionName = parts
+        .slice(1)
+        .join("_")
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      return `${serverName}: ${actionName}`;
+    }
+  }
+
+  // Handle camelCase/PascalCase: "WebSearch" → "Web Search"
+  const spacedName = toolName.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+  // Handle snake_case: "get_page_text" → "Get Page Text"
+  return spacedName
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/**
+ * Create a human-readable summary of tool input parameters
+ */
+function summarizeToolInput(toolName: string, input: Record<string, unknown>): string {
+  // WebSearch - show query
+  if (toolName === "WebSearch" && input.query) {
+    return `Searching: "${input.query}"`;
+  }
+
+  // WebFetch - show URL
+  if (toolName === "WebFetch" && input.url) {
+    return `Fetching: ${input.url}`;
+  }
+
+  // Read - show path
+  if (toolName === "Read" && input.file_path) {
+    return String(input.file_path);
+  }
+
+  // Glob - show pattern
+  if (toolName === "Glob" && input.pattern) {
+    return String(input.pattern);
+  }
+
+  // Grep - show pattern
+  if (toolName === "Grep" && input.pattern) {
+    return `grep: ${input.pattern}`;
+  }
+
+  // Bash - show command
+  if (toolName === "Bash" && input.command) {
+    return truncateContent(String(input.command), 80);
+  }
+
+  // Chrome MCP tools - show relevant params
+  if (toolName.startsWith("mcp__claude-in-chrome__")) {
+    if (input.url) return String(input.url);
+    if (input.query) return String(input.query);
+    if (input.tabId) return `tab ${input.tabId}`;
+    return "";
+  }
+
+  // Default: show first string value or empty
+  const firstValue = Object.values(input).find(v => typeof v === "string");
+  return firstValue ? truncateContent(String(firstValue), 80) : "";
+}
+
 function truncateContent(content: string, maxLength: number = MAX_TOOL_RESULT_LENGTH): string {
   if (content.length <= maxLength) return content;
   return content.slice(0, maxLength) + `... [truncated ${content.length - maxLength} chars]`;
@@ -39,10 +149,16 @@ function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEn
           timestamp,
         });
       } else if (block.type === "tool_use") {
+        const displayName = formatToolName(block.name);
+        const inputSummary = block.input
+          ? summarizeToolInput(block.name, block.input)
+          : "";
+
         entries.push({
           type: "tool_use",
-          content: `Using tool: ${block.name}`,
-          toolName: block.name,
+          content: inputSummary,
+          toolName: displayName,
+          toolInput: block.input,
           timestamp,
         });
       }
@@ -54,10 +170,16 @@ function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEn
 
 function parseContentBlockStart(block: ClaudeContentBlock, timestamp: number): LogEntry | null {
   if (block.type === "tool_use") {
+    const displayName = formatToolName(block.name);
+    const inputSummary = block.input
+      ? summarizeToolInput(block.name, block.input)
+      : "";
+
     return {
       type: "tool_use",
-      content: `Using tool: ${block.name}`,
-      toolName: block.name,
+      content: inputSummary,
+      toolName: displayName,
+      toolInput: block.input,
       timestamp,
     };
   } else if (block.type === "text") {
@@ -92,11 +214,25 @@ function parseUserEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry[]
     if (content && Array.isArray(content)) {
       for (const block of content) {
         if (block.type === "tool_result") {
+          // Extract content using helper (handles MCP array format)
+          const contentStr = extractToolResultContent(block.content);
+
+          // Check for WebFetch redirect
+          if (contentStr.startsWith("REDIRECT DETECTED:")) {
+            const urlMatch = contentStr.match(/Redirect URL: (https?:\/\/[^\s]+)/);
+            entries.push({
+              type: "redirect",
+              content: urlMatch
+                ? `Redirecting to ${urlMatch[1]}`
+                : "Redirect detected - follow-up fetch needed",
+              timestamp,
+            });
+            continue;
+          }
+
           entries.push({
             type: block.is_error ? "error" : "tool_result",
-            content: truncateContent(
-              typeof block.content === "string" ? block.content : JSON.stringify(block.content)
-            ),
+            content: truncateContent(contentStr),
             timestamp,
           });
         }
@@ -107,32 +243,43 @@ function parseUserEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry[]
   return entries;
 }
 
-function parseResultEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry {
+function parseResultEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry[] {
   if (event.type !== "result") {
-    return { type: "info", content: "Result event", timestamp };
+    return [{ type: "info", content: "Result event", timestamp }];
   }
 
+  const entries: LogEntry[] = [];
   const durationSec = event.duration_ms ? (event.duration_ms / 1000).toFixed(1) : "?";
 
   if (event.subtype === "success") {
-    return {
+    entries.push({
       type: "info",
-      content: `Task completed successfully (${durationSec}s)`,
+      content: `Completed in ${durationSec}s (${event.num_turns || "?"} turns)`,
       timestamp,
-    };
+    });
   } else if (event.subtype === "error") {
-    return {
+    entries.push({
       type: "error",
-      content: `Task failed (${durationSec}s)`,
+      content: `Failed after ${durationSec}s`,
       timestamp,
-    };
+    });
+  } else {
+    entries.push({
+      type: "info",
+      content: `Task finished (${durationSec}s)`,
+      timestamp,
+    });
   }
 
-  return {
-    type: "info",
-    content: `Task finished (${durationSec}s)`,
-    timestamp,
-  };
+  if (event.permission_denials && event.permission_denials.length > 0) {
+    entries.push({
+      type: "error",
+      content: `Permission denied: ${event.permission_denials.join(", ")}`,
+      timestamp,
+    });
+  }
+
+  return entries;
 }
 
 function categorizeRawOutput(text: string, timestamp: number): LogEntry | null {
@@ -203,7 +350,7 @@ export function parseStreamJsonEvent(line: string): LogEntry[] {
         break;
 
       case "result":
-        entries.push(parseResultEvent(event, timestamp));
+        entries.push(...parseResultEvent(event, timestamp));
         break;
 
       case "mcp":
@@ -222,10 +369,17 @@ export function parseStreamJsonEvent(line: string): LogEntry[] {
           timestamp,
         });
         break;
+
+      default:
+        // Log unknown event types for debugging
+        console.warn("[stream-parser] Unknown event type:", (event as { type?: string }).type);
+        break;
     }
 
     return entries;
-  } catch {
+  } catch (err) {
+    console.error("[stream-parser] Failed to parse JSON line:", line.slice(0, 200), err);
+    // Return empty rather than error entry to avoid noise from partial chunks
     return [];
   }
 }

@@ -106,13 +106,32 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
-          <p className="text-sm text-muted-foreground mb-2">
-            {activeTab === "company_overview"
-              ? "Add details about your business so the agent has context on what you are building."
-              : activeTab === "conversation_topics"
-              ? "Configure the prompt template used when generating conversation topics for people."
-              : `Configure the prompt template used when researching ${activeTab === "company" ? "companies" : "people"}.`}
-          </p>
+          <div className="text-sm text-muted-foreground mb-4 space-y-1">
+            {activeTab === "company_overview" && (
+              <>
+                <p>Describe your company and ideal customer profile. This context is injected into <strong>all</strong> research prompts.</p>
+                <p className="text-xs text-muted-foreground/70">Tip: Include what you do, who you sell to, problems you solve, and key differentiators.</p>
+              </>
+            )}
+            {activeTab === "company" && (
+              <>
+                <p>Instructions for comapny research. The target company&apos;s details are <strong>automatically provided</strong>.</p>
+                <p className="text-xs text-muted-foreground/70">Auto-injected: Company name, website, industry, size, LinkedIn URL, location. Focus on what to discover.</p>
+              </>
+            )}
+            {activeTab === "person" && (
+              <>
+                <p>Instructions for researching people. The person&apos;s details AND their company info are <strong>automatically provided</strong>.</p>
+                <p className="text-xs text-muted-foreground/70">Auto-injected: Name, title, email, LinkedIn, company details. Focus on what to research about them.</p>
+              </>
+            )}
+            {activeTab === "conversation_topics" && (
+              <>
+                <p>Instructions for generating conversation prep. The person&apos;s profile and company info are <strong>automatically provided</strong>.</p>
+                <p className="text-xs text-muted-foreground/70">Auto-injected: Person details, company details. Focus on what call prep to generate.</p>
+              </>
+            )}
+          </div>
 
           <div className="space-y-4">
             <textarea

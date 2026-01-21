@@ -7,7 +7,8 @@ export type LogEntryType =
   | "error"
   | "info"
   | "progress"
-  | "browser";
+  | "browser"
+  | "redirect"; // WebFetch redirects
 
 // Server-side log entry (numeric timestamp)
 export interface LogEntry {
@@ -15,6 +16,10 @@ export interface LogEntry {
   content: string;
   toolName?: string;
   timestamp: number;
+  // Extended fields for enhanced logging
+  usage?: UsageStats;
+  metadata?: ToolResultMetadata;
+  toolInput?: Record<string, unknown>;
 }
 
 // Client-side log entry (Date object + id)
@@ -55,6 +60,30 @@ export interface ClaudeUsage {
   output_tokens: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  server_tool_use?: {
+    web_search_requests?: number;
+  };
+}
+
+// Aggregated usage stats for display
+export interface UsageStats {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  totalCostUsd?: number;
+  webSearchRequests?: number;
+}
+
+// Metadata for tool results
+export interface ToolResultMetadata {
+  durationMs?: number;
+  durationSeconds?: number;  // WebSearch uses seconds
+  numFiles?: number;
+  truncated?: boolean;
+  query?: string;           // WebSearch query
+  urls?: string[];          // WebSearch result URLs
+  tabId?: number;           // Chrome MCP tab ID
 }
 
 // Content block types
@@ -73,7 +102,7 @@ export interface ClaudeToolUseBlock {
 export interface ClaudeToolResultBlock {
   type: "tool_result";
   tool_use_id: string;
-  content: string;
+  content: string | Array<{ type: string; text?: string }>;  // Can be array for MCP
   is_error?: boolean;
 }
 
@@ -134,6 +163,8 @@ export interface ClaudeResultEvent {
   result?: string;
   session_id: string;
   uuid: string;
+  usage?: ClaudeUsage;
+  permission_denials?: string[];
 }
 
 // Content block streaming events

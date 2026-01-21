@@ -20,6 +20,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { PersonResearchPanel } from "@/components/people/person-research-panel";
+import { EnrichEmailButton } from "@/components/people/enrich-email-button";
 
 // Revalidate data every 30 seconds
 export const revalidate = 30;
@@ -296,36 +297,32 @@ export default async function PersonDetailPage({ params }: PageProps) {
                 )}
               </div>
 
-              {/* Links */}
-              {(person.email || person.linkedinUrl) && (
-                <div className="border-t border-white/5 pt-4 mt-4">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                    Contact
-                  </h4>
-                  <div className="space-y-2">
-                    {person.email && (
-                      <a
-                        href={`mailto:${person.email}`}
-                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <IconMail className="w-4 h-4" />
-                        <span className="truncate">{person.email}</span>
-                      </a>
-                    )}
-                    {person.linkedinUrl && (
-                      <a
-                        href={person.linkedinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <IconBrandLinkedin className="w-4 h-4" />
-                        <span>LinkedIn</span>
-                      </a>
-                    )}
-                  </div>
+              {/* Contact & Hunter.io Enrichment */}
+              <div className="border-t border-white/5 pt-4 mt-4">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                  Contact
+                </h4>
+                <div className="space-y-3">
+                  {/* Email with Hunter.io enrichment */}
+                  <EnrichEmailButton
+                    personId={person.id}
+                    currentEmail={person.email}
+                  />
+
+                  {/* LinkedIn */}
+                  {person.linkedinUrl && (
+                    <a
+                      href={person.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <IconBrandLinkedin className="w-4 h-4" />
+                      <span>LinkedIn</span>
+                    </a>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Research date */}
               {person.researchedAt && (

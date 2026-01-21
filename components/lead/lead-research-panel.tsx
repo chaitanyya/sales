@@ -18,6 +18,9 @@ import {
   IconCalendar,
   IconLoader2,
   IconTargetArrow,
+  IconMailSearch,
+  IconCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import type { ParsedLeadScore } from "@/lib/types/scoring";
@@ -162,7 +165,7 @@ export function LeadResearchPanel({
 
       <div className="min-h-[300px]">
         {activeTab === "company" && <MarkdownContent content={companyResearch} />}
-        {activeTab === "people" && <PeopleList people={people} />}
+        {activeTab === "people" && <PeopleList people={people} leadId={lead.id} />}
         {activeTab === "score" && <ScoreContent score={score} />}
       </div>
     </div>
@@ -188,7 +191,53 @@ function MarkdownContent({ content }: { content: string | null }) {
   );
 }
 
-function PeopleList({ people }: { people: Person[] }) {
+interface EnrichmentResult {
+  personId: number;
+  name: string;
+  email: string | null;
+  score: number | null;
+  verified: boolean | null;
+  verificationStatus: string | null;
+  error: string | null;
+}
+
+function PeopleList({ people, leadId }: { people: Person[]; leadId: number }) {
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichResults, setEnrichResults] = useState<Map<number, EnrichmentResult>>(new Map());
+
+  const enrichAllPeople = async () => {
+    setIsEnriching(true);
+    setEnrichResults(new Map());
+
+    try {
+      const res = await fetch("/api/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, verifyEmails: true }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Enrichment failed");
+      }
+
+      // Store results by personId
+      const resultsMap = new Map<number, EnrichmentResult>();
+      for (const result of data.results) {
+        resultsMap.set(result.personId, result);
+      }
+      setEnrichResults(resultsMap);
+
+      // Refresh the page to show updated emails
+      window.location.reload();
+    } catch (error) {
+      console.error("Enrichment failed:", error);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
   if (people.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -200,9 +249,39 @@ function PeopleList({ people }: { people: Person[] }) {
     );
   }
 
+  const peopleWithoutEmail = people.filter((p) => !p.email);
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
+      {/* Enrich button */}
+      {peopleWithoutEmail.length > 0 && (
+        <div className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <IconMailSearch className="w-4 h-4" />
+            <span>
+              {peopleWithoutEmail.length} of {people.length} people missing emails
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={enrichAllPeople}
+            disabled={isEnriching}
+          >
+            {isEnriching ? (
+              <IconLoader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <IconMailSearch className="h-4 w-4 mr-2" />
+            )}
+            {isEnriching ? "Finding emails..." : "Find Emails (Hunter.io)"}
+          </Button>
+        </div>
+      )}
+
+      {/* People list */}
+      <div className="space-y-2">
       {people.map((person) => {
+        const enrichResult = enrichResults.get(person.id);
         const status = (person.researchStatus || "pending") as
           | "pending"
           | "in_progress"
@@ -237,21 +316,37 @@ function PeopleList({ people }: { people: Person[] }) {
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
+              {/* Enrichment result indicator */}
+              {enrichResult && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  {enrichResult.email ? (
+                    <span className="flex items-center gap-1 text-green-500">
+                      <IconCheck className="w-3.5 h-3.5" />
+                      {enrichResult.verified ? "Verified" : `${enrichResult.score}%`}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <IconX className="w-3.5 h-3.5" />
+                      Not found
+                    </span>
+                  )}
+                </div>
+              )}
               {person.yearJoined && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <IconCalendar className="w-3.5 h-3.5" />
                   <span>{person.yearJoined}</span>
                 </div>
               )}
-              {person.email && (
+              {(person.email || enrichResult?.email) && (
                 <span
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    window.location.href = `mailto:${person.email}`;
+                    window.location.href = `mailto:${person.email || enrichResult?.email}`;
                   }}
                   className="p-1.5 rounded hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
-                  title={person.email}
+                  title={person.email || enrichResult?.email || undefined}
                 >
                   <IconMail className="w-4 h-4" />
                 </span>
@@ -274,6 +369,7 @@ function PeopleList({ people }: { people: Person[] }) {
           </a>
         );
       })}
+      </div>
     </div>
   );
 }

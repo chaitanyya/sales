@@ -18,19 +18,19 @@ AI-powered sales lead research and qualification system. Qual helps sales teams 
 
 View all your leads with research status, industry tags, and qualification scores at a glance.
 
-![Lead List](/public/1.png)
+![Lead List](/public/leads.png)
 
 ### Company Profile
 
 AI-generated research profiles with company overview, products, services, and key information.
 
-![Company Profile](/public/2.png)
+![Company Profile](/public/details.png)
 
 ### Lead Scoring
 
 Detailed scoring breakdown showing required characteristics, demand signifiers, and AI assessment.
 
-![Lead Scoring](/public/3.png)
+![Lead Scoring](/public/score.png)
 
 ## Prerequisites
 

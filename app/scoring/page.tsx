@@ -31,13 +31,11 @@ export default async function ScoringPage() {
 
   return (
     <>
-      {/* Header */}
       <header className="h-10 border-b border-white/5 flex items-center px-4 gap-2">
         <IconTargetArrow className="w-4 h-4" />
         <h1 className="text-sm font-medium">Scoring Configuration</h1>
       </header>
 
-      {/* Content */}
       <ScoringConfigEditor initialConfig={initialConfig} />
     </>
   );

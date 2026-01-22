@@ -125,7 +125,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
   return (
     <div className="flex-1 overflow-auto p-4">
       <div className="max-w-3xl space-y-6">
-        {/* Required Characteristics */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -179,7 +178,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
           </div>
         </section>
 
-        {/* Demand Signifiers */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -250,7 +248,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
           </div>
         </section>
 
-        {/* Tier Thresholds */}
         <section>
           <div className="mb-3">
             <h2 className="text-sm font-medium">Tier Thresholds</h2>
@@ -314,7 +311,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
           </p>
         </section>
 
-        {/* Save */}
         <div className="flex items-center gap-3 pt-4 border-t border-white/5">
           <Button onClick={handleSave} disabled={isPending || isSaving}>
             {isPending || isSaving ? (

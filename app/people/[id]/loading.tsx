@@ -3,23 +3,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function PersonDetailLoading() {
   return (
     <>
-      {/* Header bar skeleton - matches h-10 header */}
       <header className="h-10 border-b border-white/5 flex items-center px-3 gap-2">
-        {/* Back arrow */}
         <Skeleton className="w-4 h-4 rounded" />
-        {/* Breadcrumb: "People" / person name */}
         <div className="flex items-center gap-1.5 text-sm">
           <Skeleton className="h-4 w-12 rounded" />
           <Skeleton className="h-4 w-2 rounded" />
           <Skeleton className="h-4 w-28 rounded" />
         </div>
-        {/* Actions */}
         <div className="flex items-center gap-1 ml-2">
           <Skeleton className="w-6 h-6 rounded" />
           <Skeleton className="w-6 h-6 rounded" />
         </div>
         <div className="flex-1" />
-        {/* Navigation */}
         <div className="flex items-center gap-1">
           <Skeleton className="h-4 w-12 rounded" />
           <Skeleton className="w-6 h-6 rounded" />
@@ -27,17 +22,12 @@ export default function PersonDetailLoading() {
         </div>
       </header>
 
-      {/* Content with right sidebar */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Main content */}
         <div className="flex-1 overflow-auto">
           <div className="max-w-4xl mx-auto px-8 py-6">
-            {/* Title - text-2xl = ~1.5rem height */}
             <Skeleton className="h-7 w-40 rounded mb-1" />
-            {/* Subtitle: title at company */}
             <Skeleton className="h-4 w-56 rounded mb-6" />
 
-            {/* Research content skeleton */}
             <div className="space-y-4">
               <Skeleton className="h-6 w-32 rounded" />
               <div className="space-y-2">
@@ -52,7 +42,6 @@ export default function PersonDetailLoading() {
               </div>
             </div>
 
-            {/* Activity section skeleton */}
             <div className="mt-8 pt-6 border-t border-white/5">
               <Skeleton className="h-4 w-16 rounded mb-4" />
               <div className="space-y-3">
@@ -75,14 +64,11 @@ export default function PersonDetailLoading() {
           </div>
         </div>
 
-        {/* Right sidebar skeleton - w-64 */}
         <aside className="w-64 border-l border-white/5 overflow-auto shrink-0">
           <div className="p-4">
-            {/* Section header: "Person" */}
             <Skeleton className="h-3 w-12 rounded mb-4" />
 
             <div className="space-y-4">
-              {/* Status */}
               <div>
                 <Skeleton className="h-3 w-10 rounded mb-1" />
                 <div className="flex items-center gap-1.5">
@@ -91,7 +77,6 @@ export default function PersonDetailLoading() {
                 </div>
               </div>
 
-              {/* Title */}
               <div>
                 <Skeleton className="h-3 w-8 rounded mb-1" />
                 <div className="flex items-center gap-1.5">
@@ -100,13 +85,11 @@ export default function PersonDetailLoading() {
                 </div>
               </div>
 
-              {/* Level */}
               <div>
                 <Skeleton className="h-3 w-10 rounded mb-1" />
                 <Skeleton className="h-5 w-16 rounded" />
               </div>
 
-              {/* Company section */}
               <div className="border-t border-white/5 pt-4 mt-4">
                 <Skeleton className="h-3 w-16 rounded mb-3" />
                 <div className="flex items-center gap-2">
@@ -116,7 +99,6 @@ export default function PersonDetailLoading() {
                 <Skeleton className="h-3 w-20 rounded mt-2" />
               </div>
 
-              {/* Contact section */}
               <div className="border-t border-white/5 pt-4 mt-4">
                 <Skeleton className="h-3 w-14 rounded mb-3" />
                 <div className="space-y-2">

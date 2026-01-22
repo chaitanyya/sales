@@ -15,7 +15,6 @@ export function ScoreBreakdown({ score }: ScoreBreakdownProps) {
 
   return (
     <div className="space-y-6">
-      {/* Overall Score */}
       <div className="space-y-2">
         <div className="flex items-baseline gap-2">
           <span className={cn("text-2xl font-bold tabular-nums", tierConfig.color)}>
@@ -39,7 +38,6 @@ export function ScoreBreakdown({ score }: ScoreBreakdownProps) {
         </div>
       </div>
 
-      {/* Requirements */}
       {score.requirementResults.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-3">Required Characteristics</h3>
@@ -61,7 +59,6 @@ export function ScoreBreakdown({ score }: ScoreBreakdownProps) {
         </div>
       )}
 
-      {/* Signifier Scores */}
       {score.scoreBreakdown.length > 0 && (
         <div>
           <h3 className="text-sm font-medium mb-3">Demand Signifiers</h3>
@@ -84,7 +81,6 @@ export function ScoreBreakdown({ score }: ScoreBreakdownProps) {
         </div>
       )}
 
-      {/* Scoring Notes */}
       {score.scoringNotes && (
         <div>
           <h3 className="text-sm font-medium mb-3">AI Assessment</h3>
@@ -102,7 +98,6 @@ export function ScoreBreakdownCompact({ score }: ScoreBreakdownProps) {
 
   return (
     <div className="space-y-3">
-      {/* Quick summary */}
       <div className="space-y-1.5">
         <div className="flex items-baseline gap-2">
           <span className={cn("text-lg font-bold tabular-nums", tierConfig.color)}>
@@ -116,7 +111,6 @@ export function ScoreBreakdownCompact({ score }: ScoreBreakdownProps) {
         </div>
       </div>
 
-      {/* Top signifiers */}
       <div className="space-y-1.5">
         {score.scoreBreakdown.slice(0, 3).map((sig) => (
           <div key={sig.id} className="flex items-center justify-between text-xs">

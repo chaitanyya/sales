@@ -79,7 +79,6 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
 
   return (
     <>
-      {/* Tabs */}
       <div className="border-b border-white/5 px-4">
         <div className="flex gap-4">
           {tabs.map((tab) => {
@@ -103,7 +102,6 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
           <div className="text-sm text-muted-foreground mb-4 space-y-1">

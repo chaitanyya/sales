@@ -3,7 +3,7 @@ import { db, leads, prompts, people, scoringConfig, leadScores } from "@/db";
 import { eq, asc, desc, sql, isNotNull } from "drizzle-orm";
 import { NewPerson, NewScoringConfig } from "@/db/schema";
 import type { ParsedScoringConfig, ParsedLeadScore, ScoringTier } from "@/lib/types/scoring";
-import { groupByStatus, getStatusCounts } from "./status-utils";
+import { groupByStatus, getStatusCounts, groupByLeadUserStatus, groupByPersonUserStatus } from "./status-utils";
 
 /**
  * Get a single lead by ID
@@ -210,6 +210,7 @@ export const getPerson = cache(async (id: number) => {
       personProfile: people.personProfile,
       researchStatus: people.researchStatus,
       researchedAt: people.researchedAt,
+      userStatus: people.userStatus,
       conversationTopics: people.conversationTopics,
       conversationGeneratedAt: people.conversationGeneratedAt,
       createdAt: people.createdAt,
@@ -279,6 +280,35 @@ export const getPeopleGroupedByOwnStatus = cache(async () => {
     allPeople,
     groupedPeople,
     counts: getStatusCounts(groupedPeople),
+  };
+});
+
+/**
+ * Get all people grouped by their user status
+ */
+export const getPeopleGroupedByUserStatus = cache(async () => {
+  const allPeople = await db
+    .select({
+      id: people.id,
+      firstName: people.firstName,
+      lastName: people.lastName,
+      title: people.title,
+      email: people.email,
+      linkedinUrl: people.linkedinUrl,
+      leadId: people.leadId,
+      companyName: leads.companyName,
+      researchStatus: people.researchStatus,
+      userStatus: people.userStatus,
+    })
+    .from(people)
+    .innerJoin(leads, eq(people.leadId, leads.id))
+    .orderBy(asc(people.lastName), asc(people.firstName));
+
+  const groupedPeople = groupByPersonUserStatus(allPeople, (person) => person.userStatus);
+
+  return {
+    allPeople,
+    groupedPeople,
   };
 });
 
@@ -456,6 +486,37 @@ export const getLeadsGroupedByStatusWithScores = cache(async () => {
     allLeads: leadsWithScores,
     groupedLeads,
     counts: getStatusCounts(groupedLeads),
+    tierCounts,
+  };
+});
+
+/**
+ * Get leads grouped by user status with scores
+ */
+export const getLeadsGroupedByUserStatusWithScores = cache(async () => {
+  const leadsWithScores = await getLeadsWithScores();
+  const groupedLeads = groupByLeadUserStatus(leadsWithScores, (lead) => lead.userStatus);
+
+  // Count by tier
+  const tierCounts = {
+    hot: 0,
+    warm: 0,
+    nurture: 0,
+    disqualified: 0,
+    unscored: 0,
+  };
+
+  for (const lead of leadsWithScores) {
+    if (lead.score) {
+      tierCounts[lead.score.tier]++;
+    } else {
+      tierCounts.unscored++;
+    }
+  }
+
+  return {
+    allLeads: leadsWithScores,
+    groupedLeads,
     tierCounts,
   };
 });

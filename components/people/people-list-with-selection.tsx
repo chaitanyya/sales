@@ -115,7 +115,7 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
           const response = await fetch("/api/conversation", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ personId }),
+            body: JSON.stringify({ personId, model: selectedModel }),
           });
 
           if (response.ok) {
@@ -148,7 +148,7 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
         );
       }
     },
-    [personMap, addTab]
+    [personMap, addTab, selectedModel]
   );
 
   const handleDelete = useCallback(

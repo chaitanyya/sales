@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconTargetArrow, IconLoader2 } from "@tabler/icons-react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { toast } from "sonner";
 
 interface RescoreButtonProps {
@@ -16,6 +17,7 @@ export function RescoreButton({ leadId, companyName, size = "default" }: Rescore
   const [isScoring, setIsScoring] = useState(false);
   const addTab = useStreamPanelStore((state) => state.addTab);
   const setOpen = useStreamPanelStore((state) => state.setOpen);
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
 
   const handleRescore = async () => {
     setIsScoring(true);
@@ -24,7 +26,7 @@ export function RescoreButton({ leadId, companyName, size = "default" }: Rescore
       const response = await fetch("/api/scoring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId, mode: "single" }),
+        body: JSON.stringify({ leadId, mode: "single", model: selectedModel }),
       });
 
       if (response.ok) {

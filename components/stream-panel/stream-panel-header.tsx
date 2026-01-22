@@ -1,17 +1,35 @@
 "use client";
 
+import { useMemo } from "react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { useShallow } from "zustand/react/shallow";
 import { StreamPanelTabs } from "./stream-panel-tabs";
 import { useStreamSubscription } from "./use-stream-subscription";
 import { IconChevronDown, IconChevronUp, IconPlayerStop } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 
 export function StreamPanelHeader() {
-  const { isOpen, tabs, activeTabId, toggle, removeTab, updateStatus } = useStreamPanelStore();
+  // Use individual selectors for actions (they're stable references)
+  const toggle = useStreamPanelStore((s) => s.toggle);
+  const removeTab = useStreamPanelStore((s) => s.removeTab);
+  const updateStatus = useStreamPanelStore((s) => s.updateStatus);
+
+  // Use shallow comparison for state that changes together
+  const { isOpen, tabs, activeTabId } = useStreamPanelStore(
+    useShallow((s) => ({ isOpen: s.isOpen, tabs: s.tabs, activeTabId: s.activeTabId }))
+  );
+
   const { killJob } = useStreamSubscription();
 
-  const activeTab = tabs.find((t) => t.jobId === activeTabId);
-  const hasRunningTabs = tabs.some((t) => t.status === "running");
+  // Memoize derived values
+  const activeTab = useMemo(
+    () => tabs.find((t) => t.jobId === activeTabId),
+    [tabs, activeTabId]
+  );
+  const hasRunningTabs = useMemo(
+    () => tabs.some((t) => t.status === "running"),
+    [tabs]
+  );
 
   const handleCloseTab = async (jobId: string, isRunning: boolean) => {
     if (isRunning) {

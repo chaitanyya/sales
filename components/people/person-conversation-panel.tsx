@@ -3,6 +3,7 @@
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useAgentAction } from "@/hooks/use-agent-action";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { IconPlayerPlay, IconFileText } from "@tabler/icons-react";
 
 interface PersonConversationPanelProps {
@@ -18,6 +19,8 @@ export function PersonConversationPanel({
   conversationTopics,
   companyName,
 }: PersonConversationPanelProps) {
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
+
   const { startAction, isStarting } = useAgentAction({
     entityId: personId,
     entityType: "conversation",
@@ -26,7 +29,7 @@ export function PersonConversationPanel({
     killEndpoint: "/api/conversation",
   });
 
-  const startGeneration = () => startAction({ body: { personId } });
+  const startGeneration = () => startAction({ body: { personId, model: selectedModel } });
 
   if (!conversationTopics) {
     return (

@@ -219,20 +219,35 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string, mode
       model,
       onData: (data) => processClaudeOutput(jobId, data),
       onExit: async (code: number, reason?: ExitReason) => {
-        if (reason === "timeout") {
-          setJobStatus(jobId, "timeout");
-          appendJobEntry(jobId, {
-            type: "error",
-            content: "Research timed out after 10 minutes",
-            timestamp: Date.now(),
-          });
-          await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
-        } else if (code === 0) {
-          setJobStatus(jobId, "completed");
-          await handleResearchComplete(leadId, leadDir, companyProfilePath, peoplePath);
-        } else {
+        try {
+          if (reason === "timeout") {
+            appendJobEntry(jobId, {
+              type: "error",
+              content: "Research timed out after 10 minutes",
+              timestamp: Date.now(),
+            });
+            await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+            // Set status AFTER successful DB update
+            setJobStatus(jobId, "timeout");
+          } else if (code === 0) {
+            await handleResearchComplete(leadId, leadDir, companyProfilePath, peoplePath);
+            // Set status AFTER successful DB operations
+            setJobStatus(jobId, "completed");
+          } else {
+            await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+            // Set status AFTER successful DB update
+            setJobStatus(jobId, "error");
+          }
+        } catch (error) {
+          console.error(`[research] Failed to update DB for job ${jobId}:`, error);
+          // Set error status on any DB failure
           setJobStatus(jobId, "error");
-          await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+          // Best-effort DB update
+          try {
+            await db.update(leads).set({ researchStatus: "failed" }).where(eq(leads.id, leadId));
+          } catch {
+            console.error(`[research] Best-effort DB update also failed for lead ${leadId}`);
+          }
         }
 
         revalidatePath("/");
@@ -336,20 +351,35 @@ async function handlePersonResearch(personId: number, customPrompt?: string, mod
       model,
       onData: (data) => processClaudeOutput(jobId, data),
       onExit: async (code: number, reason?: ExitReason) => {
-        if (reason === "timeout") {
-          setJobStatus(jobId, "timeout");
-          appendJobEntry(jobId, {
-            type: "error",
-            content: "Research timed out after 10 minutes",
-            timestamp: Date.now(),
-          });
-          await updatePersonResearch(personId, { researchStatus: "failed" });
-        } else if (code === 0) {
-          setJobStatus(jobId, "completed");
-          await handlePersonResearchComplete(personId, personDir, profilePath);
-        } else {
+        try {
+          if (reason === "timeout") {
+            appendJobEntry(jobId, {
+              type: "error",
+              content: "Research timed out after 10 minutes",
+              timestamp: Date.now(),
+            });
+            await updatePersonResearch(personId, { researchStatus: "failed" });
+            // Set status AFTER successful DB update
+            setJobStatus(jobId, "timeout");
+          } else if (code === 0) {
+            await handlePersonResearchComplete(personId, personDir, profilePath);
+            // Set status AFTER successful DB operations
+            setJobStatus(jobId, "completed");
+          } else {
+            await updatePersonResearch(personId, { researchStatus: "failed" });
+            // Set status AFTER successful DB update
+            setJobStatus(jobId, "error");
+          }
+        } catch (error) {
+          console.error(`[research] Failed to update DB for person job ${jobId}:`, error);
+          // Set error status on any DB failure
           setJobStatus(jobId, "error");
-          await updatePersonResearch(personId, { researchStatus: "failed" });
+          // Best-effort DB update
+          try {
+            await updatePersonResearch(personId, { researchStatus: "failed" });
+          } catch {
+            console.error(`[research] Best-effort DB update also failed for person ${personId}`);
+          }
         }
 
         revalidatePath("/people");

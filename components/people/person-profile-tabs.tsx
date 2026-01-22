@@ -7,6 +7,7 @@ import { PersonConversationPanel } from "./person-conversation-panel";
 import { IconUser, IconMessageCircle, IconRefresh, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useAgentAction } from "@/hooks/use-agent-action";
+import { useSettingsStore } from "@/lib/store/settings-store";
 
 interface PersonProfileTabsProps {
   personId: number;
@@ -24,6 +25,7 @@ export function PersonProfileTabs({
   companyName,
 }: PersonProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<"profile" | "conversation">("profile");
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
 
   const { startAction: startResearch, isStarting: isResearchStarting } = useAgentAction({
     entityId: personId,
@@ -41,8 +43,8 @@ export function PersonProfileTabs({
     killEndpoint: "/api/conversation",
   });
 
-  const handleResearch = () => startResearch({ body: { personId } });
-  const handleConversation = () => startConversation({ body: { personId } });
+  const handleResearch = () => startResearch({ body: { personId, model: selectedModel } });
+  const handleConversation = () => startConversation({ body: { personId, model: selectedModel } });
 
   const isStarting = isResearchStarting || isConversationStarting;
   const showProfileButton = activeTab === "profile" && !!personProfile;

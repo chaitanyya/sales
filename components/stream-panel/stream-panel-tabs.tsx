@@ -1,6 +1,7 @@
 "use client";
 
 import { useStreamPanelStore, StreamTab } from "@/lib/store/stream-panel-store";
+import { useShallow } from "zustand/react/shallow";
 import { ConnectionStatus } from "@/lib/stream";
 import { cn } from "@/lib/utils";
 import {
@@ -18,7 +19,13 @@ interface StreamPanelTabsProps {
 }
 
 export function StreamPanelTabs({ onCloseTab }: StreamPanelTabsProps) {
-  const { tabs, activeTabId, setActiveTab } = useStreamPanelStore();
+  // Use individual selector for action (stable reference)
+  const setActiveTab = useStreamPanelStore((s) => s.setActiveTab);
+
+  // Use shallow comparison for state that changes together
+  const { tabs, activeTabId } = useStreamPanelStore(
+    useShallow((s) => ({ tabs: s.tabs, activeTabId: s.activeTabId }))
+  );
 
   if (tabs.length === 0) {
     return null;

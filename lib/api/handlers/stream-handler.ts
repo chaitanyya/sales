@@ -74,35 +74,60 @@ export function createStreamRouteHandler(options: StreamHandlerOptions) {
         };
 
         const poll = async () => {
-          while (isActive) {
-            const output = getJobOutput(jobId);
-            const status = getJobStatus(jobId);
+          try {
+            // Track consecutive polls with no job found
+            let noJobPolls = 0;
+            const MAX_NO_JOB_POLLS = 5;
 
-            if (output.length > lastIndex) {
-              const newEntries = output.slice(lastIndex);
-              sendLogEntries(newEntries);
-              lastIndex = output.length;
-              idlePolls = 0;
-            } else {
-              idlePolls++;
-            }
+            while (isActive) {
+              const output = getJobOutput(jobId);
+              const status = getJobStatus(jobId);
 
-            if (status && status !== "running") {
-              const finalOutput = getJobOutput(jobId);
-              if (finalOutput.length > lastIndex) {
-                sendLogEntries(finalOutput.slice(lastIndex));
+              // Early exit for unknown jobs - wait a few polls before giving up
+              // (job might not be initialized yet)
+              if (!status && output.length === 0) {
+                noJobPolls++;
+                if (noJobPolls >= MAX_NO_JOB_POLLS) {
+                  console.error(`[stream-handler] Job ${jobId} not found after ${MAX_NO_JOB_POLLS} polls`);
+                  sendEvent({ type: "error", message: "Job not found" });
+                  controller.close();
+                  return;
+                }
+              } else {
+                noJobPolls = 0; // Reset if we find the job
               }
-              handleCompletion(status);
-              return;
+
+              if (output.length > lastIndex) {
+                const newEntries = output.slice(lastIndex);
+                sendLogEntries(newEntries);
+                lastIndex = output.length;
+                idlePolls = 0;
+              } else {
+                idlePolls++;
+              }
+
+              if (status && status !== "running") {
+                const finalOutput = getJobOutput(jobId);
+                if (finalOutput.length > lastIndex) {
+                  sendLogEntries(finalOutput.slice(lastIndex));
+                }
+                handleCompletion(status);
+                return;
+              }
+
+              const pollInterval =
+                idlePolls >= IDLE_THRESHOLD ? IDLE_POLL_INTERVAL : ACTIVE_POLL_INTERVAL;
+
+              await new Promise((resolve) => setTimeout(resolve, pollInterval));
             }
-
-            const pollInterval =
-              idlePolls >= IDLE_THRESHOLD ? IDLE_POLL_INTERVAL : ACTIVE_POLL_INTERVAL;
-
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          } catch (error) {
+            console.error(`[stream-handler] Poll error for job ${jobId}:`, error);
+            sendEvent({ type: "error", message: "Stream error occurred" });
+            controller.close();
           }
         };
 
+        // Start polling - errors are now caught internally
         poll();
       },
       cancel() {

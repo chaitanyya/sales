@@ -22,6 +22,7 @@ export { getJobOutput, getJobStatus, clearJobOutput } from "@/lib/research/job-s
 
 const conversationRequestSchema = z.object({
   personId: z.number().int().positive("personId must be a positive integer"),
+  model: z.enum(["opus", "sonnet"]).optional(),
 });
 
 async function handleConversationComplete(
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
       return badRequest(errorMessage);
     }
 
-    const { personId } = parseResult.data;
+    const { personId, model } = parseResult.data;
 
     const person = await getPersonRaw(personId);
     if (!person) {
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
         prompt: fullPrompt,
         workingDir: process.cwd(),
         timeoutMs: 10 * 60 * 1000, // 10 minutes
+        model,
         onData: (data) => processClaudeOutput(jobId, data),
         onExit: async (code: number, reason?: ExitReason) => {
           if (reason === "timeout") {

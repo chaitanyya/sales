@@ -112,7 +112,7 @@ export function LeadListWithSelection({ groupedLeads }: LeadListWithSelectionPro
           const response = await fetch("/api/scoring", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ leadId, mode: "single" }),
+            body: JSON.stringify({ leadId, mode: "single", model: selectedModel }),
           });
 
           if (response.ok) {
@@ -141,7 +141,7 @@ export function LeadListWithSelection({ groupedLeads }: LeadListWithSelectionPro
         toast.error(`Failed to start scoring for ${failed} lead${failed > 1 ? "s" : ""}`);
       }
     },
-    [leadMap, addTab]
+    [leadMap, addTab, selectedModel]
   );
 
   const handleDelete = React.useCallback(

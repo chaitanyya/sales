@@ -1,6 +1,6 @@
 import { Layer, Effect, Context } from "effect";
 import { randomUUID } from "crypto";
-import { spawn, execSync } from "child_process";
+import { spawn, execSync, ChildProcess } from "child_process";
 import {
   ClaudeError,
   ClaudeTimeoutError,
@@ -16,6 +16,19 @@ import {
 
 const MAX_CONCURRENT_JOBS = 5;
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const QUEUE_TIMEOUT_MS = 30_000; // 30 seconds queue timeout
+
+// ============================================================================
+// Custom Errors
+// ============================================================================
+
+export class QueueTimeoutError extends Error {
+  readonly _tag = "QueueTimeoutError";
+  constructor(jobId: string) {
+    super(`Job ${jobId} timed out waiting in queue after ${QUEUE_TIMEOUT_MS}ms`);
+    this.name = "QueueTimeoutError";
+  }
+}
 
 // ============================================================================
 // Types
@@ -69,9 +82,16 @@ interface ActiveJobEntry {
 // Simple Semaphore Implementation (for queue management)
 // ============================================================================
 
+interface WaitQueueEntry {
+  resolve: () => void;
+  reject: (err: Error) => void;
+  signal?: AbortSignal;
+  abortHandler?: () => void;
+}
+
 class SimpleSemaphore {
   private permits: number;
-  private waitQueue: Array<{ resolve: () => void; signal?: AbortSignal }> = [];
+  private waitQueue: WaitQueueEntry[] = [];
 
   constructor(maxPermits: number) {
     this.permits = maxPermits;
@@ -88,24 +108,35 @@ class SimpleSemaphore {
     }
 
     return new Promise<void>((resolve, reject) => {
-      const entry = { resolve, signal };
-      this.waitQueue.push(entry);
+      const entry: WaitQueueEntry = { resolve, reject, signal };
 
       if (signal) {
-        signal.addEventListener("abort", () => {
+        // Store handler reference so we can remove it later
+        entry.abortHandler = () => {
           const index = this.waitQueue.indexOf(entry);
           if (index !== -1) {
             this.waitQueue.splice(index, 1);
+            // Clean up listener before rejecting
+            if (entry.abortHandler) {
+              signal.removeEventListener("abort", entry.abortHandler);
+            }
             reject(new Error("Aborted"));
           }
-        });
+        };
+        signal.addEventListener("abort", entry.abortHandler);
       }
+
+      this.waitQueue.push(entry);
     });
   }
 
   release(): void {
     const next = this.waitQueue.shift();
     if (next) {
+      // Clean up abort listener when resolving
+      if (next.abortHandler && next.signal) {
+        next.signal.removeEventListener("abort", next.abortHandler);
+      }
       next.resolve();
     } else {
       this.permits++;
@@ -145,9 +176,49 @@ async function runResearchJob(
   const timeoutMs = opts.timeoutMs ?? DEFAULT_JOB_TIMEOUT_MS;
   const workingDir = opts.workingDir ?? process.cwd();
 
+  // Store child process reference for cleanup on timeout
+  let childProcess: ChildProcess | null = null;
+  let timeoutId: NodeJS.Timeout | undefined;
+  let queueTimeoutId: NodeJS.Timeout | undefined;
+
+  // Cleanup function to remove all event listeners
+  const cleanup = () => {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (queueTimeoutId) clearTimeout(queueTimeoutId);
+    if (childProcess) {
+      childProcess.stdout?.removeAllListeners();
+      childProcess.stderr?.removeAllListeners();
+      childProcess.removeAllListeners();
+    }
+  };
+
   try {
     console.log(`[effect-runtime] jobId=${jobId} acquiring semaphore`);
-    await semaphore.acquire(abortController.signal);
+
+    // Phase 2.3: Implement queue timeout
+    const queueTimeoutPromise = new Promise<never>((_, reject) => {
+      queueTimeoutId = setTimeout(() => {
+        reject(new QueueTimeoutError(jobId));
+      }, QUEUE_TIMEOUT_MS);
+      // Clear queue timeout if aborted
+      abortController.signal.addEventListener(
+        "abort",
+        () => {
+          if (queueTimeoutId) clearTimeout(queueTimeoutId);
+        },
+        { once: true }
+      );
+    });
+
+    // Race between semaphore acquisition and queue timeout
+    await Promise.race([semaphore.acquire(abortController.signal), queueTimeoutPromise]);
+
+    // Clear queue timeout once we've acquired the semaphore
+    if (queueTimeoutId) {
+      clearTimeout(queueTimeoutId);
+      queueTimeoutId = undefined;
+    }
+
     console.log(`[effect-runtime] jobId=${jobId} semaphore acquired`);
 
     // Update status to running
@@ -165,17 +236,30 @@ async function runResearchJob(
     }
     console.log(`[effect-runtime] jobId=${jobId} claude path: ${claudePath}`);
 
-    // Create timeout handler
-    let timeoutId: NodeJS.Timeout | undefined;
+    // Phase 1.2: Create timeout handler that kills the process
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
+        // Kill the process on timeout
+        if (childProcess && !childProcess.killed) {
+          console.log(`[effect-runtime] jobId=${jobId} timeout - killing process`);
+          childProcess.kill("SIGTERM");
+          setTimeout(() => {
+            if (childProcess && !childProcess.killed) {
+              childProcess.kill("SIGKILL");
+            }
+          }, 2000);
+        }
         reject(new ClaudeTimeoutError({ jobId, timeoutMs }));
       }, timeoutMs);
 
-      abortController.signal.addEventListener("abort", () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        reject(new Error("Aborted"));
-      });
+      abortController.signal.addEventListener(
+        "abort",
+        () => {
+          if (timeoutId) clearTimeout(timeoutId);
+          reject(new Error("Aborted"));
+        },
+        { once: true }
+      );
     });
 
     // Spawn the process
@@ -196,59 +280,72 @@ async function runResearchJob(
         args.push("--model", opts.model);
       }
 
-      const child = spawn(claudePath, args, {
+      childProcess = spawn(claudePath, args, {
         cwd: workingDir,
         env: { ...process.env, TERM: "xterm-256color", FORCE_COLOR: "1" },
         stdio: ["pipe", "pipe", "pipe"],
       });
 
-      console.log(`[effect-runtime] jobId=${jobId} spawned pid=${child.pid}`);
+      console.log(`[effect-runtime] jobId=${jobId} spawned pid=${childProcess.pid}`);
 
-      child.stdout?.on("data", (data: Buffer) => {
+      childProcess.stdout?.on("data", (data: Buffer) => {
         opts.onData(data.toString());
       });
 
-      child.stderr?.on("data", (data: Buffer) => {
+      childProcess.stderr?.on("data", (data: Buffer) => {
         opts.onData(data.toString());
       });
 
-      child.on("error", (err) => {
+      childProcess.on("error", (err) => {
         console.error(`[effect-runtime] jobId=${jobId} process error:`, err);
         reject(err);
       });
 
-      child.on("close", (code) => {
+      childProcess.on("close", (code) => {
         console.log(`[effect-runtime] jobId=${jobId} process closed with code=${code}`);
         if (timeoutId) clearTimeout(timeoutId);
         resolve({ exitCode: code ?? 0, reason: "completed" });
       });
 
-      child.stdin?.end();
+      childProcess.stdin?.end();
 
-      // Handle abort
-      abortController.signal.addEventListener("abort", () => {
+      // Handle abort - stored reference for cleanup
+      const abortHandler = () => {
         console.log(`[effect-runtime] jobId=${jobId} aborting process`);
-        child.kill("SIGTERM");
-        setTimeout(() => {
-          if (!child.killed) child.kill("SIGKILL");
-        }, 2000);
-      });
+        if (childProcess && !childProcess.killed) {
+          childProcess.kill("SIGTERM");
+          setTimeout(() => {
+            if (childProcess && !childProcess.killed) {
+              childProcess.kill("SIGKILL");
+            }
+          }, 2000);
+        }
+      };
+      abortController.signal.addEventListener("abort", abortHandler, { once: true });
     });
 
     // Race between job completion and timeout
     const result = await Promise.race([processPromise, timeoutPromise]);
 
+    // Phase 2.2: Clean up event listeners
+    cleanup();
+
     console.log(`[effect-runtime] jobId=${jobId} completed with code=${result.exitCode}`);
     opts.onExit?.(result.exitCode, result.reason);
   } catch (error) {
+    // Phase 2.2: Clean up on error too
+    cleanup();
+
     console.error(`[effect-runtime] jobId=${jobId} error:`, error);
     const err = error as { _tag?: string; message?: string };
     const reason: ExitReason =
       err._tag === "ClaudeTimeoutError"
         ? "timeout"
-        : err.message === "Aborted"
-          ? "killed"
-          : "completed";
+        : err._tag === "QueueTimeoutError"
+          ? "timeout"
+          : err.message === "Aborted"
+            ? "killed"
+            : "completed";
     opts.onExit?.(1, reason);
   } finally {
     console.log(`[effect-runtime] jobId=${jobId} releasing semaphore`);

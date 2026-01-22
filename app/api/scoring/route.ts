@@ -30,6 +30,7 @@ export { getJobOutput, getJobStatus, clearJobOutput } from "@/lib/research/job-s
 const scoringRequestSchema = z.object({
   leadId: z.number().int().positive().optional(),
   mode: z.enum(["single", "unscored", "all"]).default("single"),
+  model: z.enum(["opus", "sonnet"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       return badRequest(errorMessage);
     }
 
-    const { leadId, mode } = parseResult.data;
+    const { leadId, mode, model } = parseResult.data;
 
     // Get active scoring config
     const config = await getActiveScoringConfig();
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     initializeJob(jobId, `Starting scoring for ${leadsToScore.length} lead(s)...`);
 
     // Start scoring process in background
-    processLeadsSequentially(jobId, leadsToScore, config);
+    processLeadsSequentially(jobId, leadsToScore, config, model);
 
     return jsonSuccess({
       jobId,
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
 async function processLeadsSequentially(
   jobId: string,
   leads: { id: number; companyName: string }[],
-  config: Awaited<ReturnType<typeof getActiveScoringConfig>>
+  config: Awaited<ReturnType<typeof getActiveScoringConfig>>,
+  model?: "opus" | "sonnet"
 ) {
   if (!config) return;
 
@@ -114,7 +116,7 @@ async function processLeadsSequentially(
         timestamp: Date.now(),
       });
 
-      await scoreSingleLead(jobId, leadInfo.id, config);
+      await scoreSingleLead(jobId, leadInfo.id, config, model);
       completed++;
 
       appendJobEntry(jobId, {
@@ -145,7 +147,8 @@ async function processLeadsSequentially(
 async function scoreSingleLead(
   parentJobId: string,
   leadId: number,
-  config: Awaited<ReturnType<typeof getActiveScoringConfig>>
+  config: Awaited<ReturnType<typeof getActiveScoringConfig>>,
+  model?: "opus" | "sonnet"
 ): Promise<void> {
   if (!config) throw new Error("No config");
 
@@ -176,6 +179,7 @@ async function scoreSingleLead(
         prompt,
         workingDir: process.cwd(),
         timeoutMs: 5 * 60 * 1000, // 5 minute timeout for scoring
+        model,
         onData: (data) => {
           // Forward output to parent job
           processClaudeOutput(parentJobId, data);

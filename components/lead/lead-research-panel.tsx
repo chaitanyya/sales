@@ -62,7 +62,7 @@ export function LeadResearchPanel({
       const response = await fetch("/api/scoring", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: lead.id, mode: "single" }),
+        body: JSON.stringify({ leadId: lead.id, mode: "single", model: selectedModel }),
       });
 
       if (response.ok) {

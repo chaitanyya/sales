@@ -1,19 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { useShallow } from "zustand/react/shallow";
 import { StreamPanel } from "./stream-panel";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 export function StreamPanelWrapper({ children }: { children: React.ReactNode }) {
-  const { tabs, isOpen } = useStreamPanelStore();
+  // Phase 4.1: Track hydration state to prevent flash
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Rehydrate store on client mount
+  // Use shallow comparison for state that changes together
+  const { tabs, isOpen } = useStreamPanelStore(
+    useShallow((s) => ({ tabs: s.tabs, isOpen: s.isOpen }))
+  );
+
+  // Rehydrate store on client mount and track hydration completion
   useEffect(() => {
     useStreamPanelStore.persist.rehydrate();
+    setIsHydrated(true);
   }, []);
 
   const hasTabs = tabs.length > 0;
+
+  // Render without panel until hydration is complete to prevent flash
+  if (!isHydrated) {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+      </div>
+    );
+  }
 
   // If no tabs, just render children without resizable panels
   if (!hasTabs) {

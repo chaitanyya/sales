@@ -5,7 +5,8 @@ import { StreamPanelHeader } from "./stream-panel-header";
 import { StreamPanelContent } from "./stream-panel-content";
 
 export function StreamPanel() {
-  const { isOpen } = useStreamPanelStore();
+  // Use individual selector to only re-render when isOpen changes
+  const isOpen = useStreamPanelStore((s) => s.isOpen);
 
   return (
     <div className="bg-black flex flex-col h-full">

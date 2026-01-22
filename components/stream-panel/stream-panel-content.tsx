@@ -1,7 +1,8 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { useShallow } from "zustand/react/shallow";
 import { ClientLogEntry, LogEntryType } from "@/lib/types/claude";
 import { cn } from "@/lib/utils";
 import {
@@ -18,9 +19,16 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export function StreamPanelContent() {
-  const { tabs, activeTabId } = useStreamPanelStore();
+  // Use shallow comparison for derived state to avoid re-renders when other tabs change
+  const { tabs, activeTabId } = useStreamPanelStore(
+    useShallow((s) => ({ tabs: s.tabs, activeTabId: s.activeTabId }))
+  );
 
-  const activeTab = tabs.find((t) => t.jobId === activeTabId);
+  // Memoize active tab lookup
+  const activeTab = useMemo(
+    () => tabs.find((t) => t.jobId === activeTabId),
+    [tabs, activeTabId]
+  );
 
   if (!activeTab) {
     return (

@@ -58,7 +58,7 @@ export function AddPersonModal({ leads }: { leads: Lead[] }) {
       setFormData({ firstName: "", lastName: "", email: "", title: "", leadId: "" });
       router.refresh();
       toast.success("Person added successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to add person");
     } finally {
       setLoading(false);

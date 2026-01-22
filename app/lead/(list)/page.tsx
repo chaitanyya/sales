@@ -8,7 +8,7 @@ import { LeadListWithSelection } from "@/components/leads/lead-list-with-selecti
 export const revalidate = 30;
 
 export default async function Page() {
-  const { groupedLeads, tierCounts, allLeads } = await getLeadsGroupedByUserStatusWithScores();
+  const { groupedLeads, tierCounts } = await getLeadsGroupedByUserStatusWithScores();
 
   return (
     <>

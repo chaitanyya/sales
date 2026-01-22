@@ -88,7 +88,7 @@ export function PromptEditor({
             description: errorData.error || "An unexpected error occurred",
           });
         }
-      } catch (error) {
+      } catch {
         toast.error("Failed to save prompt");
       } finally {
         setIsSaving(false);

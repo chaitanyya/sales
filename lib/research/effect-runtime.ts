@@ -4,7 +4,6 @@ import { spawn, execSync } from "child_process";
 import {
   ClaudeError,
   ClaudeTimeoutError,
-  QueueTimeoutError,
   JobNotFoundError,
   ProcessResult,
   ExitReason,
@@ -16,7 +15,6 @@ import {
 // ============================================================================
 
 const MAX_CONCURRENT_JOBS = 5;
-const QUEUE_TIMEOUT_MS = 30_000; // Wait up to 30s for a slot
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 // ============================================================================

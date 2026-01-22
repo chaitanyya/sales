@@ -45,7 +45,7 @@ export function RescoreButton({ leadId, companyName, size = "default" }: Rescore
           description: errorData.error || "An unexpected error occurred",
         });
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to start scoring");
     } finally {
       setIsScoring(false);

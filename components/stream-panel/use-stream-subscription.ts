@@ -88,7 +88,7 @@ export function useStreamSubscription() {
   const killJob = async (jobId: string) => {
     try {
       await fetch(`/api/research/${jobId}/kill`, { method: "POST" });
-    } catch (error) {
+    } catch {
       toast.error("Failed to stop job");
     }
     StreamManager.unsubscribe(jobId);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { ResearchService, ResearchServiceLive } from "@/lib/research/research-service";
 import { setJobStatus, clearJobOutput } from "@/lib/research/job-state";
 

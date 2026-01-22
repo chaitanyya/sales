@@ -46,7 +46,7 @@ export function AddLeadModal() {
       setFormData({ companyName: "", website: "", city: "", state: "", country: "" });
       router.refresh();
       toast.success("Lead added successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to add lead");
     } finally {
       setLoading(false);

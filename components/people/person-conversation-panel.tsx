@@ -1,9 +1,9 @@
 "use client";
 
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
-import { EmptyState, SmallEmptyState } from "@/components/ui/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAgentAction } from "@/hooks/use-agent-action";
-import { IconPlayerPlay, IconMessageCircle, IconFileText } from "@tabler/icons-react";
+import { IconPlayerPlay, IconFileText } from "@tabler/icons-react";
 
 interface PersonConversationPanelProps {
   personId: number;

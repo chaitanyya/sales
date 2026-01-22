@@ -4,7 +4,6 @@ import {
   IconBuilding,
   IconUsers,
   IconTypography,
-  IconSettings,
   IconTargetArrow,
 } from "@tabler/icons-react";
 import { getOnboardingStatus } from "@/lib/db/queries";

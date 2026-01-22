@@ -1,4 +1,4 @@
-import { db, leads, prompts, scoringConfig } from "./index";
+import { db, prompts, scoringConfig } from "./index";
 import { defaultScoringConfig } from "../lib/types/scoring";
 
 async function seed() {

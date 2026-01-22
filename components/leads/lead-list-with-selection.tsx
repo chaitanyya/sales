@@ -16,6 +16,7 @@ import { ResearchStatusBadge } from "@/components/status/research-status-badge";
 import { toast } from "sonner";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import { useSelectionStore } from "@/lib/store/selection-store";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { deleteLeads } from "@/app/actions/bulk";
 import type { ParsedLeadScore } from "@/lib/types/scoring";
 import {
@@ -45,6 +46,7 @@ export function LeadListWithSelection({ groupedLeads }: LeadListWithSelectionPro
   const router = useRouter();
   const addTab = useStreamPanelStore((state) => state.addTab);
   const clearSelection = useSelectionStore((state) => state.clearAll);
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
 
   // Create a map for quick lead name lookups
   const leadMap = React.useMemo(() => {
@@ -69,7 +71,7 @@ export function LeadListWithSelection({ groupedLeads }: LeadListWithSelectionPro
           const response = await fetch("/api/research", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ leadId }),
+            body: JSON.stringify({ leadId, model: selectedModel }),
           });
 
           if (response.ok) {
@@ -98,7 +100,7 @@ export function LeadListWithSelection({ groupedLeads }: LeadListWithSelectionPro
         toast.error(`Failed to start research for ${failed} lead${failed > 1 ? "s" : ""}`);
       }
     },
-    [leadMap, addTab]
+    [leadMap, addTab, selectedModel]
   );
 
   const handleScore = React.useCallback(

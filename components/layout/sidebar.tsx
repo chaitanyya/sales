@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { getOnboardingStatus } from "@/lib/db/queries";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
+import { ModelSelector } from "./model-selector";
 
 export async function Sidebar() {
   const status = await getOnboardingStatus();
@@ -75,11 +76,11 @@ export async function Sidebar() {
 
       <OnboardingChecklist status={status} />
 
-      <div className="p-2 border-t border-white/5">
-        <div className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-white/5 cursor-pointer">
-          <IconSettings className="w-4 h-4" />
-          <span>Settings</span>
+      <div className="p-2 border-t border-white/5 space-y-1">
+        <div className="px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium">
+          Settings
         </div>
+        <ModelSelector />
       </div>
     </aside>
   );

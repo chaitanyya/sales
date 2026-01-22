@@ -3,6 +3,7 @@
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { EmptyState, SmallEmptyState } from "@/components/ui/empty-state";
 import { useAgentAction } from "@/hooks/use-agent-action";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { IconPlayerPlay, IconUser, IconFileText } from "@tabler/icons-react";
 
 interface PersonResearchPanelProps {
@@ -26,7 +27,8 @@ export function PersonResearchPanel({
     killEndpoint: "/api/research",
   });
 
-  const startResearch = () => startAction({ body: { personId } });
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
+  const startResearch = () => startAction({ body: { personId, model: selectedModel } });
 
   if (!personProfile) {
     return (

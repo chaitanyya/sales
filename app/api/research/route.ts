@@ -37,6 +37,7 @@ const researchRequestSchema = z
     leadId: z.number().int().positive("leadId must be a positive integer").optional(),
     personId: z.number().int().positive("personId must be a positive integer").optional(),
     customPrompt: z.string().optional(),
+    model: z.enum(["opus", "sonnet"]).optional(),
   })
   .refine((data) => data.leadId || data.personId, {
     message: "Either leadId or personId must be provided",
@@ -148,22 +149,22 @@ export async function POST(request: NextRequest) {
       return badRequest(errorMessage);
     }
 
-    const { leadId, personId, customPrompt } = parseResult.data;
+    const { leadId, personId, customPrompt, model } = parseResult.data;
 
     // Handle person research
     if (personId) {
-      return handlePersonResearch(personId, customPrompt);
+      return handlePersonResearch(personId, customPrompt, model);
     }
 
     // Handle company research (leadId must be present due to schema validation)
-    return handleCompanyResearch(leadId!, customPrompt);
+    return handleCompanyResearch(leadId!, customPrompt, model);
   } catch (error) {
     console.error("Research error:", error);
     return serverError("Failed to start research");
   }
 }
 
-async function handleCompanyResearch(leadId: number, customPrompt?: string) {
+async function handleCompanyResearch(leadId: number, customPrompt?: string, model?: string) {
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId)).limit(1);
 
   if (!lead) {
@@ -218,6 +219,7 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
       prompt: fullPrompt,
       workingDir: process.cwd(),
       timeoutMs: 10 * 60 * 1000, // 10 minutes
+      model,
       onData: (data) => processClaudeOutput(jobId, data),
       onExit: async (code: number, reason?: ExitReason) => {
         if (reason === "timeout") {
@@ -273,7 +275,7 @@ async function handleCompanyResearch(leadId: number, customPrompt?: string) {
   }
 }
 
-async function handlePersonResearch(personId: number, customPrompt?: string) {
+async function handlePersonResearch(personId: number, customPrompt?: string, model?: string) {
   const person = await getPersonRaw(personId);
 
   if (!person) {
@@ -334,6 +336,7 @@ async function handlePersonResearch(personId: number, customPrompt?: string) {
       prompt: fullPrompt,
       workingDir: process.cwd(),
       timeoutMs: 10 * 60 * 1000, // 10 minutes
+      model,
       onData: (data) => processClaudeOutput(jobId, data),
       onExit: async (code: number, reason?: ExitReason) => {
         if (reason === "timeout") {

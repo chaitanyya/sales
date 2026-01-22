@@ -28,6 +28,7 @@ export interface ResearchJobOptions {
   prompt: string;
   workingDir?: string;
   timeoutMs?: number;
+  model?: string;
   onData: (data: string) => void;
   onExit?: (code: number, reason: ExitReason) => void;
 }
@@ -183,23 +184,25 @@ async function runResearchJob(
     const processPromise = new Promise<ProcessResult>((resolve, reject) => {
       console.log(`[effect-runtime] jobId=${jobId} spawning process`);
 
-      const child = spawn(
-        claudePath,
-        [
-          "-p",
-          opts.prompt,
-          "--output-format",
-          "stream-json",
-          "--verbose",
-          "--dangerously-skip-permissions",
-          "--chrome",
-        ],
-        {
-          cwd: workingDir,
-          env: { ...process.env, TERM: "xterm-256color", FORCE_COLOR: "1" },
-          stdio: ["pipe", "pipe", "pipe"],
-        }
-      );
+      const args = [
+        "-p",
+        opts.prompt,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
+        "--chrome",
+      ];
+
+      if (opts.model) {
+        args.push("--model", opts.model);
+      }
+
+      const child = spawn(claudePath, args, {
+        cwd: workingDir,
+        env: { ...process.env, TERM: "xterm-256color", FORCE_COLOR: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
 
       console.log(`[effect-runtime] jobId=${jobId} spawned pid=${child.pid}`);
 

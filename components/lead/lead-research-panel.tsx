@@ -23,6 +23,7 @@ import {
 import type { ParsedLeadScore } from "@/lib/types/scoring";
 import { ScoreBreakdown } from "@/components/leads/score-breakdown";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { toast } from "sonner";
 
 interface LeadResearchPanelProps {
@@ -51,8 +52,9 @@ export function LeadResearchPanel({
 
   const addTab = useStreamPanelStore((state) => state.addTab);
   const setOpen = useStreamPanelStore((state) => state.setOpen);
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
 
-  const startResearch = () => startAction({ body: { leadId: lead.id } });
+  const startResearch = () => startAction({ body: { leadId: lead.id, model: selectedModel } });
 
   const handleScore = async () => {
     setIsScoring(true);

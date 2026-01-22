@@ -13,6 +13,7 @@ import type { ActionConfig } from "@/components/selection";
 import { toast } from "sonner";
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
 import { useSelectionStore } from "@/lib/store/selection-store";
+import { useSettingsStore } from "@/lib/store/settings-store";
 import { deletePeople } from "@/app/actions/bulk";
 import {
   PERSON_USER_STATUS_CONFIG,
@@ -44,6 +45,7 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
   const router = useRouter();
   const addTab = useStreamPanelStore((state) => state.addTab);
   const clearSelection = useSelectionStore((state) => state.clearAll);
+  const selectedModel = useSettingsStore((state) => state.selectedModel);
 
   // Create a map for quick person name lookups
   const personMap = useMemo(() => {
@@ -70,7 +72,7 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
           const response = await fetch("/api/research", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ personId }),
+            body: JSON.stringify({ personId, model: selectedModel }),
           });
 
           if (response.ok) {
@@ -99,7 +101,7 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
         toast.error(`Failed to start research for ${failed} ${failed > 1 ? "people" : "person"}`);
       }
     },
-    [personMap, addTab]
+    [personMap, addTab, selectedModel]
   );
 
   const handleConversation = useCallback(

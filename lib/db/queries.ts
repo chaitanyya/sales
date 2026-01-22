@@ -3,7 +3,12 @@ import { db, leads, prompts, people, scoringConfig, leadScores } from "@/db";
 import { eq, asc, desc, sql, isNotNull } from "drizzle-orm";
 import { NewPerson, NewScoringConfig } from "@/db/schema";
 import type { ParsedScoringConfig, ParsedLeadScore, ScoringTier } from "@/lib/types/scoring";
-import { groupByStatus, getStatusCounts, groupByLeadUserStatus, groupByPersonUserStatus } from "./status-utils";
+import {
+  groupByStatus,
+  getStatusCounts,
+  groupByLeadUserStatus,
+  groupByPersonUserStatus,
+} from "./status-utils";
 
 /**
  * Get a single lead by ID
@@ -69,15 +74,17 @@ export const getPrompt = cache(async () => {
 /**
  * Get prompt by type (company, person, company_overview, or conversation_topics)
  */
-export const getPromptByType = cache(async (type: "company" | "person" | "company_overview" | "conversation_topics") => {
-  const [prompt] = await db
-    .select()
-    .from(prompts)
-    .where(eq(prompts.type, type))
-    .orderBy(desc(prompts.id))
-    .limit(1);
-  return prompt ?? null;
-});
+export const getPromptByType = cache(
+  async (type: "company" | "person" | "company_overview" | "conversation_topics") => {
+    const [prompt] = await db
+      .select()
+      .from(prompts)
+      .where(eq(prompts.type, type))
+      .orderBy(desc(prompts.id))
+      .limit(1);
+    return prompt ?? null;
+  }
+);
 
 /**
  * Save or update the prompt
@@ -103,7 +110,10 @@ export async function savePrompt(content: string) {
 /**
  * Save or update prompt by type
  */
-export async function savePromptByType(type: "company" | "person" | "company_overview" | "conversation_topics", content: string) {
+export async function savePromptByType(
+  type: "company" | "person" | "company_overview" | "conversation_topics",
+  content: string
+) {
   const existing = await getPromptByType(type);
 
   if (existing) {
@@ -641,9 +651,7 @@ export type OnboardingStatus = {
  * Derive onboarding completion status from existing data
  */
 export const getOnboardingStatus = cache(async (): Promise<OnboardingStatus> => {
-  const [leadCount] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(leads);
+  const [leadCount] = await db.select({ count: sql<number>`count(*)` }).from(leads);
 
   const [researchedLead] = await db
     .select()

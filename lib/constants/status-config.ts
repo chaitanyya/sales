@@ -59,7 +59,12 @@ export const RESEARCH_STATUS_CONFIG: Record<ResearchStatusType, StatusConfigItem
   },
 };
 
-export const RESEARCH_STATUS_ORDER: ResearchStatusType[] = ["completed", "in_progress", "pending", "failed"];
+export const RESEARCH_STATUS_ORDER: ResearchStatusType[] = [
+  "completed",
+  "in_progress",
+  "pending",
+  "failed",
+];
 
 export function isValidResearchStatus(status: string | null): status is ResearchStatusType {
   return status !== null && RESEARCH_STATUS_ORDER.includes(status as ResearchStatusType);

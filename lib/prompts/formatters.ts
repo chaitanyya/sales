@@ -30,11 +30,7 @@ export function formatLeadContext(
   lead: Lead | LeadWithPeople,
   options: FormatLeadOptions = {}
 ): string {
-  const {
-    includeHeader = false,
-    includeProfile = false,
-    includePeople = false,
-  } = options;
+  const { includeHeader = false, includeProfile = false, includePeople = false } = options;
 
   const header = includeHeader ? "CONTEXT - Company Information:\n" : "";
 
@@ -97,10 +93,7 @@ export function formatPersonContext(
   lead: Lead,
   options: FormatPersonOptions = {}
 ): string {
-  const {
-    includeHeader = false,
-    includeCompanyContext = false,
-  } = options;
+  const { includeHeader = false, includeCompanyContext = false } = options;
 
   const header = includeHeader ? "CONTEXT - Person Information:\n" : "";
 

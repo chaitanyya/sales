@@ -166,7 +166,11 @@ interface SidebarSectionProps {
 
 export function SidebarSection({ title, children, hasBorder = false }: SidebarSectionProps) {
   return (
-    <div className={hasBorder ? "border-t border-white/5 pt-4 mt-4" : "mb-6 pb-4 border-b border-white/5"}>
+    <div
+      className={
+        hasBorder ? "border-t border-white/5 pt-4 mt-4" : "mb-6 pb-4 border-b border-white/5"
+      }
+    >
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
         {title}
       </h3>

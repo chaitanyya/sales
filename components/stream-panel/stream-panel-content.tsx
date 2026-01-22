@@ -54,7 +54,12 @@ const ActivityEntry = memo(function ActivityEntry({ entry }: { entry: ClientLogE
 
   return (
     <div className="flex items-start gap-2 py-2 px-3 border-b border-dashed border-muted hover:bg-muted/50 transition-colors">
-      <div className={cn("w-4 h-4 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5", color)}>
+      <div
+        className={cn(
+          "w-4 h-4 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5",
+          color
+        )}
+      >
         {getLogIcon(entry.type)}
       </div>
 
@@ -65,7 +70,9 @@ const ActivityEntry = memo(function ActivityEntry({ entry }: { entry: ClientLogE
           </div>
         ) : (
           <>
-            {entry.toolName && <span className={cn("font-medium", color)}>[{entry.toolName}] </span>}
+            {entry.toolName && (
+              <span className={cn("font-medium", color)}>[{entry.toolName}] </span>
+            )}
             <span className="text-muted-foreground">{entry.content}</span>
           </>
         )}
@@ -132,4 +139,3 @@ function formatTime(date: Date | string) {
     second: "2-digit",
   });
 }
-

@@ -16,10 +16,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   ClaudeSpawnError: "Failed to start process.",
 };
 
-export async function handleEffectError(
-  error: unknown,
-  options?: ErrorHandlerOptions
-) {
+export async function handleEffectError(error: unknown, options?: ErrorHandlerOptions) {
   const err = error as EffectError;
   const tag = err._tag || "";
 

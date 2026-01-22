@@ -2,7 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { IconDeviceFloppy, IconLoader2, IconBuilding, IconUser, IconInfoCircle, IconMessageCircle } from "@tabler/icons-react";
+import {
+  IconDeviceFloppy,
+  IconLoader2,
+  IconBuilding,
+  IconUser,
+  IconInfoCircle,
+  IconMessageCircle,
+} from "@tabler/icons-react";
 import { toast } from "sonner";
 
 interface PromptEditorProps {
@@ -12,8 +19,15 @@ interface PromptEditorProps {
   conversationTopicsContent: string;
 }
 
-export function PromptEditor({ companyPromptContent, personPromptContent, companyOverviewContent, conversationTopicsContent }: PromptEditorProps) {
-  const [activeTab, setActiveTab] = useState<"company" | "person" | "company_overview" | "conversation_topics">("company_overview");
+export function PromptEditor({
+  companyPromptContent,
+  personPromptContent,
+  companyOverviewContent,
+  conversationTopicsContent,
+}: PromptEditorProps) {
+  const [activeTab, setActiveTab] = useState<
+    "company" | "person" | "company_overview" | "conversation_topics"
+  >("company_overview");
   const [companyContent, setCompanyContent] = useState(companyPromptContent);
   const [personContent, setPersonContent] = useState(personPromptContent);
   const [overviewContent, setOverviewContent] = useState(companyOverviewContent);
@@ -23,19 +37,31 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
 
   const getCurrentContent = () => {
     switch (activeTab) {
-      case "company": return companyContent;
-      case "person": return personContent;
-      case "company_overview": return overviewContent;
-      case "conversation_topics": return conversationContent;
+      case "company":
+        return companyContent;
+      case "person":
+        return personContent;
+      case "company_overview":
+        return overviewContent;
+      case "conversation_topics":
+        return conversationContent;
     }
   };
 
   const setCurrentContent = (value: string) => {
     switch (activeTab) {
-      case "company": setCompanyContent(value); break;
-      case "person": setPersonContent(value); break;
-      case "company_overview": setOverviewContent(value); break;
-      case "conversation_topics": setConversationContent(value); break;
+      case "company":
+        setCompanyContent(value);
+        break;
+      case "person":
+        setPersonContent(value);
+        break;
+      case "company_overview":
+        setOverviewContent(value);
+        break;
+      case "conversation_topics":
+        setConversationContent(value);
+        break;
     }
   };
 
@@ -107,26 +133,50 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
           <div className="text-sm text-muted-foreground mb-4 space-y-1">
             {activeTab === "company_overview" && (
               <>
-                <p>Describe your company and ideal customer profile. This context is injected into <strong>all</strong> research prompts.</p>
-                <p className="text-xs text-muted-foreground/70">Tip: Include what you do, who you sell to, problems you solve, and key differentiators.</p>
+                <p>
+                  Describe your company and ideal customer profile. This context is injected into{" "}
+                  <strong>all</strong> research prompts.
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Tip: Include what you do, who you sell to, problems you solve, and key
+                  differentiators.
+                </p>
               </>
             )}
             {activeTab === "company" && (
               <>
-                <p>Instructions for comapny research. The target company&apos;s details are <strong>automatically provided</strong>.</p>
-                <p className="text-xs text-muted-foreground/70">Auto-injected: Company name, website, industry, size, LinkedIn URL, location. Focus on what to discover.</p>
+                <p>
+                  Instructions for comapny research. The target company&apos;s details are{" "}
+                  <strong>automatically provided</strong>.
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Auto-injected: Company name, website, industry, size, LinkedIn URL, location.
+                  Focus on what to discover.
+                </p>
               </>
             )}
             {activeTab === "person" && (
               <>
-                <p>Instructions for researching people. The person&apos;s details AND their company info are <strong>automatically provided</strong>.</p>
-                <p className="text-xs text-muted-foreground/70">Auto-injected: Name, title, email, LinkedIn, company details. Focus on what to research about them.</p>
+                <p>
+                  Instructions for researching people. The person&apos;s details AND their company
+                  info are <strong>automatically provided</strong>.
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Auto-injected: Name, title, email, LinkedIn, company details. Focus on what to
+                  research about them.
+                </p>
               </>
             )}
             {activeTab === "conversation_topics" && (
               <>
-                <p>Instructions for generating conversation prep. The person&apos;s profile and company info are <strong>automatically provided</strong>.</p>
-                <p className="text-xs text-muted-foreground/70">Auto-injected: Person details, company details. Focus on what call prep to generate.</p>
+                <p>
+                  Instructions for generating conversation prep. The person&apos;s profile and
+                  company info are <strong>automatically provided</strong>.
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  Auto-injected: Person details, company details. Focus on what call prep to
+                  generate.
+                </p>
               </>
             )}
           </div>
@@ -135,11 +185,13 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
             <textarea
               value={currentContent}
               onChange={(e) => setCurrentContent(e.target.value)}
-              placeholder={activeTab === "company_overview"
-                ? "Enter details about your business, products, services, target customers, value proposition, etc..."
-                : activeTab === "conversation_topics"
-                ? "Enter your conversation topics prompt template..."
-                : `Enter your ${activeTab} research prompt template...`}
+              placeholder={
+                activeTab === "company_overview"
+                  ? "Enter details about your business, products, services, target customers, value proposition, etc..."
+                  : activeTab === "conversation_topics"
+                    ? "Enter your conversation topics prompt template..."
+                    : `Enter your ${activeTab} research prompt template...`
+              }
               className="w-full h-96 bg-white/5 border border-white/5 p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
 
@@ -150,7 +202,14 @@ export function PromptEditor({ companyPromptContent, personPromptContent, compan
                 ) : (
                   <IconDeviceFloppy className="w-4 h-4 mr-2" />
                 )}
-                Save {activeTab === "company_overview" ? "Company Overview" : activeTab === "company" ? "Company Prompt" : activeTab === "person" ? "Person Prompt" : "Conversation Prompt"}
+                Save{" "}
+                {activeTab === "company_overview"
+                  ? "Company Overview"
+                  : activeTab === "company"
+                    ? "Company Prompt"
+                    : activeTab === "person"
+                      ? "Person Prompt"
+                      : "Conversation Prompt"}
               </Button>
             </div>
           </div>

@@ -12,10 +12,7 @@ import {
   getUnscoredLeads,
   saveLeadScore,
 } from "@/lib/db/queries";
-import {
-  ResearchService,
-  ResearchServiceLive,
-} from "@/lib/research/research-service";
+import { ResearchService, ResearchServiceLive } from "@/lib/research/research-service";
 import { ExitReason } from "@/lib/research/claude-effect";
 import {
   initializeJob,

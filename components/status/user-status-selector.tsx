@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useOptimistic } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {
@@ -37,20 +37,20 @@ type UserStatusSelectorProps = LeadStatusSelectorProps | PersonStatusSelectorPro
 
 export function UserStatusSelector(props: UserStatusSelectorProps) {
   const [isPending, startTransition] = useTransition();
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(props.currentStatus);
 
   const config =
     props.type === "lead"
-      ? LEAD_USER_STATUS_CONFIG[props.currentStatus]
-      : PERSON_USER_STATUS_CONFIG[props.currentStatus];
+      ? LEAD_USER_STATUS_CONFIG[optimisticStatus as LeadUserStatusType]
+      : PERSON_USER_STATUS_CONFIG[optimisticStatus as PersonUserStatusType];
   const StatusIcon = config.icon;
 
-  const statusOrder =
-    props.type === "lead" ? LEAD_USER_STATUS_ORDER : PERSON_USER_STATUS_ORDER;
-  const statusConfig =
-    props.type === "lead" ? LEAD_USER_STATUS_CONFIG : PERSON_USER_STATUS_CONFIG;
+  const statusOrder = props.type === "lead" ? LEAD_USER_STATUS_ORDER : PERSON_USER_STATUS_ORDER;
+  const statusConfig = props.type === "lead" ? LEAD_USER_STATUS_CONFIG : PERSON_USER_STATUS_CONFIG;
 
   const handleStatusChange = (newStatus: string) => {
     startTransition(async () => {
+      setOptimisticStatus(newStatus as LeadUserStatusType | PersonUserStatusType);
       try {
         if (props.type === "lead") {
           await updateLeadUserStatus(props.entityId, newStatus as LeadUserStatusType);
@@ -81,10 +81,7 @@ export function UserStatusSelector(props: UserStatusSelectorProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuRadioGroup
-          value={props.currentStatus}
-          onValueChange={handleStatusChange}
-        >
+        <DropdownMenuRadioGroup value={optimisticStatus} onValueChange={handleStatusChange}>
           {statusOrder.map((status) => {
             const itemConfig = statusConfig[status as keyof typeof statusConfig];
             const ItemIcon = itemConfig.icon;

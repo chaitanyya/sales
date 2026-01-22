@@ -44,12 +44,14 @@ This is a lead research and qualification system that uses Claude CLI to researc
 ### Research System
 
 The research engine in `/lib/research/effect-runtime.ts` manages Claude CLI processes:
+
 - Semaphore-based concurrency (max 5 jobs)
 - 30s queue timeout, 10min job timeout
 - Graceful shutdown with SIGTERM/SIGKILL fallback
 - Global state persists across HMR via `globalThis`
 
 Research outputs are written to temp directories:
+
 - Company research → `profile.md` + `people.json`
 - Person research → stored directly in person record
 
@@ -64,6 +66,7 @@ Research outputs are written to temp directories:
 ### Streaming Pattern
 
 Stream panels use Zustand with localStorage persistence. The `StreamManager` singleton manages EventSource connections with:
+
 - Connection status tracking
 - Exponential backoff (250ms base, 2x multiplier, 10s max)
 - Auto-resume from last event index on page reload

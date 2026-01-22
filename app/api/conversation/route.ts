@@ -5,16 +5,8 @@ import { z } from "zod";
 import path from "path";
 import fs from "fs";
 import { Effect } from "effect";
-import {
-  getPromptByType,
-  getPersonRaw,
-  getLead,
-  updatePersonConversation,
-} from "@/lib/db/queries";
-import {
-  ResearchService,
-  runWithResearchService,
-} from "@/lib/research/research-service";
+import { getPromptByType, getPersonRaw, getLead, updatePersonConversation } from "@/lib/db/queries";
+import { ResearchService, runWithResearchService } from "@/lib/research/research-service";
 import { ExitReason } from "@/lib/research/claude-effect";
 import {
   initializeJob,

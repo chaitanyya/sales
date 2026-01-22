@@ -29,11 +29,7 @@ interface ActionCommandMenuProps {
   actions: ActionConfig[];
 }
 
-export function ActionCommandMenu({
-  open,
-  onOpenChange,
-  actions,
-}: ActionCommandMenuProps) {
+export function ActionCommandMenu({ open, onOpenChange, actions }: ActionCommandMenuProps) {
   const getSelectedIds = useSelectionStore((state) => state.getSelectedIds);
   const clearAll = useSelectionStore((state) => state.clearAll);
 
@@ -83,15 +79,12 @@ export function ActionCommandMenu({
                   key={action.id}
                   onSelect={() => handleSelect(action)}
                   className={cn(
-                    action.destructive &&
-                      "text-destructive data-[selected=true]:text-destructive"
+                    action.destructive && "text-destructive data-[selected=true]:text-destructive"
                   )}
                 >
                   <Icon className="mr-2 size-4" />
                   <span>{action.label}</span>
-                  {action.shortcut && (
-                    <CommandShortcut>{action.shortcut}</CommandShortcut>
-                  )}
+                  {action.shortcut && <CommandShortcut>{action.shortcut}</CommandShortcut>}
                 </CommandItem>
               );
             })}

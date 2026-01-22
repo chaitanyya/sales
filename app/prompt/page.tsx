@@ -5,12 +5,13 @@ import { IconTypography } from "@tabler/icons-react";
 export const dynamic = "force-dynamic";
 
 export default async function PromptPage() {
-  const [companyPrompt, personPrompt, companyOverviewPrompt, conversationTopicsPrompt] = await Promise.all([
-    getPromptByType("company"),
-    getPromptByType("person"),
-    getPromptByType("company_overview"),
-    getPromptByType("conversation_topics"),
-  ]);
+  const [companyPrompt, personPrompt, companyOverviewPrompt, conversationTopicsPrompt] =
+    await Promise.all([
+      getPromptByType("company"),
+      getPromptByType("person"),
+      getPromptByType("company_overview"),
+      getPromptByType("conversation_topics"),
+    ]);
 
   return (
     <>

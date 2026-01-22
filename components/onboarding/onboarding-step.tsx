@@ -18,9 +18,7 @@ type OnboardingStepProps = {
 
 export function OnboardingStep({ step, isActive, onClick }: OnboardingStepProps) {
   return (
-    <div
-      className={`relative ${isActive ? "border-l-2 border-primary -ml-0.5" : ""}`}
-    >
+    <div className={`relative ${isActive ? "border-l-2 border-primary -ml-0.5" : ""}`}>
       <button
         onClick={onClick}
         className="flex items-center gap-2 w-full px-2 py-1 text-left rounded hover:bg-white/5 transition-colors"

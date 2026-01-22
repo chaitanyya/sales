@@ -302,9 +302,7 @@ export const ResearchServiceLive = Layer.succeed(ResearchService, {
         throw new JobNotFoundError({ jobId });
       }
       entry.abortController.abort();
-    }).pipe(
-      Effect.catchAll(() => Effect.fail(new JobNotFoundError({ jobId })))
-    ),
+    }).pipe(Effect.catchAll(() => Effect.fail(new JobNotFoundError({ jobId })))),
 
   getActiveJobCount: () => Effect.succeed(activeJobs.size),
 

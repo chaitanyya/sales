@@ -15,10 +15,7 @@ import {
   updatePersonResearch,
   getLead,
 } from "@/lib/db/queries";
-import {
-  ResearchService,
-  runWithResearchService,
-} from "@/lib/research/research-service";
+import { ResearchService, runWithResearchService } from "@/lib/research/research-service";
 import { ExitReason } from "@/lib/research/claude-effect";
 import {
   initializeJob,

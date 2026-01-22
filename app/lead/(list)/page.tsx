@@ -1,9 +1,6 @@
 import { getLeadsGroupedByUserStatusWithScores } from "@/lib/db/queries";
 import { Button } from "@/components/ui/button";
-import {
-  IconSearch,
-  IconBuilding,
-} from "@tabler/icons-react";
+import { IconSearch, IconBuilding } from "@tabler/icons-react";
 import { AddLeadModal } from "@/components/leads/add-lead-modal";
 import { LeadListWithSelection } from "@/components/leads/lead-list-with-selection";
 
@@ -12,7 +9,6 @@ export const revalidate = 30;
 
 export default async function Page() {
   const { groupedLeads, tierCounts, allLeads } = await getLeadsGroupedByUserStatusWithScores();
-
 
   return (
     <>

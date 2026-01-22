@@ -162,7 +162,12 @@
   line-height: 1.6;
 
   /* Headings - Minor Third scale (1.2x) */
-  & h1, & h2, & h3, & h4, & h5, & h6 {
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
     color: var(--foreground);
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -185,7 +190,9 @@
     font-size: 1.05rem; /* ~17px */
   }
 
-  & h4, & h5, & h6 {
+  & h4,
+  & h5,
+  & h6 {
     font-size: 1rem;
   }
 
@@ -248,7 +255,8 @@
   }
 
   /* Lists - tight spacing */
-  & ul, & ol {
+  & ul,
+  & ol {
     margin: 1em 0;
     padding-left: 1.5em;
   }
@@ -262,7 +270,8 @@
   }
 
   /* Nested lists */
-  & li > ul, & li > ol {
+  & li > ul,
+  & li > ol {
     margin: 0.25em 0;
   }
 
@@ -316,7 +325,12 @@
   opacity: 0.9;
 
   /* Headings - tighter scale for compact */
-  & h1, & h2, & h3, & h4, & h5, & h6 {
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
     color: var(--foreground);
     font-weight: 600;
     margin-top: 1em;
@@ -332,7 +346,10 @@
     font-size: 0.875rem; /* 14px */
   }
 
-  & h3, & h4, & h5, & h6 {
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
     font-size: 0.8125rem; /* 13px */
   }
 
@@ -391,7 +408,8 @@
   }
 
   /* Lists - very tight */
-  & ul, & ol {
+  & ul,
+  & ol {
     margin: 0.6em 0;
     padding-left: 1.25em;
   }

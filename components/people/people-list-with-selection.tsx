@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  IconBuilding,
-  IconTrash,
-  IconSearch,
-  IconMessage,
-} from "@tabler/icons-react";
+import { IconBuilding, IconTrash, IconSearch, IconMessage } from "@tabler/icons-react";
 import { SelectableEntityList, SelectableRow } from "@/components/selection";
 import type { ActionConfig } from "@/components/selection";
 import { toast } from "sonner";
@@ -143,10 +138,14 @@ export function PeopleListWithSelection({ groupedPeople }: PeopleListWithSelecti
       }
 
       if (started > 0) {
-        toast.success(`Started conversation generation for ${started} ${started > 1 ? "people" : "person"}`);
+        toast.success(
+          `Started conversation generation for ${started} ${started > 1 ? "people" : "person"}`
+        );
       }
       if (failed > 0) {
-        toast.error(`Failed to generate conversations for ${failed} ${failed > 1 ? "people" : "person"}`);
+        toast.error(
+          `Failed to generate conversations for ${failed} ${failed > 1 ? "people" : "person"}`
+        );
       }
     },
     [personMap, addTab]

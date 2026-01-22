@@ -20,9 +20,8 @@ function groupItemsByStatus<T, S extends string>(
   return items.reduce(
     (acc, item) => {
       const rawStatus = getStatus(item);
-      const status = (rawStatus && validStatuses.includes(rawStatus as S))
-        ? (rawStatus as S)
-        : defaultStatus;
+      const status =
+        rawStatus && validStatuses.includes(rawStatus as S) ? (rawStatus as S) : defaultStatus;
       if (!acc[status]) acc[status] = [];
       acc[status].push(item);
       return acc;
@@ -64,9 +63,7 @@ export function groupByPersonUserStatus<T>(
 /**
  * Get counts for research status groups
  */
-export function getStatusCounts<T>(
-  groupedItems: Record<StatusType, T[]>
-): {
+export function getStatusCounts<T>(groupedItems: Record<StatusType, T[]>): {
   all: number;
   pending: number;
   inProgress: number;

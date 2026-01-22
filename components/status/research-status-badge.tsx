@@ -1,8 +1,5 @@
 import { cn } from "@/lib/utils";
-import {
-  RESEARCH_STATUS_CONFIG,
-  type ResearchStatusType,
-} from "@/lib/constants/status-config";
+import { RESEARCH_STATUS_CONFIG, type ResearchStatusType } from "@/lib/constants/status-config";
 
 interface ResearchStatusBadgeProps {
   status: string | null;

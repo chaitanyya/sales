@@ -1,9 +1,6 @@
 import { getPeopleGroupedByUserStatus, getAllLeads } from "@/lib/db/queries";
 import { Button } from "@/components/ui/button";
-import {
-  IconSearch,
-  IconUsers,
-} from "@tabler/icons-react";
+import { IconSearch, IconUsers } from "@tabler/icons-react";
 import { AddPersonModal } from "@/components/people/add-person-modal";
 import { PeopleListWithSelection } from "@/components/people/people-list-with-selection";
 
@@ -15,7 +12,6 @@ export default async function PeoplePage() {
     getPeopleGroupedByUserStatus(),
     getAllLeads(),
   ]);
-
 
   // Prepare leads for the dropdown (just id and companyName)
   const leadsForDropdown = allLeads.map((lead) => ({

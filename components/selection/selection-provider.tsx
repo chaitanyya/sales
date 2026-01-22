@@ -1,10 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  useSelectionStore,
-  type SelectionEntityType,
-} from "@/lib/store/selection-store";
+import { useSelectionStore, type SelectionEntityType } from "@/lib/store/selection-store";
 import { useEffect } from "react";
 
 interface SelectionContextValue {
@@ -28,11 +25,7 @@ interface SelectionProviderProps {
   allIds: number[];
 }
 
-export function SelectionProvider({
-  children,
-  entityType,
-  allIds,
-}: SelectionProviderProps) {
+export function SelectionProvider({ children, entityType, allIds }: SelectionProviderProps) {
   // Use individual selectors to avoid re-rendering children on selection change
   const setEntityType = useSelectionStore((state) => state.setEntityType);
   const clearAll = useSelectionStore((state) => state.clearAll);
@@ -76,8 +69,6 @@ export function SelectionProvider({
   }, [allIds, selectAll, clearAll]);
 
   return (
-    <SelectionContext.Provider value={{ entityType, allIds }}>
-      {children}
-    </SelectionContext.Provider>
+    <SelectionContext.Provider value={{ entityType, allIds }}>{children}</SelectionContext.Provider>
   );
 }

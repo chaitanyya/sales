@@ -11,7 +11,11 @@ const promptSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = (searchParams.get("type") || "company") as "company" | "person" | "company_overview" | "conversation_topics";
+    const type = (searchParams.get("type") || "company") as
+      | "company"
+      | "person"
+      | "company_overview"
+      | "conversation_topics";
 
     const prompt = await getPromptByType(type);
     if (!prompt) {

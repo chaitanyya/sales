@@ -17,11 +17,9 @@ function extractToolResultContent(content: unknown): string {
 
   if (Array.isArray(content)) {
     return content
-      .filter((c): c is { type: string; text: string } =>
-        typeof c === "object" &&
-        c !== null &&
-        c.type === "text" &&
-        typeof c.text === "string"
+      .filter(
+        (c): c is { type: string; text: string } =>
+          typeof c === "object" && c !== null && c.type === "text" && typeof c.text === "string"
       )
       .map((c) => c.text)
       .join("\n");
@@ -113,7 +111,7 @@ function summarizeToolInput(toolName: string, input: Record<string, unknown>): s
   }
 
   // Default: show first string value or empty
-  const firstValue = Object.values(input).find(v => typeof v === "string");
+  const firstValue = Object.values(input).find((v) => typeof v === "string");
   return firstValue ? truncateContent(String(firstValue), 80) : "";
 }
 
@@ -150,9 +148,7 @@ function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEn
         });
       } else if (block.type === "tool_use") {
         const displayName = formatToolName(block.name);
-        const inputSummary = block.input
-          ? summarizeToolInput(block.name, block.input)
-          : "";
+        const inputSummary = block.input ? summarizeToolInput(block.name, block.input) : "";
 
         entries.push({
           type: "tool_use",
@@ -171,9 +167,7 @@ function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEn
 function parseContentBlockStart(block: ClaudeContentBlock, timestamp: number): LogEntry | null {
   if (block.type === "tool_use") {
     const displayName = formatToolName(block.name);
-    const inputSummary = block.input
-      ? summarizeToolInput(block.name, block.input)
-      : "";
+    const inputSummary = block.input ? summarizeToolInput(block.name, block.input) : "";
 
     return {
       type: "tool_use",

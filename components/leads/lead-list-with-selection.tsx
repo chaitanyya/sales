@@ -3,12 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  IconChevronRight,
-  IconSearch,
-  IconTrash,
-  IconChartBar,
-} from "@tabler/icons-react";
+import { IconChevronRight, IconSearch, IconTrash, IconChartBar } from "@tabler/icons-react";
 import { SelectableEntityList, SelectableRow } from "@/components/selection";
 import type { ActionConfig } from "@/components/selection";
 import { ScoreBars } from "@/components/leads/score-bars";

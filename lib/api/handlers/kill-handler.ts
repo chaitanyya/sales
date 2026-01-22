@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Effect, Layer } from "effect";
-import {
-  ResearchService,
-  ResearchServiceLive,
-} from "@/lib/research/research-service";
+import { ResearchService, ResearchServiceLive } from "@/lib/research/research-service";
 import { setJobStatus, clearJobOutput } from "@/lib/research/job-state";
 
 type JobType = "research" | "conversation" | "scoring";
@@ -36,9 +33,7 @@ export function createKillRouteHandler(jobType: JobType) {
     const label = JOB_TYPE_LABELS[jobType];
 
     try {
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(ResearchServiceLive))
-      );
+      const result = await Effect.runPromise(program.pipe(Effect.provide(ResearchServiceLive)));
 
       if (!result.found) {
         return NextResponse.json(

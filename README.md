@@ -15,16 +15,19 @@ AI-powered sales lead research and qualification system. Qual helps sales teams 
 ## Screenshots
 
 ### Lead List
+
 View all your leads with research status, industry tags, and qualification scores at a glance.
 
 ![Lead List](/public/1.png)
 
 ### Company Profile
+
 AI-generated research profiles with company overview, products, services, and key information.
 
 ![Company Profile](/public/2.png)
 
 ### Lead Scoring
+
 Detailed scoring breakdown showing required characteristics, demand signifiers, and AI assessment.
 
 ![Lead Scoring](/public/3.png)
@@ -87,14 +90,14 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Database Commands
 
-| Command | Description |
-|---------|-------------|
-| `bun run db:push` | Push schema changes to the database |
-| `bun run db:seed` | Seed default prompts and scoring config |
-| `bun run db:studio` | Open Drizzle Studio to browse the database |
-| `bun run db:reset` | Delete database and recreate with seed data |
-| `bun run db:generate` | Generate migration files |
-| `bun run db:migrate` | Run pending migrations |
+| Command               | Description                                 |
+| --------------------- | ------------------------------------------- |
+| `bun run db:push`     | Push schema changes to the database         |
+| `bun run db:seed`     | Seed default prompts and scoring config     |
+| `bun run db:studio`   | Open Drizzle Studio to browse the database  |
+| `bun run db:reset`    | Delete database and recreate with seed data |
+| `bun run db:generate` | Generate migration files                    |
+| `bun run db:migrate`  | Run pending migrations                      |
 
 ## Project Structure
 
@@ -139,17 +142,18 @@ bun run format:check
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | Path to SQLite database | `./data.db` |
-| `CLAUDE_PATH` | Path to Claude CLI (auto-detected if not set) | - |
-| `NODE_ENV` | Environment mode | `development` |
+| Variable       | Description                                   | Default       |
+| -------------- | --------------------------------------------- | ------------- |
+| `DATABASE_URL` | Path to SQLite database                       | `./data.db`   |
+| `CLAUDE_PATH`  | Path to Claude CLI (auto-detected if not set) | -             |
+| `NODE_ENV`     | Environment mode                              | `development` |
 
 ### Claude CLI
 
 The application requires Claude CLI to be installed and authenticated. If not in your PATH, set the `CLAUDE_PATH` environment variable.
 
 Common installation locations:
+
 - `/usr/local/bin/claude`
 - `/opt/homebrew/bin/claude`
 - `~/.local/bin/claude`

@@ -29,7 +29,7 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
           ) : action.icon ? (
             <action.icon className="h-4 w-4 mr-2" />
           ) : null}
-          {action.isLoading ? (action.loadingLabel || "Starting...") : action.label}
+          {action.isLoading ? action.loadingLabel || "Starting..." : action.label}
         </Button>
       )}
     </div>

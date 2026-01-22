@@ -62,9 +62,7 @@ export function SelectableEntityList<T, S extends string>({
               configType={configType}
             >
               {items.map((item) => (
-                <React.Fragment key={getItemId(item)}>
-                  {renderRow(item)}
-                </React.Fragment>
+                <React.Fragment key={getItemId(item)}>{renderRow(item)}</React.Fragment>
               ))}
             </CollapsibleStatusGroup>
           );

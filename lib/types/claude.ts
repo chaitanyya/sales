@@ -78,12 +78,12 @@ export interface UsageStats {
 // Metadata for tool results
 export interface ToolResultMetadata {
   durationMs?: number;
-  durationSeconds?: number;  // WebSearch uses seconds
+  durationSeconds?: number; // WebSearch uses seconds
   numFiles?: number;
   truncated?: boolean;
-  query?: string;           // WebSearch query
-  urls?: string[];          // WebSearch result URLs
-  tabId?: number;           // Chrome MCP tab ID
+  query?: string; // WebSearch query
+  urls?: string[]; // WebSearch result URLs
+  tabId?: number; // Chrome MCP tab ID
 }
 
 // Content block types
@@ -102,7 +102,7 @@ export interface ClaudeToolUseBlock {
 export interface ClaudeToolResultBlock {
   type: "tool_result";
   tool_use_id: string;
-  content: string | Array<{ type: string; text?: string }>;  // Can be array for MCP
+  content: string | Array<{ type: string; text?: string }>; // Can be array for MCP
   is_error?: boolean;
 }
 

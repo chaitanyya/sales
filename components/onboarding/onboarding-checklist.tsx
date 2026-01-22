@@ -20,8 +20,7 @@ const STEPS_CONFIG: Omit<OnboardingStepData, "isCompleted">[] = [
   {
     id: "start-research",
     title: "Start research",
-    description:
-      "Click Research on a company details page to run analysis and enrich the lead.",
+    description: "Click Research on a company details page to run analysis and enrich the lead.",
   },
   {
     id: "score-lead",
@@ -32,8 +31,7 @@ const STEPS_CONFIG: Omit<OnboardingStepData, "isCompleted">[] = [
   {
     id: "research-person",
     title: "Research the person",
-    description:
-      "Run person-level research to build detailed profiles of key decision makers.",
+    description: "Run person-level research to build detailed profiles of key decision makers.",
   },
   {
     id: "conversation-insights",
@@ -93,10 +91,7 @@ export function OnboardingChecklist({ status }: OnboardingChecklistProps) {
           <span className="text-[11px] text-muted-foreground">
             {completedCount}/{steps.length}
           </span>
-          <motion.div
-            animate={{ rotate: isCollapsed ? -90 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
+          <motion.div animate={{ rotate: isCollapsed ? -90 : 0 }} transition={{ duration: 0.2 }}>
             <IconChevronDown className="w-3 h-3 text-muted-foreground" />
           </motion.div>
         </div>

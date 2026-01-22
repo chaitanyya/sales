@@ -42,9 +42,7 @@ export function FloatingActionBar({ actions }: FloatingActionBarProps) {
             transition={{ duration: 0.15 }}
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-background border border-border px-3 py-2 shadow-lg"
           >
-            <span className="text-sm font-medium tabular-nums">
-              {selectedCount} selected
-            </span>
+            <span className="text-sm font-medium tabular-nums">{selectedCount} selected</span>
 
             <Button
               variant="ghost"

@@ -56,11 +56,7 @@ export function StreamPanelHeader() {
           onClick={toggle}
           className="p-1 rounded hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
         >
-          {isOpen ? (
-            <IconChevronDown className="h-4 w-4" />
-          ) : (
-            <IconChevronUp className="h-4 w-4" />
-          )}
+          {isOpen ? <IconChevronDown className="h-4 w-4" /> : <IconChevronUp className="h-4 w-4" />}
         </button>
       </div>
     </div>

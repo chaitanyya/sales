@@ -12,7 +12,9 @@ interface MarkdownRendererProps {
 
 export function MarkdownRenderer({ content, compact, className }: MarkdownRendererProps) {
   return (
-    <article className={cn("max-w-none", compact ? "prose-terminal-compact" : "prose-terminal", className)}>
+    <article
+      className={cn("max-w-none", compact ? "prose-terminal-compact" : "prose-terminal", className)}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </article>
   );

@@ -14,11 +14,11 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+.next
+out
 
 # production
-/build
+build
 
 # misc
 .DS_Store
@@ -44,3 +44,20 @@ next-env.d.ts
 *.db
 *.db-shm
 *.db-wal
+
+# tauri
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# logs
+*.log
+
+# local
+.local/

@@ -1,0 +1,579 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+/* ASCII Terminal Aesthetic - Dark theme with orange accent */
+:root {
+  /* Core backgrounds - deep dark */
+  --background: #0a0a0c;
+  --foreground: #e4e4e7;
+
+  /* Cards and elevated surfaces */
+  --card: #111114;
+  --card-foreground: #e4e4e7;
+
+  /* Popovers and dropdowns */
+  --popover: #111114;
+  --popover-foreground: #e4e4e7;
+
+  /* Primary - Orange accent */
+  --primary: #f97316;
+  --primary-foreground: #0a0a0c;
+
+  /* Secondary */
+  --secondary: #18181b;
+  --secondary-foreground: #a1a1aa;
+
+  /* Muted elements */
+  --muted: #18181b;
+  --muted-foreground: #71717a;
+
+  /* Accent for hover states */
+  --accent: #1c1c20;
+  --accent-foreground: #e4e4e7;
+
+  /* Destructive/error */
+  --destructive: #dc2626;
+
+  /* Success - green for toggles and positive states */
+  --success: #22c55e;
+  --success-foreground: #0a0a0c;
+
+  /* Borders - more visible for ASCII aesthetic */
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #f97316;
+
+  /* Chart colors - orange-forward palette */
+  --chart-1: #f97316;
+  --chart-2: #fb923c;
+  --chart-3: #22c55e;
+  --chart-4: #3b82f6;
+  --chart-5: #a855f7;
+
+  /* Subtle radius for macOS native feel */
+  --radius: 4px;
+
+  /* Sidebar */
+  --sidebar: #0a0a0c;
+  --sidebar-foreground: #e4e4e7;
+  --sidebar-primary: #f97316;
+  --sidebar-primary-foreground: #0a0a0c;
+  --sidebar-accent: #18181b;
+  --sidebar-accent-foreground: #e4e4e7;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #f97316;
+}
+
+@theme inline {
+  /* ASCII Terminal Colors */
+  --color-background: #020202;
+  --color-foreground: #e4e4e7;
+  --color-card: #111114;
+  --color-card-foreground: #e4e4e7;
+  --color-popover: #111114;
+  --color-popover-foreground: #e4e4e7;
+  --color-primary: #f97316;
+  --color-primary-foreground: #0a0a0c;
+  --color-secondary: #18181b;
+  --color-secondary-foreground: #a1a1aa;
+  --color-muted: #18181b;
+  --color-muted-foreground: #71717a;
+  --color-accent: #1c1c20;
+  --color-accent-foreground: #e4e4e7;
+  --color-destructive: #dc2626;
+  --color-success: #22c55e;
+  --color-success-foreground: #0a0a0c;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-ring: #f97316;
+  --color-chart-1: #f97316;
+  --color-chart-2: #fb923c;
+  --color-chart-3: #22c55e;
+  --color-chart-4: #3b82f6;
+  --color-chart-5: #a855f7;
+  --color-sidebar: #0a0a0c;
+  --color-sidebar-foreground: #e4e4e7;
+  --color-sidebar-primary: #f97316;
+  --color-sidebar-primary-foreground: #0a0a0c;
+  --color-sidebar-accent: #18181b;
+  --color-sidebar-accent-foreground: #e4e4e7;
+  --color-sidebar-border: rgba(255, 255, 255, 0.12);
+  --color-sidebar-ring: #f97316;
+
+  /* Typography - Native macOS fonts with fallbacks */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+               "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "Cascadia Code",
+               "Source Code Pro", Menlo, monospace;
+
+  /* Subtle radius for macOS native feel */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+}
+
+/* Disable elastic scroll (overscroll bounce) */
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Prevent bounce on all scroll containers */
+* {
+  overscroll-behavior: contain;
+}
+
+/* Stable scrollbar gutter for containers that toggle between scrollable/non-scrollable */
+.scroll-stable {
+  scrollbar-gutter: stable;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: var(--radius);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  /* Allow text selection in inputs and textareas */
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+/* Only show focus ring for keyboard navigation */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Inputs use border for focus, not outline */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* Native text selection color */
+::selection {
+  background-color: rgba(249, 115, 22, 0.3);
+}
+
+/* More visible hover feedback (10-15% instead of 5%) */
+.hover-native:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* macOS-like layered shadows */
+.shadow-native {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.shadow-native-sm {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   Prose Typography System
+   Research-backed values for optimal readability
+   ============================================ */
+
+/* Main content areas - 15px body, 1.6 line-height */
+.prose-terminal {
+  color: var(--muted-foreground);
+  font-size: 15px;
+  line-height: 1.6;
+  user-select: text;
+  -webkit-user-select: text;
+
+  /* Headings - Minor Third scale (1.2x) */
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    color: var(--foreground);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.3;
+  }
+
+  & h1 {
+    font-size: 1.44rem; /* ~23px */
+  }
+
+  & h2 {
+    font-size: 1.2rem; /* ~19px */
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  & h3 {
+    font-size: 1.05rem; /* ~17px */
+  }
+
+  & h4,
+  & h5,
+  & h6 {
+    font-size: 1rem;
+  }
+
+  /* First heading shouldn't have top margin */
+  & > h1:first-child,
+  & > h2:first-child,
+  & > h3:first-child {
+    margin-top: 0;
+  }
+
+  /* Paragraphs - spacing = line-height (Butterick) */
+  & p {
+    margin-top: 0;
+    margin-bottom: 1em;
+  }
+
+  & p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Links */
+  & a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  & a:hover {
+    text-decoration: underline;
+  }
+
+  /* Strong/emphasis */
+  & strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  /* Code - inline */
+  & code {
+    color: var(--primary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.15em 0.4em;
+    font-size: 0.9em;
+    border-radius: 0;
+  }
+
+  /* Code blocks */
+  & pre {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1em;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+
+  & pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.875em;
+    color: var(--foreground);
+  }
+
+  /* Lists - tight spacing */
+  & ul,
+  & ol {
+    margin: 1em 0;
+    padding-left: 1.5em;
+  }
+
+  & li {
+    margin: 0.25em 0;
+  }
+
+  & li::marker {
+    color: rgba(113, 113, 122, 0.5);
+  }
+
+  /* Nested lists */
+  & li > ul,
+  & li > ol {
+    margin: 0.25em 0;
+  }
+
+  /* Blockquotes */
+  & blockquote {
+    border-left: 3px solid var(--primary);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 0.5em 1em;
+    margin: 1em 0;
+    font-style: normal;
+  }
+
+  & blockquote p {
+    margin: 0;
+  }
+
+  /* Tables */
+  & table {
+    width: 100%;
+    font-size: 0.9em;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+
+  & th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--foreground);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.5em 0.75em;
+  }
+
+  & td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.5em 0.75em;
+  }
+
+  /* Horizontal rules */
+  & hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 1.5em 0;
+  }
+}
+
+/* Compact context - stream panel, sidebars (13px body) */
+.prose-terminal-compact {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.55;
+  opacity: 0.9;
+  user-select: text;
+  -webkit-user-select: text;
+
+  /* Headings - tighter scale for compact */
+  & h1,
+  & h2,
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    color: var(--foreground);
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.4em;
+    line-height: 1.25;
+  }
+
+  & h1 {
+    font-size: 1rem; /* 16px */
+  }
+
+  & h2 {
+    font-size: 0.875rem; /* 14px */
+  }
+
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    font-size: 0.8125rem; /* 13px */
+  }
+
+  & > h1:first-child,
+  & > h2:first-child,
+  & > h3:first-child {
+    margin-top: 0;
+  }
+
+  /* Paragraphs - tighter */
+  & p {
+    margin-top: 0;
+    margin-bottom: 0.6em;
+  }
+
+  & p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Links */
+  & a {
+    color: #60a5fa; /* blue-400 */
+    text-decoration: none;
+  }
+
+  & a:hover {
+    text-decoration: underline;
+  }
+
+  /* Strong */
+  & strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  /* Code - inline */
+  & code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.1em 0.3em;
+    font-size: 0.85em;
+    border-radius: 0;
+  }
+
+  /* Code blocks */
+  & pre {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.5em;
+    overflow-x: auto;
+    margin: 0.6em 0;
+    font-size: 0.75rem;
+  }
+
+  & pre code {
+    background: none;
+    padding: 0;
+  }
+
+  /* Lists - very tight */
+  & ul,
+  & ol {
+    margin: 0.6em 0;
+    padding-left: 1.25em;
+  }
+
+  & li {
+    margin: 0.15em 0;
+  }
+
+  /* Blockquotes */
+  & blockquote {
+    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    padding-left: 0.75em;
+    font-style: italic;
+    color: rgba(228, 228, 231, 0.7);
+    margin: 0.6em 0;
+  }
+
+  /* Tables */
+  & table {
+    font-size: 0.75rem;
+  }
+
+  & th {
+    color: var(--foreground);
+  }
+
+  & td {
+    color: rgba(228, 228, 231, 0.8);
+  }
+}
+
+/* ASCII Terminal Aesthetic - Base styles */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1;
+}
+
+/* Diagonal line background pattern for terminal aesthetic */
+.bg-terminal-pattern {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.015) 10px,
+    rgba(255, 255, 255, 0.015) 11px
+  );
+}
+
+/* ASCII-style dashed borders */
+.border-dashed-subtle {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.border-dotted-subtle {
+  border-style: dotted;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ASCII progress bar styling */
+.ascii-progress {
+  font-family: var(--font-geist-mono);
+  letter-spacing: -0.05em;
+}
+
+/* Terminal-style focus states */
+.focus-terminal:focus {
+  outline: 1px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Monospace text utility */
+.font-terminal {
+  font-family: var(--font-geist-mono);
+  font-feature-settings: "liga" 0;
+}
+
+/* ASCII separator line */
+.ascii-separator {
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+/* Scanline effect for retro terminal feel (optional) */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+/* Toast error styling */
+[data-sonner-toast][data-type="error"] [data-title] {
+  color: var(--destructive) !important;
+}

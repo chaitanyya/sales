@@ -2,76 +2,99 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## Build & Development Commands
 
 ```bash
-# Development
-bun run dev          # Start Next.js dev server at localhost:3000
-bun run build        # Production build
-bun run lint         # ESLint
-bun run lint:fix     # ESLint with auto-fix
-bun run format       # Prettier format all files
+# Development (starts Vite + Tauri with hot reload)
+bun run tauri:dev
 
-# Database (SQLite with Drizzle ORM)
-bun run db:push      # Push schema changes to database
-bun run db:seed      # Seed prompts and scoring config
-bun run db:studio    # Open Drizzle Studio browser
-bun run db:reset     # Delete and recreate database with seed data
+# Build production app
+bun run tauri:build
+
+# Frontend only (Vite dev server on localhost:3000)
+bun run dev
+
+# Lint and format
+bun run lint
+bun run lint:fix
+bun run format
+bun run format:check
+
+# Type check
+tsc -b
 ```
 
-## Architecture
+## Architecture Overview
 
-This is a lead research and qualification system that uses Claude CLI to research companies and score leads.
+Qual is a **Tauri 2 desktop application** for B2B lead research and qualification. It uses Claude CLI as an AI backend for company/person research, scoring, and conversation generation.
 
-### Core Data Flow
+### Tech Stack
+- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS 4
+- **Backend**: Rust + Tauri 2 + SQLite (rusqlite with WAL mode)
+- **State**: Zustand with Immer middleware
+- **UI**: Radix UI primitives + Tabler Icons + Sonner toasts
 
-1. User triggers research via `/api/research` → Job initialized with unique ID
-2. Claude CLI spawned as child process with `--output-format stream-json`
-3. Output buffered in memory (`lib/research/job-state.ts`) → Polled via SSE at `/api/research/[jobId]/stream`
-4. Client maintains EventSource connection with retry logic (`lib/stream/`)
-5. On completion: output files parsed → DB updated → UI revalidated
+### Directory Structure
 
-### Key Directories
+```
+src/                          # React frontend
+├── pages/                    # Page components (list.tsx, detail.tsx)
+├── components/
+│   ├── ui/                   # Radix-wrapped primitives (Button, Dialog, etc.)
+│   ├── leads/, people/       # Feature-specific components
+│   └── stream-panel/         # Real-time job output display
+└── lib/
+    ├── store/                # Zustand stores (leads-store.ts, people-store.ts)
+    ├── tauri/                # Backend integration (commands.ts, event-bridge.ts)
+    └── hooks/                # Data fetching hooks (use-leads.ts, use-people.ts)
 
-- **`/app/api`** - REST endpoints for research, scoring, conversation generation
-- **`/lib/research`** - Claude CLI integration with Effect-based job queue (max 5 concurrent)
-- **`/lib/db`** - Drizzle queries with React `cache()` wrapper
-- **`/lib/prompts`** - Prompt builders for research, scoring, conversation
-- **`/lib/stream`** - SSE client with exponential backoff retry
-- **`/lib/store`** - Zustand store for stream panel UI state (persisted to localStorage)
-- **`/db/schema.ts`** - Database schema: leads, people, prompts, scoringConfig, leadScores
+src-tauri/src/               # Rust backend
+├── commands/                # Tauri command handlers
+│   ├── database.rs          # Lead/Person/Score CRUD
+│   ├── research.rs          # Job management (research, scoring)
+│   └── prompts.rs           # Prompt storage
+├── db/                      # SQLite schema and queries
+├── jobs/                    # Async job queue (5 concurrent, 10min timeout)
+└── events.rs                # Event emission to frontend
+```
 
-### Research System
+### Data Flow
 
-The research engine in `/lib/research/effect-runtime.ts` manages Claude CLI processes:
+1. **Frontend → Backend**: Tauri `invoke()` calls defined in `src/lib/tauri/commands.ts`
+2. **Backend → Frontend**:
+   - Streaming: `Channel<StreamEvent>` for real-time job output
+   - Reactive updates: Tauri events (`lead-updated`, `person-updated`, etc.) handled by `event-bridge.ts`
+3. **State Management**: Zustand stores with Map-based normalization for O(1) lookups
 
-- Semaphore-based concurrency (max 5 jobs)
-- 30s queue timeout, 10min job timeout
-- Graceful shutdown with SIGTERM/SIGKILL fallback
-- Global state persists across HMR via `globalThis`
+### Job System
 
-Research outputs are written to temp directories:
+Research/scoring jobs spawn Claude CLI subprocesses:
+- Max 5 concurrent jobs (semaphore-based)
+- 10-minute timeout per job
+- Output streams to frontend via Tauri channels
+- Results parsed and stored in SQLite on completion
 
-- Company research → `profile.md` + `people.json`
-- Person research → stored directly in person record
+### Key Patterns
 
-### Database Schema
+- **Normalized state**: `Map<id, Entity>` in stores for efficient updates
+- **Event-driven updates**: Backend emits events → frontend invalidates cached data
+- **Streaming UI**: `StreamPanelStore` persists job logs across navigation
+- **Selection context**: Centralized selection store with keyboard shortcuts (Cmd+A, Escape)
 
-- **leads** - Companies with research status, profile markdown, industry tags
-- **people** - Contacts per lead with LinkedIn, title, management level
-- **prompts** - Configurable templates (company, person, overview types)
-- **scoringConfig** - Required characteristics, demand signifiers, tier thresholds
-- **leadScores** - Qualification results with tier (hot/warm/nurture/disqualified)
+## Database
 
-### Streaming Pattern
+Location: `~/.local/share/qual/data.db`
 
-Stream panels use Zustand with localStorage persistence. The `StreamManager` singleton manages EventSource connections with:
+Tables: `leads`, `people`, `prompts`, `scoring_config`, `lead_scores`
 
-- Connection status tracking
-- Exponential backoff (250ms base, 2x multiplier, 10s max)
-- Auto-resume from last event index on page reload
+## Important Files
 
-### Environment
-
-- `DATABASE_URL` - SQLite path (default: `./data.db`)
-- `CLAUDE_PATH` - Optional explicit path to Claude CLI
+| Purpose | Path |
+|---------|------|
+| App routing | `src/App.tsx` |
+| Lead store | `src/lib/store/leads-store.ts` |
+| Tauri commands | `src/lib/tauri/commands.ts` |
+| Event bridge | `src/lib/tauri/event-bridge.ts` |
+| Backend setup | `src-tauri/src/lib.rs` |
+| Job queue | `src-tauri/src/jobs/queue.rs` |
+| DB schema | `src-tauri/src/db/schema.rs` |

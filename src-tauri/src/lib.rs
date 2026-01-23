@@ -8,6 +8,7 @@ use db::{DbState, get_db_path};
 use jobs::JobQueue;
 use tauri::{
     Manager,
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -39,8 +40,9 @@ pub fn run() {
             let show_item = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
+            let tray_icon = Image::from_bytes(include_bytes!("../icons/menubar.png"))?;
             TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tray_icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {

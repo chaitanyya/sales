@@ -19,8 +19,8 @@ export function Sidebar() {
       {/* Draggable region for traffic lights area */}
       <div className="p-2">
         <div className="flex items-center gap-2 w-full px-2 py-1 font-medium">
-          <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/60 backdrop-blur">
-            Q
+          <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
+            <img className="w-4 h-4" src="./menubar.png" alt="" />
           </div>
           <span className="flex-1 text-left truncate">Qualify</span>
         </div>

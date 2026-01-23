@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { PromptEditor } from "@/app/prompt/prompt-editor";
+import { PromptEditor } from "@/components/prompt/prompt-editor";
 import { IconTypography, IconLoader2 } from "@tabler/icons-react";
 import { getPromptByType } from "@/lib/tauri/commands";
 import type { PromptType } from "@/lib/tauri/types";

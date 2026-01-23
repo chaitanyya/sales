@@ -47,7 +47,7 @@ export function EntityDetailLayout({
 }: EntityDetailLayoutProps) {
   return (
     <>
-      <header className="h-10 border-b border-white/5 flex items-center px-3 gap-2">
+      <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-2">
         <Link
           to={backHref}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -71,7 +71,7 @@ export function EntityDetailLayout({
           </button>
         </div>
 
-        <div className="flex-1" />
+        <div className="flex-1" data-tauri-drag-region />
 
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <span>

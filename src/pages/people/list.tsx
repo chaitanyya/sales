@@ -41,7 +41,7 @@ export default function PeopleListPage() {
   if (isLoading && people.length === 0) {
     return (
       <>
-        <header className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
+        <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
           <div className="flex items-center gap-1 px-2 py-1 bg-white/10 text-sm">
             <IconUsers className="w-3.5 h-3.5" />
             <span>All People</span>
@@ -56,7 +56,7 @@ export default function PeopleListPage() {
 
   return (
     <>
-      <header className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
+      <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
         <div className="flex items-center gap-1 px-2 py-1 bg-white/10 text-sm">
           <IconUsers className="w-3.5 h-3.5" />
           <span>All People</span>

@@ -189,18 +189,20 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
 }
 
 /// Run database migrations for new columns
-fn run_migrations(_conn: &Connection) -> SqliteResult<()> {
-    // Helper to check if a column exists
-    #[allow(dead_code)]
-    fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+fn run_migrations(conn: &Connection) -> SqliteResult<()> {
+    // Helper to check if a column has NOT NULL constraint
+    fn column_has_notnull(conn: &Connection, table: &str, column: &str) -> bool {
         let query = format!("PRAGMA table_info({})", table);
         if let Ok(mut stmt) = conn.prepare(&query) {
             if let Ok(rows) = stmt.query_map([], |row| {
-                row.get::<_, String>(1) // column name is at index 1
+                Ok((
+                    row.get::<_, String>(1)?, // column name at index 1
+                    row.get::<_, i64>(3)?,    // notnull flag at index 3
+                ))
             }) {
-                for name in rows.flatten() {
-                    if name == column {
-                        return true;
+                for result in rows.flatten() {
+                    if result.0 == column {
+                        return result.1 != 0;
                     }
                 }
             }
@@ -208,8 +210,47 @@ fn run_migrations(_conn: &Connection) -> SqliteResult<()> {
         false
     }
 
-    // All columns are now in the CREATE TABLE statements
-    // This function is kept for future migrations
+    // Migration: Fix people.lead_id NOT NULL constraint
+    // SQLite doesn't support ALTER TABLE to drop constraints, so we recreate the table
+    if column_has_notnull(conn, "people", "lead_id") {
+        eprintln!("[db] Migrating people table to remove NOT NULL constraint on lead_id");
+        conn.execute_batch(
+            r#"
+            -- Create new table with correct schema
+            CREATE TABLE people_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                email TEXT,
+                title TEXT,
+                management_level TEXT,
+                linkedin_url TEXT,
+                year_joined INTEGER,
+                person_profile TEXT,
+                research_status TEXT DEFAULT 'pending',
+                researched_at INTEGER,
+                user_status TEXT DEFAULT 'new',
+                conversation_topics TEXT,
+                conversation_generated_at INTEGER,
+                created_at INTEGER NOT NULL
+            );
+
+            -- Copy existing data
+            INSERT INTO people_new SELECT * FROM people;
+
+            -- Drop old table
+            DROP TABLE people;
+
+            -- Rename new table
+            ALTER TABLE people_new RENAME TO people;
+
+            -- Recreate index
+            CREATE INDEX IF NOT EXISTS idx_people_lead_id ON people(lead_id);
+            "#,
+        )?;
+        eprintln!("[db] Migration complete: people table updated");
+    }
 
     Ok(())
 }

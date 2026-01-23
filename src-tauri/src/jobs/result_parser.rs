@@ -23,5 +23,7 @@ pub struct JobMetadata {
     pub primary_output_path: PathBuf,
     /// For CompanyResearch: people.json path (optional for other types)
     pub secondary_output_path: Option<PathBuf>,
+    /// For CompanyResearch/PersonResearch: enrichment.json path for structured data
+    pub enrichment_output_path: Option<PathBuf>,
 }
 

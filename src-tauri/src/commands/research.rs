@@ -89,6 +89,7 @@ pub async fn start_research(
 
     let profile_path = lead_dir.join("company_profile.md");
     let people_path = lead_dir.join("people.json");
+    let enrichment_path = lead_dir.join("enrichment.json");
 
     // Build prompt with file paths
     let full_prompt = build_research_prompt(
@@ -96,6 +97,7 @@ pub async fn start_research(
         &lead,
         &profile_path,
         &people_path,
+        &enrichment_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
     );
 
@@ -117,6 +119,7 @@ pub async fn start_research(
         entity_id: lead_id,
         primary_output_path: profile_path,
         secondary_output_path: Some(people_path),
+        enrichment_output_path: Some(enrichment_path),
     };
 
     // Clone the app handle for the callback
@@ -227,6 +230,7 @@ pub async fn start_person_research(
     fs::create_dir_all(&person_dir).ok();
 
     let profile_path = person_dir.join("person_profile.md");
+    let enrichment_path = person_dir.join("enrichment.json");
 
     // Build prompt with file path
     let full_prompt = build_person_research_prompt(
@@ -234,6 +238,7 @@ pub async fn start_person_research(
         &person,
         lead.as_ref(),
         &profile_path,
+        &enrichment_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
     );
 
@@ -257,6 +262,7 @@ pub async fn start_person_research(
         entity_id: person_id,
         primary_output_path: profile_path,
         secondary_output_path: None,
+        enrichment_output_path: Some(enrichment_path),
     };
 
     let entity_label = full_name.clone();
@@ -307,25 +313,66 @@ pub async fn get_active_jobs(
 // Prompt Builders
 // ============================================================================
 
+const PEOPLE_JSON_SCHEMA: &str = r#"
+The people JSON should be an array of objects with these fields:
+- firstName (string)
+- lastName (string)
+- email (string, optional)
+- title (string)
+- linkedinUrl (string, optional)
+- managementLevel (string, optional) - one of: C-Level, VP, Director, Manager, IC
+- yearJoined (number, optional) - the year they joined the company"#;
+
+const LEAD_ENRICHMENT_SCHEMA: &str = r#"This file should contain verified company data in JSON format. Only include fields where you have found reliable data:
+```json
+{
+  "website": "https://company.com",
+  "industry": "Technology",
+  "subIndustry": "Enterprise Software",
+  "employees": 500,
+  "employeeRange": "201-500",
+  "revenue": 50000000,
+  "revenueRange": "$10M-$50M",
+  "companyLinkedinUrl": "https://linkedin.com/company/...",
+  "city": "San Francisco",
+  "state": "California",
+  "country": "United States"
+}
+```
+
+IMPORTANT: Only include fields with verified data. Omit fields if uncertain."#;
+
+const PERSON_ENRICHMENT_SCHEMA: &str = r#"This file should contain verified person data in JSON format. Only include fields where you have found reliable data:
+```json
+{
+  "email": "name@company.com",
+  "title": "Senior Vice President of Sales",
+  "managementLevel": "VP",
+  "linkedinUrl": "https://linkedin.com/in/...",
+  "yearJoined": 2020
+}
+```
+
+Valid managementLevel values: C-Level, VP, Director, Manager, IC
+IMPORTANT: Only include fields with verified data. Omit fields if uncertain."#;
+
 fn build_research_prompt(
     prompt: &str,
     lead: &db::Lead,
     profile_path: &std::path::Path,
     people_path: &std::path::Path,
+    enrichment_path: &std::path::Path,
     company_overview: Option<&str>,
 ) -> String {
     let mut full_prompt = String::new();
 
     // Add company overview context if available
     if let Some(overview) = company_overview {
-        full_prompt.push_str("# Company Overview\n\n");
-        full_prompt.push_str(overview);
-        full_prompt.push_str("\n\n---\n\n");
+        full_prompt.push_str(&format!("# Company Overview\n\n{}\n\n---\n\n", overview));
     }
 
     full_prompt.push_str(prompt);
-    full_prompt.push_str("\n\n# Company Information\n\n");
-    full_prompt.push_str(&format!("Company Name: {}\n", lead.company_name));
+    full_prompt.push_str(&format!("\n\n# Company Information\n\nCompany Name: {}\n", lead.company_name));
 
     if let Some(website) = &lead.website {
         full_prompt.push_str(&format!("Website: {}\n", website));
@@ -346,21 +393,18 @@ fn build_research_prompt(
         full_prompt.push_str(&format!("Employees: {}\n", employees));
     }
 
-    full_prompt.push_str("\n# Output Files\n\n");
     full_prompt.push_str(&format!(
-        "Write the company profile to: {}\n",
-        profile_path.display()
+        "\n# Output Files\n\nWrite the company profile to: {}\nWrite the people JSON to: {}\n{}\n",
+        profile_path.display(),
+        people_path.display(),
+        PEOPLE_JSON_SCHEMA
     ));
+
     full_prompt.push_str(&format!(
-        "Write the people JSON to: {}\n",
-        people_path.display()
+        "\n# Enrichment Data\n\nAdditionally, write structured enrichment data to: {}\n\n{}\n",
+        enrichment_path.display(),
+        LEAD_ENRICHMENT_SCHEMA
     ));
-    full_prompt.push_str("\nThe people JSON should be an array of objects with these fields:\n");
-    full_prompt.push_str("- firstName (string)\n");
-    full_prompt.push_str("- lastName (string)\n");
-    full_prompt.push_str("- email (string, optional)\n");
-    full_prompt.push_str("- title (string)\n");
-    full_prompt.push_str("- linkedinUrl (string, optional)\n");
 
     full_prompt
 }
@@ -370,20 +414,21 @@ fn build_person_research_prompt(
     person: &db::Person,
     lead: Option<&db::Lead>,
     profile_path: &std::path::Path,
+    enrichment_path: &std::path::Path,
     company_overview: Option<&str>,
 ) -> String {
     let mut full_prompt = String::new();
 
     // Add company overview context if available
     if let Some(overview) = company_overview {
-        full_prompt.push_str("# Company Overview\n\n");
-        full_prompt.push_str(overview);
-        full_prompt.push_str("\n\n---\n\n");
+        full_prompt.push_str(&format!("# Company Overview\n\n{}\n\n---\n\n", overview));
     }
 
     full_prompt.push_str(prompt);
-    full_prompt.push_str("\n\n# Person Information\n\n");
-    full_prompt.push_str(&format!("Name: {} {}\n", person.first_name, person.last_name));
+    full_prompt.push_str(&format!(
+        "\n\n# Person Information\n\nName: {} {}\n",
+        person.first_name, person.last_name
+    ));
 
     if let Some(title) = &person.title {
         full_prompt.push_str(&format!("Title: {}\n", title));
@@ -397,17 +442,17 @@ fn build_person_research_prompt(
 
     // Add company information if available
     if let Some(l) = lead {
-        full_prompt.push_str("\n# Company Information\n\n");
-        full_prompt.push_str(&format!("Company: {}\n", l.company_name));
+        full_prompt.push_str(&format!("\n# Company Information\n\nCompany: {}\n", l.company_name));
         if let Some(website) = &l.website {
             full_prompt.push_str(&format!("Website: {}\n", website));
         }
     }
 
-    full_prompt.push_str("\n# Output File\n\n");
     full_prompt.push_str(&format!(
-        "Write the person profile to: {}\n",
-        profile_path.display()
+        "\n# Output Files\n\nWrite the person profile to: {}\n\nAdditionally, write structured enrichment data to: {}\n\n{}\n",
+        profile_path.display(),
+        enrichment_path.display(),
+        PERSON_ENRICHMENT_SCHEMA
     ));
 
     full_prompt
@@ -489,6 +534,7 @@ pub async fn start_scoring(
         entity_id: lead_id,
         primary_output_path: score_path,
         secondary_output_path: None,
+        enrichment_output_path: None,
     };
 
     let entity_label = format!("{} (Scoring)", lead.company_name);
@@ -608,6 +654,7 @@ pub async fn start_conversation_generation(
         entity_id: person_id,
         primary_output_path: conversation_path,
         secondary_output_path: None,
+        enrichment_output_path: None,
     };
 
     let entity_label = format!("{} (Conversation)", full_name);

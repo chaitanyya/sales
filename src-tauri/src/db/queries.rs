@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection, Result as SqliteResult};
 use crate::db::schema::*;
+use crate::jobs::enrichment::{LeadEnrichment, PersonEnrichment};
 
 // ============================================================================
 // Lead Queries
@@ -1122,4 +1123,72 @@ pub fn update_settings(
         params![model, use_chrome as i64, now],
     )?;
     Ok(())
+}
+
+// ============================================================================
+// Enrichment Queries
+// ============================================================================
+
+/// Enrich lead data, only updating fields that are currently NULL
+/// This preserves any user-entered or previously enriched data
+pub fn enrich_lead<C: std::ops::Deref<Target = Connection>>(
+    conn: &C,
+    lead_id: i64,
+    e: &LeadEnrichment,
+) -> SqliteResult<usize> {
+    conn.execute(
+        "UPDATE leads SET
+            website = COALESCE(website, ?1),
+            industry = COALESCE(industry, ?2),
+            sub_industry = COALESCE(sub_industry, ?3),
+            employees = COALESCE(employees, ?4),
+            employee_range = COALESCE(employee_range, ?5),
+            revenue = COALESCE(revenue, ?6),
+            revenue_range = COALESCE(revenue_range, ?7),
+            company_linkedin_url = COALESCE(company_linkedin_url, ?8),
+            city = COALESCE(city, ?9),
+            state = COALESCE(state, ?10),
+            country = COALESCE(country, ?11)
+         WHERE id = ?12",
+        params![
+            e.website,
+            e.industry,
+            e.sub_industry,
+            e.employees,
+            e.employee_range,
+            e.revenue,
+            e.revenue_range,
+            e.company_linkedin_url,
+            e.city,
+            e.state,
+            e.country,
+            lead_id
+        ],
+    )
+}
+
+/// Enrich person data, only updating fields that are currently NULL
+/// This preserves any user-entered or previously enriched data
+pub fn enrich_person<C: std::ops::Deref<Target = Connection>>(
+    conn: &C,
+    person_id: i64,
+    e: &PersonEnrichment,
+) -> SqliteResult<usize> {
+    conn.execute(
+        "UPDATE people SET
+            email = COALESCE(email, ?1),
+            title = COALESCE(title, ?2),
+            management_level = COALESCE(management_level, ?3),
+            linkedin_url = COALESCE(linkedin_url, ?4),
+            year_joined = COALESCE(year_joined, ?5)
+         WHERE id = ?6",
+        params![
+            e.email,
+            e.title,
+            e.management_level,
+            e.linkedin_url,
+            e.year_joined,
+            person_id
+        ],
+    )
 }

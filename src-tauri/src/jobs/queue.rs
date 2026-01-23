@@ -416,9 +416,9 @@ impl JobQueue {
             let claude_path = find_claude_path().unwrap_or_else(|| "claude".to_string());
 
             // Build arguments using settings
+            // Note: prompt must be last as it's a positional argument
             let mut args = vec![
                 "-p".to_string(),
-                prompt,
                 "--output-format".to_string(),
                 "stream-json".to_string(),
                 "--verbose".to_string(),
@@ -433,6 +433,12 @@ impl JobQueue {
             // Add model from settings
             args.push("--model".to_string());
             args.push(settings.model.clone());
+
+            // Add prompt at the end (positional argument)
+            args.push(prompt);
+
+            // Debug: log the command being executed
+            eprintln!("[job_queue] job_id={} Executing: {} {}", job_id_clone, claude_path, args.join(" "));
 
             // Spawn the process with kill_on_drop for safety
             let mut child = match Command::new(&claude_path)

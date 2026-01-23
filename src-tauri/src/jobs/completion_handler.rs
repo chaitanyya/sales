@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db;
 use crate::events;
+use super::enrichment::{LeadEnrichment, PersonEnrichment};
 use super::result_parser::{JobMetadata, JobType};
 use super::stream_processor::CompletionContext;
 
@@ -58,6 +59,7 @@ impl std::fmt::Display for CompletionError {
 pub struct VerifiedOutputs {
     pub primary_content: String,
     pub secondary_content: Option<String>,
+    pub enrichment_content: Option<String>,
 }
 
 /// Parsed output content based on job type
@@ -65,9 +67,11 @@ pub enum ParsedOutput {
     CompanyResearch {
         profile: String,
         people: Option<Vec<serde_json::Value>>,
+        enrichment: Option<LeadEnrichment>,
     },
     PersonResearch {
         profile: String,
+        enrichment: Option<PersonEnrichment>,
     },
     Scoring {
         score_data: serde_json::Value,
@@ -162,9 +166,27 @@ impl CompletionHandler {
             None
         };
 
+        // Read enrichment content if path provided (optional, don't fail if missing)
+        let enrichment_content = if let Some(enrichment_path) = &metadata.enrichment_output_path {
+            if enrichment_path.exists() {
+                match fs::read_to_string(enrichment_path) {
+                    Ok(content) => Some(content),
+                    Err(e) => {
+                        eprintln!("[completion_handler] Warning: Failed to read enrichment file {:?}: {}", enrichment_path, e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         Ok(VerifiedOutputs {
             primary_content,
             secondary_content,
+            enrichment_content,
         })
     }
 
@@ -188,14 +210,42 @@ impl CompletionHandler {
                     None
                 };
 
+                // Parse enrichment data (optional)
+                let enrichment = if let Some(ref enrichment_json) = outputs.enrichment_content {
+                    match serde_json::from_str::<LeadEnrichment>(enrichment_json) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            eprintln!("[completion_handler] Warning: Failed to parse lead enrichment JSON: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
                 Ok(ParsedOutput::CompanyResearch {
                     profile: outputs.primary_content.clone(),
                     people,
+                    enrichment,
                 })
             }
             JobType::PersonResearch => {
+                // Parse enrichment data (optional)
+                let enrichment = if let Some(ref enrichment_json) = outputs.enrichment_content {
+                    match serde_json::from_str::<PersonEnrichment>(enrichment_json) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            eprintln!("[completion_handler] Warning: Failed to parse person enrichment JSON: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
                 Ok(ParsedOutput::PersonResearch {
                     profile: outputs.primary_content.clone(),
+                    enrichment,
                 })
             }
             JobType::Scoring => {
@@ -256,7 +306,7 @@ impl CompletionHandler {
         metadata: &JobMetadata,
     ) -> Result<(), CompletionError> {
         match parsed {
-            ParsedOutput::CompanyResearch { profile, people } => {
+            ParsedOutput::CompanyResearch { profile, people, enrichment } => {
                 let lead_id = metadata.entity_id;
 
                 // Update people if available
@@ -265,18 +315,21 @@ impl CompletionHandler {
                     tx.execute("DELETE FROM people WHERE lead_id = ?1", rusqlite::params![lead_id])
                         .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
 
-                    // Insert new people
+                    // Insert new people with enrichment fields
                     let now = chrono::Utc::now().timestamp();
                     for p in people_data {
                         let first_name = extract_first_name(p);
                         let last_name = extract_last_name(p);
                         let email = p.get("email").and_then(|v| v.as_str());
                         let title = p.get("title").and_then(|v| v.as_str());
+                        let linkedin_url = p.get("linkedinUrl").and_then(|v| v.as_str());
+                        let management_level = p.get("managementLevel").and_then(|v| v.as_str());
+                        let year_joined = p.get("yearJoined").and_then(|v| v.as_i64());
 
                         tx.execute(
-                            "INSERT INTO people (first_name, last_name, email, title, lead_id, research_status, user_status, created_at)
-                             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
-                            rusqlite::params![first_name, last_name, email, title, lead_id, now],
+                            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, research_status, user_status, created_at)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', 'new', ?9)",
+                            rusqlite::params![first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, now],
                         ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
                     }
                 }
@@ -287,14 +340,26 @@ impl CompletionHandler {
                     "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
                     rusqlite::params!["completed", profile, now, lead_id],
                 ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+
+                // Apply enrichment data if available (only updates NULL fields)
+                if let Some(e) = enrichment {
+                    db::enrich_lead(tx, lead_id, e)
+                        .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
             }
-            ParsedOutput::PersonResearch { profile } => {
+            ParsedOutput::PersonResearch { profile, enrichment } => {
                 let person_id = metadata.entity_id;
                 let now = chrono::Utc::now().timestamp();
                 tx.execute(
                     "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
                     rusqlite::params!["completed", profile, now, person_id],
                 ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+
+                // Apply enrichment data if available (only updates NULL fields)
+                if let Some(e) = enrichment {
+                    db::enrich_person(tx, person_id, e)
+                        .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
             }
             ParsedOutput::Scoring { score_data } => {
                 let lead_id = metadata.entity_id;

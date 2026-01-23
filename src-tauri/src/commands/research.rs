@@ -4,6 +4,7 @@ use tauri::{ipc::Channel, State, AppHandle, Manager};
 use crate::db::{self, DbState};
 use crate::events::{emit_lead_updated, emit_person_updated};
 use crate::jobs::{JobQueue, StreamEvent, JobMetadata, JobType, EntityContext, EntityType};
+use crate::prompts::get_default_prompt;
 
 // ============================================================================
 // Research Commands
@@ -57,16 +58,20 @@ pub async fn start_research(
     // Emit event so frontend updates immediately
     emit_lead_updated(&app, lead_id);
 
-    // Get prompts
-    let (company_prompt, company_overview) = {
+    // Get prompts (with fallback to defaults)
+    let (company_prompt_content, company_overview) = {
         let conn = state.conn.lock().map_err(|e| e.to_string())?;
         let cp = db::get_prompt_by_type(&conn, "company").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
-        (cp, co)
+
+        // Use DB prompt or fall back to default
+        let content = cp.map(|p| p.content)
+            .or_else(|| get_default_prompt("company").map(String::from));
+        (content, co)
     };
 
     let prompt_content = custom_prompt
-        .or_else(|| company_prompt.map(|p| p.content))
+        .or(company_prompt_content)
         .ok_or_else(|| "No company prompt configured".to_string())?;
 
     // Set up output directory
@@ -190,16 +195,20 @@ pub async fn start_person_research(
     // Emit event so frontend updates immediately
     emit_person_updated(&app, person_id, person.lead_id);
 
-    // Get prompts
-    let (person_prompt, company_overview) = {
+    // Get prompts (with fallback to defaults)
+    let (person_prompt_content, company_overview) = {
         let conn = state.conn.lock().map_err(|e| e.to_string())?;
         let pp = db::get_prompt_by_type(&conn, "person").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
-        (pp, co)
+
+        // Use DB prompt or fall back to default
+        let content = pp.map(|p| p.content)
+            .or_else(|| get_default_prompt("person").map(String::from));
+        (content, co)
     };
 
     let prompt_content = custom_prompt
-        .or_else(|| person_prompt.map(|p| p.content))
+        .or(person_prompt_content)
         .ok_or_else(|| "No person prompt configured".to_string())?;
 
     // Set up output directory
@@ -536,16 +545,19 @@ pub async fn start_conversation_generation(
         (p, l)
     };
 
-    // Get prompts
-    let (conversation_prompt, company_overview) = {
+    // Get prompts (with fallback to defaults)
+    let (conversation_prompt_content, company_overview) = {
         let conn = state.conn.lock().map_err(|e| e.to_string())?;
         let cp = db::get_prompt_by_type(&conn, "conversation_topics").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
-        (cp, co)
+
+        // Use DB prompt or fall back to default
+        let content = cp.map(|p| p.content)
+            .or_else(|| get_default_prompt("conversation_topics").map(String::from));
+        (content, co)
     };
 
-    let prompt_content = conversation_prompt
-        .map(|p| p.content)
+    let prompt_content = conversation_prompt_content
         .ok_or_else(|| "No conversation topics prompt configured".to_string())?;
 
     // Set up output directory

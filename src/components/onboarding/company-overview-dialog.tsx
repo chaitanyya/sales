@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { saveCompanyOverview } from "@/lib/tauri/commands";
 import { IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
 
 interface CompanyOverviewDialogProps {
   hasCompanyOverview: boolean;
@@ -23,6 +25,7 @@ export function CompanyOverviewDialog({ hasCompanyOverview }: CompanyOverviewDia
   const [open, setOpen] = useState(!hasCompanyOverview);
   const [content, setContent] = useState("");
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
   const handleSubmit = () => {
     if (!content.trim()) {
@@ -33,6 +36,7 @@ export function CompanyOverviewDialog({ hasCompanyOverview }: CompanyOverviewDia
     startTransition(async () => {
       try {
         await saveCompanyOverview(content);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.onboardingStatus() });
         setOpen(false);
       } catch (e) {
         toast.error("Failed to save", {

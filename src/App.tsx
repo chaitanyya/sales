@@ -6,6 +6,9 @@ import { StreamPanelWrapper } from "@/components/stream-panel/stream-panel-wrapp
 import { Toaster } from "@/components/ui/sonner";
 import { useEventBridge } from "@/lib/tauri/use-event-bridge";
 import { queryClient } from "@/lib/query/query-client";
+import { CompanyOverviewDialog } from "@/components/onboarding/company-overview-dialog";
+import { useOnboardingStatus } from "@/lib/query";
+import { IconLoader2 } from "@tabler/icons-react";
 
 // Pages
 import LeadListPage from "@/pages/lead/list";
@@ -15,12 +18,20 @@ import PersonDetailPage from "@/pages/people/detail";
 import PromptPage from "@/pages/prompt";
 import ScoringPage from "@/pages/scoring";
 
-export default function App() {
-  // Initialize Tauri event → Zustand bridge
-  useEventBridge();
+function AppContent() {
+  const { data: onboardingStatus, isLoading } = useOnboardingStatus();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background bg-terminal-pattern">
+        <IconLoader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
+      <CompanyOverviewDialog hasCompanyOverview={onboardingStatus?.hasCompanyOverview ?? false} />
       <div className="flex h-screen bg-background bg-terminal-pattern font-sans antialiased">
         <Sidebar />
         <StreamPanelWrapper>
@@ -36,7 +47,17 @@ export default function App() {
         </StreamPanelWrapper>
         <Toaster />
       </div>
-      <ReactQueryDevtools initialIsOpen={false} />
+    </>
+  );
+}
+
+export default function App() {
+  // Initialize Tauri event → Zustand bridge
+  useEventBridge();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
     </QueryClientProvider>
   );
 }

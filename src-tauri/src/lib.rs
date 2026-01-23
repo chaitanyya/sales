@@ -2,6 +2,7 @@ mod commands;
 mod db;
 mod events;
 mod jobs;
+mod prompts;
 
 use db::{DbState, get_db_path};
 use jobs::JobQueue;

@@ -1,5 +1,6 @@
 pub mod schema;
 pub mod queries;
+pub mod seed;
 
 use rusqlite::{Connection, Result as SqliteResult};
 use std::path::PathBuf;
@@ -28,6 +29,9 @@ impl DbState {
 
         // Initialize schema
         init_schema(&conn)?;
+
+        // Seed default data (idempotent)
+        seed::seed_defaults(&conn)?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -138,7 +142,12 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             pid INTEGER,
             claude_session_id TEXT,
             claude_model TEXT,
-            last_event_index INTEGER DEFAULT 0
+            last_event_index INTEGER DEFAULT 0,
+            stdout_truncated INTEGER DEFAULT 0,
+            stderr_truncated INTEGER DEFAULT 0,
+            total_stdout_bytes INTEGER DEFAULT 0,
+            total_stderr_bytes INTEGER DEFAULT 0,
+            completion_state TEXT DEFAULT NULL
         );
 
         -- Job logs table for persisting stream output
@@ -180,8 +189,9 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
 }
 
 /// Run database migrations for new columns
-fn run_migrations(conn: &Connection) -> SqliteResult<()> {
+fn run_migrations(_conn: &Connection) -> SqliteResult<()> {
     // Helper to check if a column exists
+    #[allow(dead_code)]
     fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
         let query = format!("PRAGMA table_info({})", table);
         if let Ok(mut stmt) = conn.prepare(&query) {
@@ -198,45 +208,8 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
         false
     }
 
-    // Migration: Add source column to job_logs
-    if !column_exists(conn, "job_logs", "source") {
-        conn.execute(
-            "ALTER TABLE job_logs ADD COLUMN source TEXT NOT NULL DEFAULT 'stdout'",
-            [],
-        )?;
-    }
-
-    // Migration: Add stream statistics columns to jobs
-    if !column_exists(conn, "jobs", "stdout_truncated") {
-        conn.execute(
-            "ALTER TABLE jobs ADD COLUMN stdout_truncated INTEGER DEFAULT 0",
-            [],
-        )?;
-    }
-    if !column_exists(conn, "jobs", "stderr_truncated") {
-        conn.execute(
-            "ALTER TABLE jobs ADD COLUMN stderr_truncated INTEGER DEFAULT 0",
-            [],
-        )?;
-    }
-    if !column_exists(conn, "jobs", "total_stdout_bytes") {
-        conn.execute(
-            "ALTER TABLE jobs ADD COLUMN total_stdout_bytes INTEGER DEFAULT 0",
-            [],
-        )?;
-    }
-    if !column_exists(conn, "jobs", "total_stderr_bytes") {
-        conn.execute(
-            "ALTER TABLE jobs ADD COLUMN total_stderr_bytes INTEGER DEFAULT 0",
-            [],
-        )?;
-    }
-    if !column_exists(conn, "jobs", "completion_state") {
-        conn.execute(
-            "ALTER TABLE jobs ADD COLUMN completion_state TEXT DEFAULT NULL",
-            [],
-        )?;
-    }
+    // All columns are now in the CREATE TABLE statements
+    // This function is kept for future migrations
 
     Ok(())
 }

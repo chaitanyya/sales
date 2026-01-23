@@ -171,15 +171,17 @@ pub async fn start_person_research(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get person and lead
+    // Get person and optionally lead
     let (person, lead) = {
         let conn = state.conn.lock().map_err(|e| e.to_string())?;
         let p = db::get_person_raw(&conn, person_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Person not found".to_string())?;
-        let l = db::get_lead(&conn, p.lead_id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Lead not found".to_string())?;
+        let l = if let Some(lead_id) = p.lead_id {
+            db::get_lead(&conn, lead_id).map_err(|e| e.to_string())?
+        } else {
+            None
+        };
         (p, l)
     };
 
@@ -230,7 +232,7 @@ pub async fn start_person_research(
     let full_prompt = build_person_research_prompt(
         &prompt_content,
         &person,
-        &lead,
+        lead.as_ref(),
         &profile_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
     );
@@ -366,7 +368,7 @@ fn build_research_prompt(
 fn build_person_research_prompt(
     prompt: &str,
     person: &db::Person,
-    lead: &db::Lead,
+    lead: Option<&db::Lead>,
     profile_path: &std::path::Path,
     company_overview: Option<&str>,
 ) -> String {
@@ -393,10 +395,13 @@ fn build_person_research_prompt(
         full_prompt.push_str(&format!("LinkedIn: {}\n", linkedin));
     }
 
-    full_prompt.push_str("\n# Company Information\n\n");
-    full_prompt.push_str(&format!("Company: {}\n", lead.company_name));
-    if let Some(website) = &lead.website {
-        full_prompt.push_str(&format!("Website: {}\n", website));
+    // Add company information if available
+    if let Some(l) = lead {
+        full_prompt.push_str("\n# Company Information\n\n");
+        full_prompt.push_str(&format!("Company: {}\n", l.company_name));
+        if let Some(website) = &l.website {
+            full_prompt.push_str(&format!("Website: {}\n", website));
+        }
     }
 
     full_prompt.push_str("\n# Output File\n\n");
@@ -533,15 +538,17 @@ pub async fn start_conversation_generation(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get person and lead
+    // Get person and optionally lead
     let (person, lead) = {
         let conn = state.conn.lock().map_err(|e| e.to_string())?;
         let p = db::get_person_raw(&conn, person_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Person not found".to_string())?;
-        let l = db::get_lead(&conn, p.lead_id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Lead not found".to_string())?;
+        let l = if let Some(lead_id) = p.lead_id {
+            db::get_lead(&conn, lead_id).map_err(|e| e.to_string())?
+        } else {
+            None
+        };
         (p, l)
     };
 
@@ -576,7 +583,7 @@ pub async fn start_conversation_generation(
     let full_prompt = build_conversation_prompt(
         &prompt_content,
         &person,
-        &lead,
+        lead.as_ref(),
         &conversation_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
     );
@@ -829,7 +836,7 @@ Begin your analysis now."#,
 fn build_conversation_prompt(
     conversation_prompt: &str,
     person: &db::Person,
-    lead: &db::Lead,
+    lead: Option<&db::Lead>,
     output_path: &std::path::Path,
     company_overview: Option<&str>,
 ) -> String {
@@ -852,33 +859,36 @@ fn build_conversation_prompt(
         person.year_joined.map(|y| y.to_string()).unwrap_or_else(|| "N/A".to_string())
     );
 
-    // Format lead context
-    let lead_context = format!(
-        "Company Name: {}\nWebsite: {}\nIndustry: {}\nSub-Industry: {}\nEmployees: {}\nEmployee Range: {}\nRevenue: {}\nRevenue Range: {}\nLinkedIn: {}\nCity: {}\nState: {}\nCountry: {}",
-        lead.company_name,
-        lead.website.as_deref().unwrap_or("N/A"),
-        lead.industry.as_deref().unwrap_or("N/A"),
-        lead.sub_industry.as_deref().unwrap_or("N/A"),
-        lead.employees.map(|e| e.to_string()).unwrap_or_else(|| "N/A".to_string()),
-        lead.employee_range.as_deref().unwrap_or("N/A"),
-        lead.revenue.map(|r| r.to_string()).unwrap_or_else(|| "N/A".to_string()),
-        lead.revenue_range.as_deref().unwrap_or("N/A"),
-        lead.company_linkedin_url.as_deref().unwrap_or("N/A"),
-        lead.city.as_deref().unwrap_or("N/A"),
-        lead.state.as_deref().unwrap_or("N/A"),
-        lead.country.as_deref().unwrap_or("N/A")
-    );
+    // Format lead context (handle optional lead)
+    let (lead_context, company_profile) = if let Some(l) = lead {
+        let context = format!(
+            "Company Name: {}\nWebsite: {}\nIndustry: {}\nSub-Industry: {}\nEmployees: {}\nEmployee Range: {}\nRevenue: {}\nRevenue Range: {}\nLinkedIn: {}\nCity: {}\nState: {}\nCountry: {}",
+            l.company_name,
+            l.website.as_deref().unwrap_or("N/A"),
+            l.industry.as_deref().unwrap_or("N/A"),
+            l.sub_industry.as_deref().unwrap_or("N/A"),
+            l.employees.map(|e| e.to_string()).unwrap_or_else(|| "N/A".to_string()),
+            l.employee_range.as_deref().unwrap_or("N/A"),
+            l.revenue.map(|r| r.to_string()).unwrap_or_else(|| "N/A".to_string()),
+            l.revenue_range.as_deref().unwrap_or("N/A"),
+            l.company_linkedin_url.as_deref().unwrap_or("N/A"),
+            l.city.as_deref().unwrap_or("N/A"),
+            l.state.as_deref().unwrap_or("N/A"),
+            l.country.as_deref().unwrap_or("N/A")
+        );
+        let profile = if let Some(profile) = &l.company_profile {
+            format!("\n\nCompany Research Profile:\n{}", profile)
+        } else {
+            String::new()
+        };
+        (context, profile)
+    } else {
+        ("No company associated".to_string(), String::new())
+    };
 
     // Add person profile if available
     let person_profile = if let Some(profile) = &person.person_profile {
         format!("\n\nPerson Research Profile:\n{}", profile)
-    } else {
-        String::new()
-    };
-
-    // Add company profile if available
-    let company_profile = if let Some(profile) = &lead.company_profile {
-        format!("\n\nCompany Research Profile:\n{}", profile)
     } else {
         String::new()
     };

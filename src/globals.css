@@ -181,7 +181,9 @@ html, body {
 /* Inputs use border for focus, not outline */
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+select:focus-visible,
+[data-slot="dropdown-menu-trigger"]:focus-visible,
+[data-slot="dropdown-menu-trigger"] > button:focus-visible {
   outline: none;
 }
 

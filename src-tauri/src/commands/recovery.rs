@@ -51,13 +51,12 @@ pub fn reset_entity_status(
                 rusqlite::params![new_status, entity_id],
             ).map_err(|e| e.to_string())?;
             // Get lead_id for event
-            if let Ok(lead_id) = conn.query_row(
+            let lead_id: Option<i64> = conn.query_row(
                 "SELECT lead_id FROM people WHERE id = ?1",
                 rusqlite::params![entity_id],
-                |row| row.get::<_, i64>(0),
-            ) {
-                events::emit_person_updated(&app, entity_id, lead_id);
-            }
+                |row| row.get::<_, Option<i64>>(0),
+            ).ok().flatten();
+            events::emit_person_updated(&app, entity_id, lead_id);
         }
         _ => {
             return Err(format!("Unknown entity type: {}", entity_type));

@@ -7,9 +7,10 @@ pub struct LeadUpdatedPayload {
 }
 
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersonUpdatedPayload {
     pub id: i64,
-    pub lead_id: i64,
+    pub lead_id: Option<i64>,
 }
 
 #[derive(Clone, Serialize)]
@@ -41,7 +42,7 @@ pub fn emit_lead_updated(app: &AppHandle, id: i64) {
     let _ = app.emit("lead-updated", LeadUpdatedPayload { id });
 }
 
-pub fn emit_person_updated(app: &AppHandle, id: i64, lead_id: i64) {
+pub fn emit_person_updated(app: &AppHandle, id: i64, lead_id: Option<i64>) {
     let _ = app.emit("person-updated", PersonUpdatedPayload { id, lead_id });
 }
 

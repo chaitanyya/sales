@@ -13,7 +13,7 @@ interface PersonResearchPanelProps {
   personId: number;
   personName: string;
   personProfile: string | null;
-  companyName: string;
+  companyName: string | null;
 }
 
 export function PersonResearchPanel({
@@ -41,11 +41,14 @@ export function PersonResearchPanel({
   };
 
   if (!personProfile) {
+    const description = companyName
+      ? `Research data for ${personName} at ${companyName} hasn't been generated yet.`
+      : `Research data for ${personName} hasn't been generated yet.`;
     return (
       <EmptyState
         icon={IconFileText}
         title="No research available"
-        description={`Research data for ${personName} at ${companyName} hasn't been generated yet.`}
+        description={description}
         action={{
           label: "Start Research",
           loadingLabel: "Researching...",

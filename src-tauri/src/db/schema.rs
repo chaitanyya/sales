@@ -45,7 +45,7 @@ pub struct NewLead {
 #[serde(rename_all = "camelCase")]
 pub struct Person {
     pub id: i64,
-    pub lead_id: i64,
+    pub lead_id: Option<i64>,
     pub first_name: String,
     pub last_name: String,
     pub email: Option<String>,
@@ -66,7 +66,7 @@ pub struct Person {
 #[serde(rename_all = "camelCase")]
 pub struct PersonWithCompany {
     pub id: i64,
-    pub lead_id: i64,
+    pub lead_id: Option<i64>,
     pub first_name: String,
     pub last_name: String,
     pub email: Option<String>,
@@ -81,7 +81,7 @@ pub struct PersonWithCompany {
     pub conversation_topics: Option<String>,
     pub conversation_generated_at: Option<i64>,
     pub created_at: i64,
-    pub company_name: String,
+    pub company_name: Option<String>,
     pub company_website: Option<String>,
     pub company_industry: Option<String>,
 }
@@ -93,7 +93,8 @@ pub struct NewPerson {
     pub last_name: String,
     pub email: Option<String>,
     pub title: Option<String>,
-    pub lead_id: i64,
+    pub linkedin_url: Option<String>,
+    pub lead_id: Option<i64>,
 }
 
 // ============================================================================

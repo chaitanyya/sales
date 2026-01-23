@@ -22,8 +22,8 @@ type PersonWithCompany = {
   title: string | null;
   email: string | null;
   linkedinUrl: string | null;
-  leadId: number;
-  companyName: string;
+  leadId: number | null;
+  companyName: string | null;
   researchStatus: string | null;
   userStatus: string | null;
 };
@@ -181,13 +181,20 @@ function PersonRow({ person }: { person: PersonWithCompany }) {
         {person.title && <span className="text-muted-foreground ml-2">{person.title}</span>}
       </Link>
 
-      <Link
-        to={`/lead/${person.leadId}`}
-        className="w-48 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <IconBuilding className="w-3.5 h-3.5 shrink-0" />
-        <span className="truncate">{person.companyName}</span>
-      </Link>
+      {person.leadId && person.companyName ? (
+        <Link
+          to={`/lead/${person.leadId}`}
+          className="w-48 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <IconBuilding className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">{person.companyName}</span>
+        </Link>
+      ) : (
+        <div className="w-48 shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground/50">
+          <IconBuilding className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate italic">No company</span>
+        </div>
+      )}
 
       <ResearchStatusBadge status={person.researchStatus} size="sm" />
     </SelectableRow>

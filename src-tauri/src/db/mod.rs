@@ -67,7 +67,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
 
         CREATE TABLE IF NOT EXISTS people (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+            lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             email TEXT,

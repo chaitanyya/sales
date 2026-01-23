@@ -160,7 +160,7 @@ pub fn get_person(conn: &Connection, id: i64) -> SqliteResult<Option<PersonWithC
                 p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at,
                 l.company_name, l.website, l.industry
          FROM people p
-         INNER JOIN leads l ON p.lead_id = l.id
+         LEFT JOIN leads l ON p.lead_id = l.id
          WHERE p.id = ?1"
     )?;
 
@@ -266,7 +266,7 @@ pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>>
                 p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at,
                 l.company_name, l.website, l.industry
          FROM people p
-         INNER JOIN leads l ON p.lead_id = l.id
+         LEFT JOIN leads l ON p.lead_id = l.id
          ORDER BY p.last_name ASC, p.first_name ASC"
     )?;
 
@@ -314,9 +314,9 @@ pub fn get_adjacent_people(conn: &Connection, current_id: i64) -> SqliteResult<(
 pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
     conn.execute(
-        "INSERT INTO people (first_name, last_name, email, title, lead_id, research_status, user_status, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
-        params![data.first_name, data.last_name, data.email, data.title, data.lead_id, now],
+        "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
+        params![data.first_name, data.last_name, data.email, data.title, data.linkedin_url, data.lead_id, now],
     )?;
     Ok(conn.last_insert_rowid())
 }

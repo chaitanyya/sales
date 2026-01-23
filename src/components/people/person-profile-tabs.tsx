@@ -15,7 +15,7 @@ interface PersonProfileTabsProps {
   personName: string;
   personProfile: string | null;
   conversationTopics: string | null;
-  companyName: string;
+  companyName: string | null;
 }
 
 export function PersonProfileTabs({

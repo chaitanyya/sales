@@ -37,7 +37,7 @@ export interface NewLead {
 
 export interface Person {
   id: number;
-  leadId: number;
+  leadId: number | null;
   firstName: string;
   lastName: string;
   email: string | null;
@@ -55,7 +55,7 @@ export interface Person {
 }
 
 export interface PersonWithCompany extends Person {
-  companyName: string;
+  companyName: string | null;
   companyWebsite: string | null;
   companyIndustry: string | null;
 }
@@ -65,7 +65,8 @@ export interface NewPerson {
   lastName: string;
   email?: string;
   title?: string;
-  leadId: number;
+  linkedinUrl?: string;
+  leadId?: number;
 }
 
 // ============================================================================

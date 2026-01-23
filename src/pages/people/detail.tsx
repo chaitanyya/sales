@@ -50,9 +50,13 @@ export default function PersonDetailPage() {
     <>
       {person.title && <span>{person.title}</span>}
       {person.title && person.companyName && <span> at </span>}
-      <Link to={`/lead/${person.leadId}`} className="hover:text-foreground transition-colors">
-        {person.companyName}
-      </Link>
+      {person.leadId && person.companyName ? (
+        <Link to={`/lead/${person.leadId}`} className="hover:text-foreground transition-colors">
+          {person.companyName}
+        </Link>
+      ) : !person.title ? (
+        <span className="text-muted-foreground/70 italic">No company</span>
+      ) : null}
     </>
   );
 
@@ -120,15 +124,24 @@ export default function PersonDetailPage() {
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
             Company
           </h4>
-          <Link
-            to={`/lead/${person.leadId}`}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <IconBuilding className="w-4 h-4" />
-            <span>{person.companyName}</span>
-          </Link>
-          {person.companyIndustry && (
-            <div className="mt-2 text-xs text-muted-foreground/70">{person.companyIndustry}</div>
+          {person.leadId && person.companyName ? (
+            <>
+              <Link
+                to={`/lead/${person.leadId}`}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconBuilding className="w-4 h-4" />
+                <span>{person.companyName}</span>
+              </Link>
+              {person.companyIndustry && (
+                <div className="mt-2 text-xs text-muted-foreground/70">{person.companyIndustry}</div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground/50">
+              <IconBuilding className="w-4 h-4" />
+              <span className="italic">No company</span>
+            </div>
           )}
         </div>
 

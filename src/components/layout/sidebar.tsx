@@ -22,7 +22,7 @@ export function Sidebar() {
           <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/60 backdrop-blur">
             Q
           </div>
-          <span className="flex-1 text-left truncate">Workers IO</span>
+          <span className="flex-1 text-left truncate">Qualify</span>
         </div>
       </div>
 

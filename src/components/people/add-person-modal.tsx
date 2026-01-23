@@ -39,12 +39,13 @@ export function AddPersonModal({ leads, onSuccess }: AddPersonModalProps) {
     lastName: "",
     email: "",
     title: "",
+    linkedinUrl: "",
     leadId: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.leadId) return;
+    if (!formData.firstName.trim() || !formData.lastName.trim()) return;
 
     setLoading(true);
     try {
@@ -53,10 +54,11 @@ export function AddPersonModal({ leads, onSuccess }: AddPersonModalProps) {
         lastName: formData.lastName.trim(),
         email: formData.email.trim() || undefined,
         title: formData.title.trim() || undefined,
-        leadId: parseInt(formData.leadId),
+        linkedinUrl: formData.linkedinUrl.trim() || undefined,
+        leadId: formData.leadId ? parseInt(formData.leadId) : undefined,
       });
       setOpen(false);
-      setFormData({ firstName: "", lastName: "", email: "", title: "", leadId: "" });
+      setFormData({ firstName: "", lastName: "", email: "", title: "", linkedinUrl: "", leadId: "" });
       onSuccess?.();
       toast.success("Person added successfully");
     } catch {
@@ -66,7 +68,7 @@ export function AddPersonModal({ leads, onSuccess }: AddPersonModalProps) {
     }
   };
 
-  const isValid = formData.firstName.trim() && formData.lastName.trim() && formData.leadId;
+  const isValid = formData.firstName.trim() && formData.lastName.trim();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -123,13 +125,23 @@ export function AddPersonModal({ leads, onSuccess }: AddPersonModalProps) {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="company">Company *</Label>
+            <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+            <Input
+              id="linkedinUrl"
+              type="url"
+              value={formData.linkedinUrl}
+              onChange={(e) => setFormData((prev) => ({ ...prev, linkedinUrl: e.target.value }))}
+              placeholder="https://linkedin.com/in/johnsmith"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="company">Company</Label>
             <Select
               value={formData.leadId}
               onValueChange={(value) => setFormData((prev) => ({ ...prev, leadId: value }))}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a company" />
+                <SelectValue placeholder="No company (optional)" />
               </SelectTrigger>
               <SelectContent>
                 {leads.map((lead) => (

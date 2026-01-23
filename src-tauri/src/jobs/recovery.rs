@@ -155,13 +155,12 @@ pub fn recover_stale_jobs(
                     params![job.entity_id],
                 ).map_err(|e| e.to_string())?;
                 // Get lead_id for event
-                if let Ok(lead_id) = conn.query_row(
+                let lead_id: Option<i64> = conn.query_row(
                     "SELECT lead_id FROM people WHERE id = ?1",
                     params![job.entity_id],
-                    |row| row.get::<_, i64>(0),
-                ) {
-                    events::emit_person_updated(app, job.entity_id, lead_id);
-                }
+                    |row| row.get::<_, Option<i64>>(0),
+                ).ok().flatten();
+                events::emit_person_updated(app, job.entity_id, lead_id);
             }
             _ => {
                 // Scoring and conversation jobs don't have a research_status to reset
@@ -200,13 +199,12 @@ pub fn recover_stuck_entities(
             params![person.id],
         ).map_err(|e| e.to_string())?;
         // Get lead_id for event
-        if let Ok(lead_id) = conn.query_row(
+        let lead_id: Option<i64> = conn.query_row(
             "SELECT lead_id FROM people WHERE id = ?1",
             params![person.id],
-            |row| row.get::<_, i64>(0),
-        ) {
-            events::emit_person_updated(app, person.id, lead_id);
-        }
+            |row| row.get::<_, Option<i64>>(0),
+        ).ok().flatten();
+        events::emit_person_updated(app, person.id, lead_id);
         recovered += 1;
         eprintln!("[recovery] Recovered stuck person {} ({})", person.id, person.name);
     }

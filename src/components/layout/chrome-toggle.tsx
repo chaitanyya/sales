@@ -18,7 +18,7 @@ export function ChromeToggle() {
     return (
       <div className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground text-sm">
         <IconBrandChrome className="w-3.5 h-3.5" />
-        <span>Chrome</span>
+        <span>Chrome Access</span>
       </div>
     );
   }
@@ -29,7 +29,7 @@ export function ChromeToggle() {
       className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors text-sm outline-none"
     >
       <IconBrandChrome className="w-3.5 h-3.5" />
-      <span className="flex-1 text-left">Chrome</span>
+      <span className="flex-1 text-left">Chrome Access</span>
       <div
         className={`w-7 h-4 rounded-full transition-colors ${
           useChrome ? "bg-primary" : "bg-white/20"

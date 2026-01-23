@@ -13,7 +13,7 @@ interface PersonConversationPanelProps {
   personId: number;
   personName: string;
   conversationTopics: string | null;
-  companyName: string;
+  companyName: string | null;
 }
 
 export function PersonConversationPanel({
@@ -41,11 +41,14 @@ export function PersonConversationPanel({
   };
 
   if (!conversationTopics) {
+    const description = companyName
+      ? `Generate personalized conversation topics for ${personName} at ${companyName}.`
+      : `Generate personalized conversation topics for ${personName}.`;
     return (
       <EmptyState
         icon={IconFileText}
         title="No conversation topics"
-        description={`Generate personalized conversation topics for ${personName} at ${companyName}.`}
+        description={description}
         action={{
           label: "Generate Topics",
           loadingLabel: "Generating...",

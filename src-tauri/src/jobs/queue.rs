@@ -697,22 +697,26 @@ fn find_claude_path() -> Option<String> {
         }
     }
 
-    // Check common paths
-    let common_paths = [
-        "/usr/local/bin/claude",
-        "/opt/homebrew/bin/claude",
-        "/usr/bin/claude",
-    ];
+    // Use a login shell to find claude - this loads the user's profile and full PATH
+    // Only use -l (login), not -i (interactive) to avoid extra output
+    for shell in &["/bin/zsh", "/bin/bash"] {
+        if let Ok(output) = std::process::Command::new(shell)
+            .args(["-lc", "which claude"])
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            eprintln!("[job_queue] {} -lc 'which claude': status={}, stdout='{}', stderr='{}'",
+                shell, output.status, stdout, stderr);
 
-    for path in common_paths {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
+            if output.status.success() && !stdout.is_empty() && std::path::Path::new(&stdout).exists() {
+                eprintln!("[job_queue] Found claude at: {}", stdout);
+                return Some(stdout);
+            }
         }
     }
 
-    // Try which command
-    which::which("claude")
-        .ok()
-        .map(|p| p.to_string_lossy().to_string())
+    eprintln!("[job_queue] Could not find claude CLI");
+    None
 }
 

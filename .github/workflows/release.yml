@@ -54,6 +54,6 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'Qualify v__VERSION__'
           releaseBody: 'See the assets below to download and install Qualify for your platform.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

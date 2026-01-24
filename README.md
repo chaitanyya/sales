@@ -2,7 +2,7 @@
 
 AI-powered B2B lead research and qualification desktop app. Uses Claude to automatically research companies, score leads, and help you focus on the opportunities that matter.
 
-![Leads List](public/leads.png)
+![Leads List](public/companies.png)
 
 ## What it does
 
@@ -13,7 +13,7 @@ Qual takes a list of companies and does the tedious research work for you:
 - **Contact discovery** - Finds relevant people at each company with their roles and contact details
 - **Real-time streaming** - Watch research happen live as Claude investigates each lead
 
-![Company Details](public/details.png)
+![Company Details](public/overview.png)
 
 ## Lead Scoring
 
@@ -26,7 +26,7 @@ Define your ideal customer profile and let Qual score every lead automatically:
 
 Each lead gets a score from 0-100 with detailed reasoning you can review.
 
-![Lead Scoring](public/score.png)
+![Lead Scoring](public/rating.png)
 
 ## Tech Stack
 

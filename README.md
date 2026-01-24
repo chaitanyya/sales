@@ -1,12 +1,25 @@
-# Qualify
+<div align="center">
 
-AI-powered B2B lead research and qualification app. Uses Claude to automatically research companies, score leads, and help you focus on the opportunities that matter.
+<img src="public/logo.svg" alt="Qualify" width="200" />
+
+<br/>
+
+[![GitHub Stars](https://img.shields.io/github/stars/chaitanyya/sales?style=flat-square)](https://github.com/chaitanyya/sales/stargazers)
+[![Download](https://img.shields.io/badge/Download-Latest-blue?style=flat-square)](https://github.com/chaitanyya/sales/releases/latest)
+[![Release](https://img.shields.io/github/v/release/chaitanyya/sales?style=flat-square&color=green)](https://github.com/chaitanyya/sales/releases/latest)
+[![Share on X](https://img.shields.io/badge/Share-000000?style=flat-square&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20Qualify%20-%20Claude%20Code%20for%20Sales&url=https://github.com/chaitanyya/sales)
+
+</div>
+
+## Claude Code for Sales
+
+Lead research and qualification tool. Uses Claude Code to automatically research companies, score leads, and help you focus on the opportunities that matter.
 
 ![Leads List](public/companies.png)
 
 ## What it does
 
-Qual takes a list of companies and does the tedious research work for you:
+Qualify takes a list of companies and does the tedious research work for you:
 
 - **Deep company research** - Automatically pulls company information, business model, products/services, employee count, funding, and more
 - **AI-powered scoring** - Scores leads against your custom criteria (target industry, company size, growth signals, urgency indicators)
@@ -17,7 +30,7 @@ Qual takes a list of companies and does the tedious research work for you:
 
 ## Lead Scoring
 
-Define your ideal customer profile and let Qual score every lead automatically:
+Define your ideal customer profile and let Qualify score every lead automatically:
 
 - Required characteristics (industry, size, location)
 - Demand signifiers (technology adoption, recent changes)

@@ -3,6 +3,7 @@
 <img src="public/logo.svg" alt="Qualify" width="200" />
 
 <br/>
+<br/>
 
 [![GitHub Stars](https://img.shields.io/github/stars/chaitanyya/sales?style=flat-square)](https://github.com/chaitanyya/sales/stargazers)
 [![Download](https://img.shields.io/badge/Download-Latest-blue?style=flat-square)](https://github.com/chaitanyya/sales/releases/latest)

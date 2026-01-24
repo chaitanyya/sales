@@ -1,6 +1,6 @@
-# Qual
+# Qualify - Claude Code
 
-AI-powered B2B lead research and qualification desktop app. Uses Claude to automatically research companies, score leads, and help you focus on the opportunities that matter.
+AI-powered B2B lead research and qualification app. Uses Claude to automatically research companies, score leads, and help you focus on the opportunities that matter.
 
 ![Leads List](public/companies.png)
 

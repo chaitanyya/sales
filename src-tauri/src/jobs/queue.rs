@@ -440,16 +440,37 @@ impl JobQueue {
             // Debug: log the command being executed
             eprintln!("[job_queue] job_id={} Executing: {} {}", job_id_clone, claude_path, args.join(" "));
 
-            // Spawn the process with kill_on_drop for safety
-            let mut child = match Command::new(&claude_path)
+            let mut command = Command::new(&claude_path);
+            command
                 .args(&args)
                 .current_dir(&working_dir)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::null())
-                .kill_on_drop(true) // Ensure process is killed if task panics
-                .spawn()
-            {
+                .kill_on_drop(true); // Ensure process is killed if task panics
+
+            // Apply GLM Gateway settings if enabled
+            if settings.use_glm_gateway {
+                eprintln!("[job_queue] job_id={} Using GLM Gateway configuration", job_id_clone);
+                
+                // Map ANTHROPIC_AUTH_TOKEN from env to ANTHROPIC_API_KEY for the child process
+                if let Ok(token) = std::env::var("ANTHROPIC_AUTH_TOKEN") {
+                    command.env("ANTHROPIC_API_KEY", token);
+                }
+                
+                // Set BASE_URL from env or fallback to Z.ai default
+                let base_url = std::env::var("ANTHROPIC_BASE_URL")
+                    .unwrap_or_else(|_| "https://api.z.ai/api/anthropic".to_string());
+                command.env("ANTHROPIC_BASE_URL", base_url);
+                
+                // Set TIMEOUT from env or fallback to 3,000,000ms
+                let timeout = std::env::var("API_TIMEOUT_MS")
+                    .unwrap_or_else(|_| "3000000".to_string());
+                command.env("API_TIMEOUT_MS", timeout);
+            }
+
+            // Spawn the process
+            let mut child = match command.spawn() {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("[job_queue] job_id={} Failed to spawn claude: {}", job_id_clone, e);

@@ -31,6 +31,7 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 dirs = "5"
 which = "7"
+dotenvy = "0.15.7"
 
 # Unix signal handling for graceful process shutdown
 [target.'cfg(unix)'.dependencies]

@@ -17,16 +17,19 @@ export const MODEL_OPTIONS: ModelOption[] = [
 interface SettingsState {
   selectedModel: ClaudeModel;
   useChrome: boolean;
+  useGlmGateway: boolean;
   isLoading: boolean;
   isInitialized: boolean;
   loadSettings: () => Promise<void>;
   setSelectedModel: (model: ClaudeModel) => Promise<void>;
   setUseChrome: (useChrome: boolean) => Promise<void>;
+  setUseGlmGateway: (useGlmGateway: boolean) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   selectedModel: "sonnet",
   useChrome: false,
+  useGlmGateway: true, // Default to true
   isLoading: false,
   isInitialized: false,
 
@@ -39,6 +42,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       set({
         selectedModel: settings.model as ClaudeModel,
         useChrome: settings.useChrome,
+        useGlmGateway: settings.useGlmGateway,
         isInitialized: true,
       });
     } catch (error) {
@@ -49,22 +53,32 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
 
   setSelectedModel: async (model: ClaudeModel) => {
-    const { useChrome } = get();
+    const { useChrome, useGlmGateway } = get();
     set({ selectedModel: model });
     try {
-      await updateSettingsCmd(model, useChrome);
+      await updateSettingsCmd(model, useChrome, useGlmGateway);
     } catch (error) {
       console.error("Failed to update model setting:", error);
     }
   },
 
   setUseChrome: async (useChrome: boolean) => {
-    const { selectedModel } = get();
+    const { selectedModel, useGlmGateway } = get();
     set({ useChrome });
     try {
-      await updateSettingsCmd(selectedModel, useChrome);
+      await updateSettingsCmd(selectedModel, useChrome, useGlmGateway);
     } catch (error) {
       console.error("Failed to update useChrome setting:", error);
+    }
+  },
+
+  setUseGlmGateway: async (useGlmGateway: boolean) => {
+    const { selectedModel, useChrome } = get();
+    set({ useGlmGateway });
+    try {
+      await updateSettingsCmd(selectedModel, useChrome, useGlmGateway);
+    } catch (error) {
+      console.error("Failed to update useGlmGateway setting:", error);
     }
   },
 }));

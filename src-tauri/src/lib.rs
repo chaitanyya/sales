@@ -15,6 +15,9 @@ use tauri::{
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load environment variables from .env file
+    dotenvy::dotenv().ok();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

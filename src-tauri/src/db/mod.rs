@@ -177,8 +177,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
         );
 
         -- Insert default settings if not exists
-        INSERT OR IGNORE INTO settings (id, model, use_chrome, use_glm_gateway, updated_at)
-        VALUES (1, 'sonnet', 0, 1, strftime('%s', 'now') * 1000);
+        INSERT OR IGNORE INTO settings (id, model, use_chrome, updated_at)
+        VALUES (1, 'sonnet', 0, strftime('%s', 'now') * 1000);
 
         "#,
     )?;

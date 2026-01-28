@@ -16,8 +16,8 @@
   --popover: #111114;
   --popover-foreground: #e4e4e7;
 
-  /* Primary - Orange accent */
-  --primary: #f97316;
+  /* Primary - Blue accent */
+  --primary: #4eace9;
   --primary-foreground: #0a0a0c;
 
   /* Secondary */
@@ -32,8 +32,8 @@
   --accent: #1c1c20;
   --accent-foreground: #e4e4e7;
 
-  /* Destructive/error */
-  --destructive: #dc2626;
+  /* Destructive/warning */
+  --destructive: #ca5fc4;
 
   /* Success - green for toggles and positive states */
   --success: #22c55e;
@@ -42,11 +42,11 @@
   /* Borders - more visible for ASCII aesthetic */
   --border: rgba(255, 255, 255, 0.12);
   --input: rgba(255, 255, 255, 0.12);
-  --ring: #f97316;
+  --ring: #4eace9;
 
-  /* Chart colors - orange-forward palette */
-  --chart-1: #f97316;
-  --chart-2: #fb923c;
+  /* Chart colors - brand palette */
+  --chart-1: #4eace9;
+  --chart-2: #66cab2;
   --chart-3: #22c55e;
   --chart-4: #3b82f6;
   --chart-5: #a855f7;
@@ -57,12 +57,12 @@
   /* Sidebar */
   --sidebar: #0a0a0c;
   --sidebar-foreground: #e4e4e7;
-  --sidebar-primary: #f97316;
+  --sidebar-primary: #4eace9;
   --sidebar-primary-foreground: #0a0a0c;
   --sidebar-accent: #18181b;
   --sidebar-accent-foreground: #e4e4e7;
   --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-ring: #f97316;
+  --sidebar-ring: #4eace9;
 }
 
 @theme inline {
@@ -73,7 +73,7 @@
   --color-card-foreground: #e4e4e7;
   --color-popover: #111114;
   --color-popover-foreground: #e4e4e7;
-  --color-primary: #f97316;
+  --color-primary: #4eace9;
   --color-primary-foreground: #0a0a0c;
   --color-secondary: #18181b;
   --color-secondary-foreground: #a1a1aa;
@@ -81,25 +81,25 @@
   --color-muted-foreground: #71717a;
   --color-accent: #1c1c20;
   --color-accent-foreground: #e4e4e7;
-  --color-destructive: #dc2626;
+  --color-destructive: #ca5fc4;
   --color-success: #22c55e;
   --color-success-foreground: #0a0a0c;
   --color-border: rgba(255, 255, 255, 0.12);
   --color-input: rgba(255, 255, 255, 0.12);
-  --color-ring: #f97316;
-  --color-chart-1: #f97316;
-  --color-chart-2: #fb923c;
+  --color-ring: #4eace9;
+  --color-chart-1: #4eace9;
+  --color-chart-2: #66cab2;
   --color-chart-3: #22c55e;
   --color-chart-4: #3b82f6;
   --color-chart-5: #a855f7;
   --color-sidebar: #0a0a0c;
   --color-sidebar-foreground: #e4e4e7;
-  --color-sidebar-primary: #f97316;
+  --color-sidebar-primary: #4eace9;
   --color-sidebar-primary-foreground: #0a0a0c;
   --color-sidebar-accent: #18181b;
   --color-sidebar-accent-foreground: #e4e4e7;
   --color-sidebar-border: rgba(255, 255, 255, 0.12);
-  --color-sidebar-ring: #f97316;
+  --color-sidebar-ring: #4eace9;
 
   /* Typography - Native macOS fonts with fallbacks */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
@@ -189,7 +189,7 @@ select:focus-visible,
 
 /* Native text selection color */
 ::selection {
-  background-color: rgba(249, 115, 22, 0.3);
+  background-color: rgba(78, 172, 233, 0.3);
 }
 
 /* More visible hover feedback (10-15% instead of 5%) */

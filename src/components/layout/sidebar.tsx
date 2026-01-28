@@ -32,11 +32,11 @@ export function Sidebar() {
     <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-sidebar-border pt-8">
       {/* Draggable region for traffic lights area */}
       <div className="p-2">
-        <div className="flex items-center gap-2 w-full px-2 py-1 font-medium">
-          <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
-            <img className="w-4 h-4" src="./menubar.png" alt="" />
+        <div className="flex items-center gap-3 w-full px-2 py-1 font-medium">
+          <div className="w-[38px] h-[38px] flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
+            <img className="w-[26px] h-[26px]" src="./menubar.png" alt="" />
           </div>
-          <span className="flex-1 text-left truncate">Zyntopia Liidi</span>
+          <span className="flex-1 text-left truncate text-[18px] font-bold">Zyntopia LIIdI</span>
         </div>
 
       </div>

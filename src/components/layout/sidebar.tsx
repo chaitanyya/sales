@@ -10,6 +10,7 @@ import {
 import { ModelSelector } from "./model-selector";
 import { ChromeToggle } from "./chrome-toggle";
 import { GlmToggle } from "./glm-toggle";
+import { ThemeToggle } from "./theme-toggle";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { useOnboardingStatus } from "@/lib/query";
 import { OrgSwitcher } from "@/components/auth/org-switcher";
@@ -26,7 +27,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-white/5 pt-8">
+    <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-sidebar-border pt-8">
       {/* Draggable region for traffic lights area */}
       <div className="p-2">
         <div className="flex items-center gap-2 w-full px-2 py-1 font-medium">
@@ -50,14 +51,14 @@ export function Sidebar() {
           <div className="mt-0.5 space-y-px">
             <Link
               to="/people"
-              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-white/[0.12]"
+              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
             >
               <IconUsers className="w-4 h-4" />
               <span className="flex-1">People</span>
             </Link>
             <Link
               to="/lead"
-              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-white/[0.12]"
+              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
             >
               <IconBuilding className="w-4 h-4" />
               <span className="flex-1">Companies</span>
@@ -73,14 +74,14 @@ export function Sidebar() {
           <div className="mt-0.5 space-y-px">
             <Link
               to="/prompt"
-              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-white/[0.12]"
+              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
             >
               <IconTypography className="w-4 h-4" />
               <span className="flex-1 text-left">Prompt</span>
             </Link>
             <Link
               to="/scoring"
-              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-white/[0.12]"
+              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
             >
               <IconTargetArrow className="w-4 h-4" />
               <span className="flex-1 text-left">Scoring</span>
@@ -89,18 +90,19 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="p-2 border-t border-white/5 space-y-1">
+      <div className="p-2 border-t border-sidebar-border space-y-1">
         <div className="px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium">
           Settings
         </div>
         <ModelSelector />
+        <ThemeToggle />
         <ChromeToggle />
         <GlmToggle />
 
         {/* Logout button */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-white/[0.12] rounded text-left"
+          className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)] rounded text-left"
         >
           <IconLogout className="w-4 h-4" />
           <span className="text-xs">Sign out</span>

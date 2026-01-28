@@ -319,10 +319,13 @@ export async function recoverAllStuck(): Promise<number> {
 // Settings Commands
 // ============================================================================
 
+export type Theme = "light" | "dark" | "system";
+
 export interface Settings {
   model: string;
   useChrome: boolean;
   useGlmGateway: boolean;
+  theme: Theme;
   updatedAt: number;
 }
 
@@ -333,12 +336,14 @@ export async function getSettings(): Promise<Settings> {
 export async function updateSettings(
   model: string,
   useChrome: boolean,
-  useGlmGateway: boolean
+  useGlmGateway: boolean,
+  theme: Theme
 ): Promise<void> {
   return invoke("update_settings", {
     model,
-    use_chrome: useChrome,
-    use_glm_gateway: useGlmGateway,
+    useChrome,
+    useGlmGateway,
+    theme,
   });
 }
 

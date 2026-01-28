@@ -26,13 +26,13 @@ export function ChromeToggle() {
   return (
     <button
       onClick={() => setUseChrome(!useChrome)}
-      className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors text-sm outline-none"
+      className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-[var(--hover-overlay)] hover:text-foreground transition-colors text-sm outline-none"
     >
       <IconBrandChrome className="w-3.5 h-3.5" />
       <span className="flex-1 text-left">Chrome Access</span>
       <div
         className={`w-7 h-4 rounded-full transition-colors ${
-          useChrome ? "bg-primary" : "bg-white/20"
+          useChrome ? "bg-primary" : "bg-muted"
         } relative`}
       >
         <div

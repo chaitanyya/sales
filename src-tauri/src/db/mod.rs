@@ -244,6 +244,16 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
         eprintln!("[db] Migration complete: settings table updated");
     }
 
+    // Migration: Add theme to settings if not exists
+    if !column_exists(conn, "settings", "theme") {
+        eprintln!("[db] Migrating settings table to add theme column");
+        conn.execute(
+            "ALTER TABLE settings ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'",
+            [],
+        )?;
+        eprintln!("[db] Migration complete: settings table updated with theme column");
+    }
+
     // Migration: Fix people.lead_id NOT NULL constraint
     // SQLite doesn't support ALTER TABLE to drop constraints, so we recreate the table
     if column_has_notnull(conn, "people", "lead_id") {

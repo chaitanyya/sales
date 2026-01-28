@@ -1089,7 +1089,7 @@ pub fn delete_job(conn: &Connection, job_id: &str) -> SqliteResult<()> {
 
 pub fn get_settings(conn: &Connection) -> SqliteResult<Settings> {
     let mut stmt = conn.prepare(
-        "SELECT model, use_chrome, use_glm_gateway, updated_at FROM settings WHERE id = 1"
+        "SELECT model, use_chrome, use_glm_gateway, theme, updated_at FROM settings WHERE id = 1"
     )?;
 
     let mut rows = stmt.query([])?;
@@ -1099,7 +1099,8 @@ pub fn get_settings(conn: &Connection) -> SqliteResult<Settings> {
             model: row.get(0)?,
             use_chrome: row.get::<_, i64>(1)? != 0,
             use_glm_gateway: row.get::<_, i64>(2)? != 0,
-            updated_at: row.get(3)?,
+            theme: row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "dark".to_string()),
+            updated_at: row.get(4)?,
         })
     } else {
         // Return defaults if no settings exist
@@ -1107,22 +1108,25 @@ pub fn get_settings(conn: &Connection) -> SqliteResult<Settings> {
             model: "sonnet".to_string(),
             use_chrome: false,
             use_glm_gateway: true, // Default to true as requested
+            theme: "dark".to_string(),
             updated_at: chrono::Utc::now().timestamp_millis(),
         })
     }
 }
 
+#[allow(non_snake_case)]
 pub fn update_settings(
     conn: &Connection,
     model: &str,
-    use_chrome: bool,
-    use_glm_gateway: bool,
+    useChrome: bool,
+    useGlmGateway: bool,
+    theme: &str,
 ) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
-        "INSERT OR REPLACE INTO settings (id, model, use_chrome, use_glm_gateway, updated_at)
-         VALUES (1, ?1, ?2, ?3, ?4)",
-        params![model, use_chrome as i64, use_glm_gateway as i64, now],
+        "INSERT OR REPLACE INTO settings (id, model, use_chrome, use_glm_gateway, theme, updated_at)
+         VALUES (1, ?1, ?2, ?3, ?4, ?5)",
+        params![model, useChrome as i64, useGlmGateway as i64, theme, now],
     )?;
     Ok(())
 }

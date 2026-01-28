@@ -43,7 +43,7 @@ export function ModelSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors text-sm outline-none">
+        <button className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-[var(--hover-overlay)] hover:text-foreground transition-colors text-sm outline-none">
           <ModelIcon model={currentModel.value} className="w-3.5 h-3.5" />
           <span className="flex-1 text-left">{currentModel.label}</span>
           <IconChevronDown className="w-3 h-3" />

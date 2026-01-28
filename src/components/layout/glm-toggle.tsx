@@ -26,13 +26,13 @@ export function GlmToggle() {
   return (
     <button
       onClick={() => setUseGlmGateway(!useGlmGateway)}
-      className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors text-sm outline-none"
+      className="flex items-center gap-2 w-full px-2 py-1 rounded text-muted-foreground hover:bg-[var(--hover-overlay)] hover:text-foreground transition-colors text-sm outline-none"
     >
       <IconCpu className="w-3.5 h-3.5" />
       <span className="flex-1 text-left">GLM Gateway</span>
       <div
         className={`w-7 h-4 rounded-full transition-colors ${
-          useGlmGateway ? "bg-primary" : "bg-white/20"
+          useGlmGateway ? "bg-primary" : "bg-muted"
         } relative`}
       >
         <div

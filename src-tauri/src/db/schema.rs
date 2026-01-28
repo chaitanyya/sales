@@ -269,6 +269,7 @@ pub struct Settings {
     pub model: String,
     pub use_chrome: bool,
     pub use_glm_gateway: bool,
+    pub theme: String,
     pub updated_at: i64,
 }
 

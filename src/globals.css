@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
-/* ASCII Terminal Aesthetic - Dark theme with orange accent */
-:root {
+/* ASCII Terminal Aesthetic - Dark theme with blue accent */
+:root,
+.dark {
   /* Core backgrounds - deep dark */
   --background: #0a0a0c;
   --foreground: #e4e4e7;
@@ -63,43 +64,114 @@
   --sidebar-accent-foreground: #e4e4e7;
   --sidebar-border: rgba(255, 255, 255, 0.12);
   --sidebar-ring: #4eace9;
+
+  /* Hover overlay colors */
+  --hover-overlay: rgba(255, 255, 255, 0.12);
+  --hover-overlay-subtle: rgba(255, 255, 255, 0.05);
+}
+
+/* Light theme */
+.light {
+  /* Core backgrounds */
+  --background: #fafafa;
+  --foreground: #18181b;
+
+  /* Cards and elevated surfaces */
+  --card: #ffffff;
+  --card-foreground: #18181b;
+
+  /* Popovers and dropdowns */
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+
+  /* Primary - Blue accent (same as dark) */
+  --primary: #4eace9;
+  --primary-foreground: #ffffff;
+
+  /* Secondary */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #52525b;
+
+  /* Muted elements */
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+
+  /* Accent for hover states */
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+
+  /* Destructive/warning (same as dark) */
+  --destructive: #ca5fc4;
+
+  /* Success - green for toggles and positive states */
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+
+  /* Borders */
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: #4eace9;
+
+  /* Chart colors - brand palette (same as dark) */
+  --chart-1: #4eace9;
+  --chart-2: #66cab2;
+  --chart-3: #22c55e;
+  --chart-4: #3b82f6;
+  --chart-5: #a855f7;
+
+  /* Subtle radius for macOS native feel */
+  --radius: 4px;
+
+  /* Sidebar */
+  --sidebar: #f8f8f9;
+  --sidebar-foreground: #18181b;
+  --sidebar-primary: #4eace9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0f1;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #4eace9;
+
+  /* Hover overlay colors */
+  --hover-overlay: rgba(0, 0, 0, 0.08);
+  --hover-overlay-subtle: rgba(0, 0, 0, 0.04);
 }
 
 @theme inline {
-  /* ASCII Terminal Colors */
-  --color-background: #020202;
-  --color-foreground: #e4e4e7;
-  --color-card: #111114;
-  --color-card-foreground: #e4e4e7;
-  --color-popover: #111114;
-  --color-popover-foreground: #e4e4e7;
-  --color-primary: #4eace9;
-  --color-primary-foreground: #0a0a0c;
-  --color-secondary: #18181b;
-  --color-secondary-foreground: #a1a1aa;
-  --color-muted: #18181b;
-  --color-muted-foreground: #71717a;
-  --color-accent: #1c1c20;
-  --color-accent-foreground: #e4e4e7;
-  --color-destructive: #ca5fc4;
-  --color-success: #22c55e;
-  --color-success-foreground: #0a0a0c;
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-input: rgba(255, 255, 255, 0.12);
-  --color-ring: #4eace9;
-  --color-chart-1: #4eace9;
-  --color-chart-2: #66cab2;
-  --color-chart-3: #22c55e;
-  --color-chart-4: #3b82f6;
-  --color-chart-5: #a855f7;
-  --color-sidebar: #0a0a0c;
-  --color-sidebar-foreground: #e4e4e7;
-  --color-sidebar-primary: #4eace9;
-  --color-sidebar-primary-foreground: #0a0a0c;
-  --color-sidebar-accent: #18181b;
-  --color-sidebar-accent-foreground: #e4e4e7;
-  --color-sidebar-border: rgba(255, 255, 255, 0.12);
-  --color-sidebar-ring: #4eace9;
+  /* Theme-aware colors - reference CSS variables so they respond to .light/.dark */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 
   /* Typography - Native macOS fonts with fallbacks */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
@@ -194,21 +266,34 @@ select:focus-visible,
 
 /* More visible hover feedback (10-15% instead of 5%) */
 .hover-native:hover {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: var(--hover-overlay);
 }
 
 /* macOS-like layered shadows */
-.shadow-native {
+.dark .shadow-native {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.05),
     0 2px 4px rgba(0, 0, 0, 0.2),
     0 8px 16px rgba(0, 0, 0, 0.2);
 }
 
-.shadow-native-sm {
+.light .shadow-native {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.dark .shadow-native-sm {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.05),
     0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.light .shadow-native-sm {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* ============================================
@@ -246,7 +331,7 @@ select:focus-visible,
   & h2 {
     font-size: 1.2rem; /* ~19px */
     padding-bottom: 0.3em;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--border);
   }
 
   & h3 {
@@ -295,7 +380,7 @@ select:focus-visible,
   /* Code - inline */
   & code {
     color: var(--primary);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--hover-overlay-subtle);
     padding: 0.15em 0.4em;
     font-size: 0.9em;
     border-radius: 0;
@@ -303,8 +388,8 @@ select:focus-visible,
 
   /* Code blocks */
   & pre {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--hover-overlay-subtle);
+    border: 1px solid var(--border);
     padding: 1em;
     overflow-x: auto;
     margin: 1em 0;
@@ -329,7 +414,7 @@ select:focus-visible,
   }
 
   & li::marker {
-    color: rgba(113, 113, 122, 0.5);
+    color: var(--muted-foreground);
   }
 
   /* Nested lists */
@@ -341,7 +426,7 @@ select:focus-visible,
   /* Blockquotes */
   & blockquote {
     border-left: 3px solid var(--primary);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--hover-overlay-subtle);
     padding: 0.5em 1em;
     margin: 1em 0;
     font-style: normal;
@@ -363,19 +448,19 @@ select:focus-visible,
     text-align: left;
     font-weight: 500;
     color: var(--foreground);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border);
     padding: 0.5em 0.75em;
   }
 
   & td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--hover-overlay-subtle);
     padding: 0.5em 0.75em;
   }
 
   /* Horizontal rules */
   & hr {
     border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border);
     margin: 1.5em 0;
   }
 }
@@ -452,7 +537,7 @@ select:focus-visible,
 
   /* Code - inline */
   & code {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--hover-overlay);
     padding: 0.1em 0.3em;
     font-size: 0.85em;
     border-radius: 0;
@@ -460,7 +545,7 @@ select:focus-visible,
 
   /* Code blocks */
   & pre {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--hover-overlay-subtle);
     padding: 0.5em;
     overflow-x: auto;
     margin: 0.6em 0;
@@ -485,10 +570,10 @@ select:focus-visible,
 
   /* Blockquotes */
   & blockquote {
-    border-left: 2px solid rgba(255, 255, 255, 0.2);
+    border-left: 2px solid var(--border);
     padding-left: 0.75em;
     font-style: italic;
-    color: rgba(228, 228, 231, 0.7);
+    color: var(--muted-foreground);
     margin: 0.6em 0;
   }
 
@@ -502,7 +587,7 @@ select:focus-visible,
   }
 
   & td {
-    color: rgba(228, 228, 231, 0.8);
+    color: var(--muted-foreground);
   }
 }
 
@@ -516,7 +601,7 @@ body {
 }
 
 /* Diagonal line background pattern for terminal aesthetic */
-.bg-terminal-pattern {
+.dark .bg-terminal-pattern {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent,
@@ -526,15 +611,25 @@ body {
   );
 }
 
+.light .bg-terminal-pattern {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 10px,
+    rgba(0, 0, 0, 0.02) 10px,
+    rgba(0, 0, 0, 0.02) 11px
+  );
+}
+
 /* ASCII-style dashed borders */
 .border-dashed-subtle {
   border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--border);
 }
 
 .border-dotted-subtle {
   border-style: dotted;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--border);
 }
 
 /* ASCII progress bar styling */
@@ -557,11 +652,11 @@ body {
 
 /* ASCII separator line */
 .ascii-separator {
-  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+  border-top: 1px dashed var(--border);
 }
 
 /* Scanline effect for retro terminal feel (optional) */
-.scanlines::after {
+.dark .scanlines::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -572,6 +667,20 @@ body {
     transparent 2px,
     rgba(0, 0, 0, 0.03) 2px,
     rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+.light .scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.02) 2px,
+    rgba(0, 0, 0, 0.02) 4px
   );
 }
 

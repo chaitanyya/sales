@@ -32,7 +32,7 @@ export function Sidebar() {
     <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-sidebar-border pt-8">
       {/* Draggable region for traffic lights area */}
       <div className="p-2">
-        <div className="flex items-center gap-3 w-full px-2 py-1 font-medium">
+        <div className="flex items-center gap-1 w-full px-2 py-1 font-medium">
           <div className="w-[38px] h-[38px] flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
             <img className="w-[26px] h-[26px]" src="./menubar.png" alt="" />
           </div>

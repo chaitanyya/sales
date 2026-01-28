@@ -35,7 +35,7 @@ export function ModelSelector() {
     return (
       <div className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground text-sm">
         <IconBolt className="w-3.5 h-3.5" />
-        <span>Sonnet</span>
+        <span>Fast</span>
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function ModelSelector() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-40">
-        <DropdownMenuLabel>Claude Model</DropdownMenuLabel>
+        <DropdownMenuLabel>Model</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={selectedModel}
           onValueChange={(value) => setSelectedModel(value as ClaudeModel)}

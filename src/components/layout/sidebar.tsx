@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   IconChevronDown,
@@ -6,6 +7,7 @@ import {
   IconTypography,
   IconTargetArrow,
   IconLogout,
+  IconSettings,
 } from "@tabler/icons-react";
 import { ModelSelector } from "./model-selector";
 import { ChromeToggle } from "./chrome-toggle";
@@ -13,12 +15,12 @@ import { GlmToggle } from "./glm-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { useOnboardingStatus } from "@/lib/query";
-import { OrgSwitcher } from "@/components/auth/org-switcher";
 import { useAuth } from "@clerk/clerk-react";
 
 export function Sidebar() {
   const { data: onboardingStatus } = useOnboardingStatus();
   const { signOut } = useAuth();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -36,77 +38,74 @@ export function Sidebar() {
           </div>
           <span className="flex-1 text-left truncate">Zyntopia Liidi</span>
         </div>
-        {/* Org switcher */}
-        <div className="px-2 mt-1">
-          <OrgSwitcher />
-        </div>
+
       </div>
 
       <nav className="flex-1 px-2 py-1 space-y-px overflow-y-auto">
-        <div className="py-1">
-          <div className="flex items-center gap-1.5 w-full px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium">
-            <IconChevronDown className="w-3 h-3" />
-            Views
-          </div>
-          <div className="mt-0.5 space-y-px">
-            <Link
-              to="/people"
-              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
-            >
-              <IconUsers className="w-4 h-4" />
-              <span className="flex-1">People</span>
-            </Link>
-            <Link
-              to="/lead"
-              className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
-            >
-              <IconBuilding className="w-4 h-4" />
-              <span className="flex-1">Companies</span>
-            </Link>
-          </div>
-        </div>
-
-        <div className="py-1">
-          <div className="flex items-center gap-1.5 w-full px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium">
-            <IconChevronDown className="w-3 h-3" />
-            Workspace
-          </div>
-          <div className="mt-0.5 space-y-px">
-            <Link
-              to="/prompt"
-              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
-            >
-              <IconTypography className="w-4 h-4" />
-              <span className="flex-1 text-left">Prompt</span>
-            </Link>
-            <Link
-              to="/scoring"
-              className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
-            >
-              <IconTargetArrow className="w-4 h-4" />
-              <span className="flex-1 text-left">Scoring</span>
-            </Link>
-          </div>
-        </div>
+        <Link
+          to="/people"
+          className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
+        >
+          <IconUsers className="w-4 h-4" />
+          <span className="flex-1">People</span>
+        </Link>
+        <Link
+          to="/lead"
+          className="flex items-center rounded gap-2 px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
+        >
+          <IconBuilding className="w-4 h-4" />
+          <span className="flex-1">Companies</span>
+        </Link>
       </nav>
 
       <div className="p-2 border-t border-sidebar-border space-y-1">
-        <div className="px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium">
-          Settings
-        </div>
-        <ModelSelector />
-        <ThemeToggle />
-        <ChromeToggle />
-        <GlmToggle />
-
-        {/* Logout button */}
         <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)] rounded text-left"
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className="flex items-center gap-1.5 w-full px-2 py-1 text-muted-foreground text-[11px] uppercase tracking-wider font-medium hover:text-foreground transition-colors"
         >
-          <IconLogout className="w-4 h-4" />
-          <span className="text-xs">Sign out</span>
+          <IconChevronDown
+            className={`w-3 h-3 transition-transform duration-200 ${isSettingsOpen ? "" : "-rotate-90"
+              }`}
+          />
+          <IconSettings className="w-3.5 h-3.5" />
+          Settings
         </button>
+
+        <div
+          className={`space-y-px overflow-hidden transition-all duration-200 ${isSettingsOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            }`}
+        >
+          {/* Workspace items */}
+          <Link
+            to="/prompt"
+            className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
+          >
+            <IconTypography className="w-4 h-4" />
+            <span className="flex-1 text-left">Prompt</span>
+          </Link>
+          <Link
+            to="/scoring"
+            className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
+          >
+            <IconTargetArrow className="w-4 h-4" />
+            <span className="flex-1 text-left">Scoring</span>
+          </Link>
+
+          {/* Settings toggles */}
+          <ModelSelector />
+          <ThemeToggle />
+          <ChromeToggle />
+          <GlmToggle />
+
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)] rounded text-left"
+          >
+            <IconLogout className="w-4 h-4" />
+            <span className="text-xs">Sign out</span>
+          </button>
+        </div>
       </div>
 
       {onboardingStatus && <OnboardingChecklist status={onboardingStatus} />}

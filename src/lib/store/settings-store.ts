@@ -10,8 +10,8 @@ export interface ModelOption {
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
-  { value: "opus", label: "Claude Opus", icon: "brain" },
-  { value: "sonnet", label: "Claude Sonnet", icon: "lightning" },
+  { value: "opus", label: "Pro", icon: "brain" },
+  { value: "sonnet", label: "Fast", icon: "lightning" },
 ];
 
 export interface ThemeOption {

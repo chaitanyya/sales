@@ -34,7 +34,7 @@ export function Sidebar() {
           <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
             <img className="w-4 h-4" src="./menubar.png" alt="" />
           </div>
-          <span className="flex-1 text-left truncate">Liidi</span>
+          <span className="flex-1 text-left truncate">Zyntopia Liidi</span>
         </div>
         {/* Org switcher */}
         <div className="px-2 mt-1">

@@ -80,7 +80,7 @@ impl SubscriptionValidator {
                 }
                 "canceled" => "Subscription canceled. Data access is locked.".to_string(),
                 "expired" => "Subscription expired. Please renew to continue.".to_string(),
-                _ => "Subscription not active. Please subscribe to use Liidi.".to_string(),
+                _ => "Subscription not active. Please subscribe to use Zyntopia Liidi.".to_string(),
             })
         }
     }

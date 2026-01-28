@@ -36,7 +36,7 @@ export function SubscriptionLock() {
 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Subscription Required</h1>
-          <p className="text-muted-foreground">{lockoutReason || "Your subscription has expired. Please renew to continue using Liidi."}</p>
+          <p className="text-muted-foreground">{lockoutReason || "Your subscription has expired. Please renew to continue using Zyntopia Liidi."}</p>
         </div>
 
         {daysRemaining > 0 && (

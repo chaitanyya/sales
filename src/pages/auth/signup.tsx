@@ -19,7 +19,7 @@ export default function SignUpPage() {
             <div className="w-8 h-8 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
               <img className="w-5 h-5" src="/menubar.png" alt="" />
             </div>
-            <h1 className="text-2xl font-semibold text-foreground">Liidi</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Zyntopia Liidi</h1>
           </div>
           <p className="text-sm text-muted-foreground">
             Create an account to start researching and qualifying leads

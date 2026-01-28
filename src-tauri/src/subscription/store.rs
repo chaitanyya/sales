@@ -166,7 +166,7 @@ pub fn check_lockout_status(conn: &Arc<Mutex<Connection>>) -> Result<LockoutStat
                             "past_due" => "Subscription payment past due. Please update your payment method.".to_string(),
                             "canceled" => "Subscription canceled. Data access is locked.".to_string(),
                             "expired" => "Subscription expired. Please renew to continue.".to_string(),
-                            _ => "Subscription not active. Please subscribe to use Liidi.".to_string(),
+                            _ => "Subscription not active. Please subscribe to use Zyntopia Liidi.".to_string(),
                         }),
                         grace_period_ends_at: None,
                     })

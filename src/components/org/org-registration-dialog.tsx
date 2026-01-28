@@ -66,9 +66,9 @@ export function OrgRegistrationDialog({ open, onComplete }: OrgRegistrationDialo
     <Dialog open={open}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>Welcome to Liidi</DialogTitle>
+          <DialogTitle>Welcome to Zyntopia Liidi</DialogTitle>
           <DialogDescription>
-            Before you can start using Liidi, we need to link this installation to your organization.
+            Before you can start using Zyntopia Liidi, we need to link this installation to your organization.
             This ensures your data stays synchronized across your team.
           </DialogDescription>
         </DialogHeader>
@@ -95,11 +95,10 @@ export function OrgRegistrationDialog({ open, onComplete }: OrgRegistrationDialo
                     key={membership.organization.id}
                     type="button"
                     onClick={() => setSelectedOrgId(membership.organization.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-                      selectedOrgId === membership.organization.id
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${selectedOrgId === membership.organization.id
                         ? "border-primary bg-primary/5"
                         : "border-border hover:bg-muted"
-                    }`}
+                      }`}
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <span className="text-sm font-medium text-primary">

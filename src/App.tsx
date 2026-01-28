@@ -8,10 +8,15 @@ import { AuthGuard, PublicRoute } from "@/components/auth/auth-guard";
 import { useEventBridge } from "@/lib/tauri/use-event-bridge";
 import { queryClient } from "@/lib/query/query-client";
 import { CompanyOverviewDialog } from "@/components/onboarding/company-overview-dialog";
+import { OrgRegistrationDialog } from "@/components/org";
 import { useOnboardingStatus } from "@/lib/query";
+import { useOrgBinding } from "@/lib/hooks/use-org-binding";
 import { IconLoader2 } from "@tabler/icons-react";
 import { AuthLoadingPage } from "@/pages/auth/login";
 import { SubscriptionLock } from "@/components/subscription";
+import { useState, useEffect } from "react";
+import { isOrgBound } from "@/lib/tauri/commands";
+import type { OrgBinding } from "@/lib/tauri/types";
 
 // Pages
 import LeadListPage from "@/pages/lead/list";
@@ -25,8 +30,17 @@ import SignUpPage from "@/pages/auth/signup";
 
 function AppContent() {
   const { data: onboardingStatus, isLoading } = useOnboardingStatus();
+  const { orgBinding, isLoading: isLoadingOrg, refetch } = useOrgBinding();
+  const [showRegistration, setShowRegistration] = useState(false);
 
-  if (isLoading) {
+  // Show registration dialog if not bound and user is authenticated
+  useEffect(() => {
+    if (!isLoadingOrg && !orgBinding) {
+      setShowRegistration(true);
+    }
+  }, [isLoadingOrg, orgBinding]);
+
+  if (isLoading || isLoadingOrg) {
     return (
       <div className="flex h-screen items-center justify-center bg-background bg-terminal-pattern">
         <IconLoader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -34,8 +48,17 @@ function AppContent() {
     );
   }
 
+  const handleOrgRegistrationComplete = (binding: OrgBinding) => {
+    setShowRegistration(false);
+    refetch();
+  };
+
   return (
     <>
+      <OrgRegistrationDialog
+        open={showRegistration}
+        onComplete={handleOrgRegistrationComplete}
+      />
       <CompanyOverviewDialog hasCompanyOverview={onboardingStatus?.hasCompanyOverview ?? false} />
       <Routes>
         {/* Public routes - redirect to app if authenticated */}

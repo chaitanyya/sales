@@ -24,14 +24,12 @@ pub async fn start_research(
     queue: State<'_, JobQueue>,
     lead_id: i64,
     custom_prompt: Option<String>,
-    clerk_org_id: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<ResearchResult, String> {
     // Check for existing active job and cancel it if found
     let existing_job_id = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_active_job_for_entity(&conn, lead_id, "company_research", org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_job_for_entity(&conn, lead_id, "company_research")
             .map_err(|e| e.to_string())?
             .map(|job| job.id)
     };
@@ -40,41 +38,31 @@ pub async fn start_research(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get lead (validating org membership)
+    // Get lead
     let lead = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_lead(&conn, lead_id, org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_lead(&conn, lead_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Lead not found".to_string())?
     };
 
-    // Update status to in_progress (respecting org boundaries)
+    // Update status to in_progress
     {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        if let Some(org) = org_id {
-            conn.execute(
-                "UPDATE leads SET research_status = 'in_progress' WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
-                rusqlite::params![lead_id, org],
-            ).map_err(|e| e.to_string())?;
-        } else {
-            conn.execute(
-                "UPDATE leads SET research_status = 'in_progress' WHERE id = ?1",
-                rusqlite::params![lead_id],
-            ).map_err(|e| e.to_string())?;
-        }
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        conn.execute(
+            "UPDATE leads SET research_status = 'in_progress' WHERE id = ?1",
+            rusqlite::params![lead_id],
+        ).map_err(|e| e.to_string())?;
     }
 
     // Emit event so frontend updates immediately
-    emit_lead_updated(&app, lead_id, clerk_org_id.clone());
+    emit_lead_updated(&app, lead_id);
 
     // Get prompts (with fallback to defaults)
     let (company_prompt_content, company_overview) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let cp = db::get_prompt_by_type(&conn, "company", org_id).map_err(|e| e.to_string())?;
-        let co = db::get_prompt_by_type(&conn, "company_overview", org_id).map_err(|e| e.to_string())?;
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let cp = db::get_prompt_by_type(&conn, "company").map_err(|e| e.to_string())?;
+        let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
         let content = cp.map(|p| p.content)
@@ -129,7 +117,6 @@ pub async fn start_research(
     let metadata = JobMetadata {
         job_type: JobType::CompanyResearch,
         entity_id: lead_id,
-        clerk_org_id,
         primary_output_path: profile_path,
         secondary_output_path: Some(people_path),
         enrichment_output_path: Some(enrichment_path),
@@ -143,7 +130,6 @@ pub async fn start_research(
         entity_type: EntityType::Lead,
         entity_id: lead_id,
         rollback_status: "pending".to_string(),
-        clerk_org_id: clerk_org_id.clone(),
     };
 
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
@@ -174,14 +160,12 @@ pub async fn start_person_research(
     queue: State<'_, JobQueue>,
     person_id: i64,
     custom_prompt: Option<String>,
-    clerk_org_id: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<ResearchResult, String> {
     // Check for existing active job and cancel it if found
     let existing_job_id = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_active_job_for_entity(&conn, person_id, "person_research", org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_job_for_entity(&conn, person_id, "person_research")
             .map_err(|e| e.to_string())?
             .map(|job| job.id)
     };
@@ -190,47 +174,37 @@ pub async fn start_person_research(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get person and optionally lead (validating org membership)
+    // Get person and optionally lead
     let (person, lead) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let p = db::get_person_raw(&conn, person_id, org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let p = db::get_person_raw(&conn, person_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Person not found".to_string())?;
         let l = if let Some(lead_id) = p.lead_id {
-            db::get_lead(&conn, lead_id, org_id).map_err(|e| e.to_string())?
+            db::get_lead(&conn, lead_id).map_err(|e| e.to_string())?
         } else {
             None
         };
         (p, l)
     };
 
-    // Update status to in_progress (respecting org boundaries)
+    // Update status to in_progress
     {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        if let Some(org) = org_id {
-            conn.execute(
-                "UPDATE people SET research_status = 'in_progress' WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
-                rusqlite::params![person_id, org],
-            ).map_err(|e| e.to_string())?;
-        } else {
-            conn.execute(
-                "UPDATE people SET research_status = 'in_progress' WHERE id = ?1",
-                rusqlite::params![person_id],
-            ).map_err(|e| e.to_string())?;
-        }
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        conn.execute(
+            "UPDATE people SET research_status = 'in_progress' WHERE id = ?1",
+            rusqlite::params![person_id],
+        ).map_err(|e| e.to_string())?;
     }
 
     // Emit event so frontend updates immediately
-    emit_person_updated(&app, person_id, person.lead_id, clerk_org_id.clone());
+    emit_person_updated(&app, person_id, person.lead_id);
 
-    // Get prompts (with fallback to defaults, respecting org boundaries)
+    // Get prompts (with fallback to defaults)
     let (person_prompt_content, company_overview) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let pp = db::get_prompt_by_type(&conn, "person", org_id).map_err(|e| e.to_string())?;
-        let co = db::get_prompt_by_type(&conn, "company_overview", org_id).map_err(|e| e.to_string())?;
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let pp = db::get_prompt_by_type(&conn, "person").map_err(|e| e.to_string())?;
+        let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
         let content = pp.map(|p| p.content)
@@ -286,7 +260,6 @@ pub async fn start_person_research(
     let metadata = JobMetadata {
         job_type: JobType::PersonResearch,
         entity_id: person_id,
-        clerk_org_id,
         primary_output_path: profile_path,
         secondary_output_path: None,
         enrichment_output_path: Some(enrichment_path),
@@ -299,7 +272,6 @@ pub async fn start_person_research(
         entity_type: EntityType::Person,
         entity_id: person_id,
         rollback_status: "pending".to_string(),
-        clerk_org_id: clerk_org_id.clone(),
     };
 
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
@@ -496,14 +468,12 @@ pub async fn start_scoring(
     state: State<'_, DbState>,
     queue: State<'_, JobQueue>,
     lead_id: i64,
-    clerk_org_id: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<ResearchResult, String> {
     // Check for existing active job and cancel it if found
     let existing_job_id = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_active_job_for_entity(&conn, lead_id, "scoring", org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_job_for_entity(&conn, lead_id, "scoring")
             .map_err(|e| e.to_string())?
             .map(|job| job.id)
     };
@@ -512,23 +482,21 @@ pub async fn start_scoring(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get lead with people (validating org membership)
+    // Get lead with people
     let (lead, people) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let l = db::get_lead(&conn, lead_id, org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let l = db::get_lead(&conn, lead_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Lead not found".to_string())?;
-        let p = db::get_people_for_lead(&conn, lead_id, org_id)
+        let p = db::get_people_for_lead(&conn, lead_id)
             .map_err(|e| e.to_string())?;
         (l, p)
     };
 
-    // Get active scoring config (respecting org boundaries)
+    // Get active scoring config
     let config = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_active_scoring_config(&conn, org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_scoring_config(&conn)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "No active scoring configuration found".to_string())?
     };
@@ -564,7 +532,6 @@ pub async fn start_scoring(
     let metadata = JobMetadata {
         job_type: JobType::Scoring,
         entity_id: lead_id,
-        clerk_org_id,
         primary_output_path: score_path,
         secondary_output_path: None,
         enrichment_output_path: None,
@@ -603,14 +570,12 @@ pub async fn start_conversation_generation(
     state: State<'_, DbState>,
     queue: State<'_, JobQueue>,
     person_id: i64,
-    clerk_org_id: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<ResearchResult, String> {
     // Check for existing active job and cancel it if found
     let existing_job_id = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        db::get_active_job_for_entity(&conn, person_id, "conversation", org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_job_for_entity(&conn, person_id, "conversation")
             .map_err(|e| e.to_string())?
             .map(|job| job.id)
     };
@@ -619,27 +584,25 @@ pub async fn start_conversation_generation(
         let _ = queue.kill_job(&job_id).await;
     }
 
-    // Get person and optionally lead (validating org membership)
+    // Get person and optionally lead
     let (person, lead) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let p = db::get_person_raw(&conn, person_id, org_id)
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let p = db::get_person_raw(&conn, person_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Person not found".to_string())?;
         let l = if let Some(lead_id) = p.lead_id {
-            db::get_lead(&conn, lead_id, org_id).map_err(|e| e.to_string())?
+            db::get_lead(&conn, lead_id).map_err(|e| e.to_string())?
         } else {
             None
         };
         (p, l)
     };
 
-    // Get prompts (with fallback to defaults, respecting org boundaries)
+    // Get prompts (with fallback to defaults)
     let (conversation_prompt_content, company_overview) = {
-        let conn = state.conn.lock().map_err(|e| e.to_string())?;
-        let org_id = clerk_org_id.as_deref();
-        let cp = db::get_prompt_by_type(&conn, "conversation_topics", org_id).map_err(|e| e.to_string())?;
-        let co = db::get_prompt_by_type(&conn, "company_overview", org_id).map_err(|e| e.to_string())?;
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let cp = db::get_prompt_by_type(&conn, "conversation_topics").map_err(|e| e.to_string())?;
+        let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
         let content = cp.map(|p| p.content)
@@ -689,7 +652,6 @@ pub async fn start_conversation_generation(
     let metadata = JobMetadata {
         job_type: JobType::Conversation,
         entity_id: person_id,
-        clerk_org_id,
         primary_output_path: conversation_path,
         secondary_output_path: None,
         enrichment_output_path: None,

@@ -17,7 +17,6 @@ export default function ScoringPage() {
     tierNurtureMin: number;
     createdAt: string | null;
     updatedAt: string | null;
-    clerkOrgId: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +46,6 @@ export default function ScoringPage() {
           tierNurtureMin: config.tierNurtureMin,
           createdAt: config.createdAt ? new Date(config.createdAt).toISOString() : null,
           updatedAt: config.updatedAt ? new Date(config.updatedAt).toISOString() : null,
-          clerkOrgId: config.clerkOrgId ?? null,
         });
       } else {
         setInitialConfig({
@@ -55,7 +53,6 @@ export default function ScoringPage() {
           id: null,
           createdAt: null,
           updatedAt: null,
-          clerkOrgId: null,
         });
       }
     } catch (error) {
@@ -65,7 +62,6 @@ export default function ScoringPage() {
         id: null,
         createdAt: null,
         updatedAt: null,
-        clerkOrgId: null,
       });
     } finally {
       setLoading(false);

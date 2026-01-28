@@ -42,7 +42,7 @@ pub fn save_subscription_state(
         Some(now + (GRACE_PERIOD_DAYS * 24 * 60 * 60))
     };
 
-    let conn = conn.lock()?;
+    let conn = conn.lock().unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO subscription_state (
             id, encrypted_token, subscription_status, subscription_expires_at,
@@ -76,7 +76,7 @@ pub fn save_subscription_state(
 
 /// Load subscription state from database
 pub fn load_subscription_state(conn: &Arc<Mutex<Connection>>) -> Result<Option<SubscriptionState>> {
-    let conn = conn.lock()?;
+    let conn = conn.lock().unwrap();
     let mut stmt = conn.prepare(
         "SELECT id, encrypted_token, subscription_status, subscription_expires_at,
                 token_issued_at, token_expires_at, last_validated_at,
@@ -181,51 +181,10 @@ pub fn check_lockout_status(conn: &Arc<Mutex<Connection>>) -> Result<LockoutStat
     }
 }
 
-/// Check if token should be renewed (older than 23 hours)
-pub fn should_renew_token(conn: &Arc<Mutex<Connection>>) -> Result<bool> {
-    let now = chrono::Utc::now().timestamp();
-
-    match load_subscription_state(conn)? {
-        Some(state) => {
-            let token_age = now - state.token_issued_at;
-            Ok(token_age > (23 * 3600))
-        },
-        None => Ok(false),
-    }
-}
-
-/// Update token after renewal
-pub fn update_token(
-    conn: &Arc<Mutex<Connection>>,
-    encrypted_token: &str,
-    subscription_status: &str,
-    subscription_expires_at: Option<i64>,
-) -> Result<()> {
-    let now = chrono::Utc::now().timestamp();
-    let token_expires_at = now + (24 * 60 * 60);
-
-    let conn = conn.lock()?;
-    conn.execute(
-        "UPDATE subscription_state
-         SET encrypted_token = ?1, subscription_status = ?2, subscription_expires_at = ?3,
-             token_issued_at = ?4, token_expires_at = ?5, last_validated_at = ?6
-         WHERE id = 1",
-        params![
-            encrypted_token,
-            subscription_status,
-            subscription_expires_at,
-            now,
-            token_expires_at,
-            now,
-        ],
-    )?;
-
-    Ok(())
-}
-
 /// Delete subscription state (for testing or org change)
+#[allow(dead_code)] // Used for cleanup operations
 pub fn delete_subscription_state(conn: &Arc<Mutex<Connection>>) -> Result<()> {
-    let conn = conn.lock()?;
+    let conn = conn.lock().unwrap();
     conn.execute("DELETE FROM subscription_state WHERE id = 1", [])?;
     Ok(())
 }

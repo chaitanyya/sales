@@ -16,8 +16,6 @@ pub enum JobType {
 pub struct JobMetadata {
     pub job_type: JobType,
     pub entity_id: i64,
-    /// Organization context for multi-tenant isolation
-    pub clerk_org_id: Option<String>,
     /// For CompanyResearch: company_profile.md path
     /// For PersonResearch: person_profile.md path
     /// For Scoring: score.json path

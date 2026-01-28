@@ -8,7 +8,6 @@ import { IconPlayerPlay, IconFileText } from "@tabler/icons-react";
 import { startPersonResearch } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
 import { toast } from "sonner";
-import { useAuthStore } from "@/lib/store/auth-store";
 
 interface PersonResearchPanelProps {
   personId: number;
@@ -28,15 +27,10 @@ export function PersonResearchPanel({
 
   const handleStartResearch = async () => {
     await submit(async () => {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        throw new Error("Cannot start research: No organization selected");
-      }
       // Start the research - backend will emit events
       // Event bridge handles tab creation and status updates
       // Logs stream directly via Channel callback for real-time display
-      const result = await startPersonResearch(personId, handleStreamEvent, undefined, clerkOrgId);
+      const result = await startPersonResearch(personId, handleStreamEvent, undefined);
 
       toast.success(`Started research for ${personName}`);
       return result;

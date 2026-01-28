@@ -3,6 +3,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use sha2::{Digest, Sha256};
+use base64::{Engine as _, engine::general_purpose};
 
 const TOKEN_KEY_SALT: &[u8] = b"liidi-token-key-salt-v1";
 
@@ -35,13 +36,14 @@ impl TokenEncryption {
         let mut result = nonce.to_vec();
         result.extend_from_slice(&ciphertext);
 
-        Ok(base64::encode(result))
+        Ok(general_purpose::STANDARD.encode(result))
     }
 
     /// Decrypt a token using AES-256-GCM
     /// Expects base64-encoded (nonce + ciphertext)
+    #[allow(dead_code)]
     pub fn decrypt_token(&self, encrypted: &str) -> Result<String, String> {
-        let data = base64::decode(encrypted).map_err(|e| e.to_string())?;
+        let data = general_purpose::STANDARD.decode(encrypted).map_err(|e| e.to_string())?;
 
         if data.len() < 12 {
             return Err("Invalid encrypted data".to_string());

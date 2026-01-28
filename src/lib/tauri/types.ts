@@ -21,7 +21,6 @@ export interface Lead {
   userStatus: string;
   createdAt: number;
   companyProfile: string | null;
-  clerkOrgId: string | null;
 }
 
 export interface NewLead {
@@ -53,7 +52,6 @@ export interface Person {
   conversationTopics: string | null;
   conversationGeneratedAt: number | null;
   createdAt: number;
-  clerkOrgId: string | null;
 }
 
 export interface PersonWithCompany extends Person {
@@ -81,7 +79,6 @@ export interface Prompt {
   content: string;
   createdAt: number;
   updatedAt: number;
-  clerkOrgId: string | null;
 }
 
 export type PromptType = "company" | "person" | "company_overview" | "conversation_topics";
@@ -134,7 +131,6 @@ export interface ScoringConfig {
   tierNurtureMin: number;
   createdAt: number;
   updatedAt: number;
-  clerkOrgId: string | null;
 }
 
 export interface LeadScore {
@@ -149,7 +145,6 @@ export interface LeadScore {
   scoringNotes: string | null;
   scoredAt: number | null;
   createdAt: number;
-  clerkOrgId: string | null;
 }
 
 export interface LeadWithScore {
@@ -171,7 +166,6 @@ export interface LeadWithScore {
   userStatus: string;
   createdAt: number;
   companyProfile: string | null;
-  clerkOrgId: string | null;
   score: LeadScore | null;
 }
 
@@ -285,4 +279,17 @@ export interface StaleJobsResult {
   staleJobs: StaleJob[];
   stuckLeads: StuckEntity[];
   stuckPeople: StuckEntity[];
+}
+
+// ============================================================================
+// Org Binding Types (Single-Tenant)
+// ============================================================================
+
+export interface OrgBinding {
+  orgId: string;
+  orgName: string;
+  boundAt: number;
+  boundByUserId: string;
+  boundByUserEmail: string;
+  machineId: string;
 }

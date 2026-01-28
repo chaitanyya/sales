@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { IconDeviceFloppy, IconLoader2, IconPlus, IconTrash } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { saveScoringConfig } from "@/lib/tauri/commands";
-import { useAuthStore } from "@/lib/store/auth-store";
 import type {
   RequiredCharacteristic,
   DemandSignifier,
@@ -30,7 +29,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
     setIsSaving(true);
     startTransition(async () => {
       try {
-        const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
         const newId = await saveScoringConfig(
           config.name,
           JSON.stringify(config.requiredCharacteristics),
@@ -38,7 +36,6 @@ export function ScoringConfigEditor({ initialConfig }: ScoringConfigEditorProps)
           config.tierHotMin,
           config.tierWarmMin,
           config.tierNurtureMin,
-          clerkOrgId,
           config.id ?? undefined
         );
 

@@ -25,8 +25,6 @@ pub struct Lead {
     pub user_status: String,
     pub created_at: i64,
     pub company_profile: Option<String>,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,8 +60,6 @@ pub struct Person {
     pub conversation_topics: Option<String>,
     pub conversation_generated_at: Option<i64>,
     pub created_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,8 +84,6 @@ pub struct PersonWithCompany {
     pub company_name: Option<String>,
     pub company_website: Option<String>,
     pub company_industry: Option<String>,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,8 +110,6 @@ pub struct Prompt {
     pub content: String,
     pub created_at: i64,
     pub updated_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -126,6 +118,7 @@ pub struct Prompt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Infrastructure for upcoming scoring feature
 pub struct ScoringConfig {
     pub id: i64,
     pub name: String,
@@ -137,8 +130,6 @@ pub struct ScoringConfig {
     pub tier_nurture_min: i64,
     pub created_at: i64,
     pub updated_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,8 +145,6 @@ pub struct ParsedScoringConfig {
     pub tier_nurture_min: i64,
     pub created_at: i64,
     pub updated_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -164,6 +153,7 @@ pub struct ParsedScoringConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Infrastructure for upcoming scoring feature
 pub struct LeadScore {
     pub id: i64,
     pub lead_id: i64,
@@ -176,8 +166,6 @@ pub struct LeadScore {
     pub scoring_notes: Option<String>,
     pub scored_at: Option<i64>,
     pub created_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,8 +182,6 @@ pub struct ParsedLeadScore {
     pub scoring_notes: Option<String>,
     pub scored_at: Option<i64>,
     pub created_at: i64,
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -241,9 +227,6 @@ pub struct Job {
     pub total_stdout_bytes: i64,
     pub total_stderr_bytes: i64,
     pub completion_state: Option<String>,
-    /// Organization context for multi-tenant isolation
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,9 +240,6 @@ pub struct NewJob {
     pub model: Option<String>,
     pub working_dir: String,
     pub output_path: Option<String>,
-    /// Organization context for multi-tenant isolation
-    #[serde(rename = "clerkOrgId")]
-    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -290,6 +270,28 @@ pub struct Settings {
     pub use_chrome: bool,
     pub use_glm_gateway: bool,
     pub updated_at: i64,
+}
+
+// ============================================================================
+// Org Binding Table (Single-Tenant)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrgBinding {
+    pub org_id: String,
+    pub org_name: String,
+    pub bound_at: i64,
+    pub bound_by_user_id: String,
+    pub bound_by_user_email: String,
+    pub machine_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MachineBinding {
+    pub id: i64, // Always 1
+    pub machine_id: String,
 }
 
 // ============================================================================

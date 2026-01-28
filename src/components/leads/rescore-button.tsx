@@ -5,7 +5,6 @@ import { startScoring } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
 import { useIsJobActive } from "@/lib/hooks/use-stream-tabs";
 import { useJobSubmission } from "@/lib/hooks/use-job-submission";
-import { useAuthStore } from "@/lib/store/auth-store";
 
 interface RescoreButtonProps {
   leadId: number;
@@ -19,15 +18,10 @@ export function RescoreButton({ leadId, companyName, size = "default" }: Rescore
 
   const handleRescore = async () => {
     await submit(async () => {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        throw new Error("Cannot start scoring: No organization selected");
-      }
       // Start scoring - backend will emit events
       // Event bridge handles tab creation and status updates
       // Logs stream directly via Channel callback for real-time display
-      const result = await startScoring(leadId, handleStreamEvent, clerkOrgId);
+      const result = await startScoring(leadId, handleStreamEvent);
 
       toast.success(`Started scoring for ${companyName}`);
       return result;

@@ -14,7 +14,6 @@ import {
 } from "@/lib/constants/status-config";
 import { ResearchStatusBadge } from "@/components/status/research-status-badge";
 import { useMemo, useCallback } from "react";
-import { useAuthStore } from "@/lib/store/auth-store";
 
 type PersonWithCompany = {
   id: number;
@@ -48,12 +47,6 @@ export function PeopleListWithSelection({ groupedPeople, onRefresh }: PeopleList
 
   const handleResearch = useCallback(
     async (selectedIds: number[]) => {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        return;
-      }
-
       let started = 0;
       let failed = 0;
 
@@ -65,7 +58,7 @@ export function PeopleListWithSelection({ groupedPeople, onRefresh }: PeopleList
         try {
           // Start research - backend will emit events
           // Stream logs to Zustand via handleStreamEvent
-          await startPersonResearch(personId, handleStreamEvent, undefined, clerkOrgId);
+          await startPersonResearch(personId, handleStreamEvent, undefined);
 
           started++;
         } catch (error) {
@@ -86,12 +79,6 @@ export function PeopleListWithSelection({ groupedPeople, onRefresh }: PeopleList
 
   const handleConversation = useCallback(
     async (selectedIds: number[]) => {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        return;
-      }
-
       let started = 0;
       let failed = 0;
 
@@ -103,7 +90,7 @@ export function PeopleListWithSelection({ groupedPeople, onRefresh }: PeopleList
         try {
           // Start conversation - backend will emit events
           // Stream logs to Zustand via handleStreamEvent
-          await startConversationGeneration(personId, handleStreamEvent, clerkOrgId);
+          await startConversationGeneration(personId, handleStreamEvent);
 
           started++;
         } catch (error) {

@@ -6,8 +6,6 @@ use rusqlite::{Connection, Result as SqliteResult};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-pub use subscription::*;
-
 pub use schema::*;
 pub use queries::*;
 
@@ -64,8 +62,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             researched_at INTEGER,
             user_status TEXT DEFAULT 'new',
             created_at INTEGER NOT NULL,
-            company_profile TEXT,
-            clerk_org_id TEXT
+            company_profile TEXT
         );
 
         CREATE TABLE IF NOT EXISTS people (
@@ -84,8 +81,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             user_status TEXT DEFAULT 'new',
             conversation_topics TEXT,
             conversation_generated_at INTEGER,
-            created_at INTEGER NOT NULL,
-            clerk_org_id TEXT
+            created_at INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS prompts (
@@ -93,8 +89,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             type TEXT NOT NULL DEFAULT 'company',
             content TEXT NOT NULL,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL,
-            clerk_org_id TEXT
+            updated_at INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS scoring_config (
@@ -107,8 +102,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             tier_warm_min INTEGER NOT NULL DEFAULT 50,
             tier_nurture_min INTEGER NOT NULL DEFAULT 30,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL,
-            clerk_org_id TEXT
+            updated_at INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS lead_scores (
@@ -122,8 +116,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             tier TEXT NOT NULL,
             scoring_notes TEXT,
             scored_at INTEGER,
-            created_at INTEGER NOT NULL,
-            clerk_org_id TEXT
+            created_at INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_people_lead_id ON people(lead_id);
@@ -154,8 +147,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             stderr_truncated INTEGER DEFAULT 0,
             total_stdout_bytes INTEGER DEFAULT 0,
             total_stderr_bytes INTEGER DEFAULT 0,
-            completion_state TEXT DEFAULT NULL,
-            clerk_org_id TEXT
+            completion_state TEXT DEFAULT NULL
         );
 
         -- Job logs table for persisting stream output
@@ -194,51 +186,54 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
     // Initialize subscription table
     crate::subscription::init_subscription_table(conn)?;
 
+    // Initialize org binding tables (single-tenant)
+    crate::org_store::init_org_tables(conn)?;
+
     // Run migrations for new columns
     run_migrations(conn)?;
 
     Ok(())
 }
 
+/// Helper to check if a column has NOT NULL constraint
+fn column_has_notnull(conn: &Connection, table: &str, column: &str) -> bool {
+    let query = format!("PRAGMA table_info({})", table);
+    if let Ok(mut stmt) = conn.prepare(&query) {
+        if let Ok(rows) = stmt.query_map([], |row| -> Result<(String, i64), rusqlite::Error> {
+            Ok((
+                row.get::<_, String>(1)?, // column name at index 1
+                row.get::<_, i64>(3)?,    // notnull flag at index 3
+            ))
+        }) {
+            for result in rows.flatten() {
+                if result.0 == column {
+                    return result.1 != 0;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Helper to check if a column exists
+fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+    let query = format!("PRAGMA table_info({})", table);
+    if let Ok(mut stmt) = conn.prepare(&query) {
+        if let Ok(rows) = stmt.query_map([], |row| -> Result<String, rusqlite::Error> {
+            Ok(row.get::<_, String>(1)?)
+        }) {
+            for name in rows.flatten() {
+                if name == column {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Run database migrations for new columns
 fn run_migrations(conn: &Connection) -> SqliteResult<()> {
-    // Helper to check if a column has NOT NULL constraint
-    fn column_has_notnull(conn: &Connection, table: &str, column: &str) -> bool {
-        let query = format!("PRAGMA table_info({})", table);
-        if let Ok(mut stmt) = conn.prepare(&query) {
-            if let Ok(rows) = stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(1)?, // column name at index 1
-                    row.get::<_, i64>(3)?,    // notnull flag at index 3
-                ))
-            }) {
-                for result in rows.flatten() {
-                    if result.0 == column {
-                        return result.1 != 0;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    // Helper to check if a column exists
-    fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
-        let query = format!("PRAGMA table_info({})", table);
-        if let Ok(mut stmt) = conn.prepare(&query) {
-            if let Ok(rows) = stmt.query_map([], |row| {
-                Ok(row.get::<_, String>(1)?)
-            }) {
-                for name in rows.flatten() {
-                    if name == column {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
-
     // Migration: Add use_glm_gateway to settings if not exists
     if !column_exists(conn, "settings", "use_glm_gateway") {
         eprintln!("[db] Migrating settings table to add use_glm_gateway column");
@@ -313,6 +308,140 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
         )?;
     }
 
+    // Migration: Remove clerk_org_id columns (single-tenant pivot)
+    // Only run if org_binding table exists (indicating single-tenant mode)
+    if column_exists(conn, "org_binding", "org_id") {
+        migrate_to_single_tenant(conn)?;
+    }
+
+    Ok(())
+}
+
+/// Migrate to single-tenant by removing clerk_org_id columns
+fn migrate_to_single_tenant(conn: &Connection) -> SqliteResult<()> {
+    // Tables that have clerk_org_id columns
+    let tables_with_clerk_org_id = ["leads", "people", "prompts", "scoring_config", "lead_scores", "jobs"];
+
+    for table in tables_with_clerk_org_id {
+        if column_exists(conn, table, "clerk_org_id") {
+            eprintln!("[db] Migrating {} table to remove clerk_org_id column (single-tenant)", table);
+            migrate_table_remove_clerk_org_id(conn, table)?;
+            eprintln!("[db] Migration complete: {} table updated", table);
+        }
+    }
+
+    // Drop clerk_org_id indexes
+    for table in tables_with_clerk_org_id {
+        let index_name = format!("idx_{}_clerk_org_id", table);
+        conn.execute(&format!("DROP INDEX IF EXISTS {}", index_name), [])?;
+    }
+
+    Ok(())
+}
+
+/// Migrate a table to remove clerk_org_id column
+/// SQLite doesn't support DROP COLUMN, so we recreate the table
+fn migrate_table_remove_clerk_org_id(conn: &Connection, table: &str) -> SqliteResult<()> {
+    let (columns_without_clerk_org_id, definitions) = get_table_columns_without_clerk_org_id(conn, table)?;
+
+    // Create new table without clerk_org_id
+    let create_sql = format!(
+        "CREATE TABLE {}_new ({})",
+        table,
+        definitions.join(", ")
+    );
+    conn.execute(&create_sql, [])?;
+
+    // Copy data (excluding clerk_org_id)
+    let columns_list = columns_without_clerk_org_id.join(", ");
+    conn.execute(
+        &format!("INSERT INTO {}_new SELECT {} FROM {}", table, columns_list, table),
+        [],
+    )?;
+
+    // Drop old table
+    conn.execute(&format!("DROP TABLE {}", table), [])?;
+
+    // Rename new table
+    conn.execute(&format!("ALTER TABLE {}_new RENAME TO {}", table, table), [])?;
+
+    // Recreate indexes (except clerk_org_id indexes)
+    recreate_table_indexes(conn, table)?;
+
+    Ok(())
+}
+
+/// Get table columns excluding clerk_org_id
+fn get_table_columns_without_clerk_org_id(
+    conn: &Connection,
+    table: &str,
+) -> SqliteResult<(Vec<String>, Vec<String>) > {
+    let mut columns = Vec::new();
+    let mut definitions = Vec::new();
+
+    let query = format!("PRAGMA table_info({})", table);
+    let mut stmt = conn.prepare(&query)?;
+
+    let rows = stmt.query_map([], |row| -> Result<Option<(String, String)>, rusqlite::Error> {
+        let name: String = row.get(1)?;
+        let type_name: String = row.get(2)?;
+        let not_null: i64 = row.get(3)?;
+        let default_val: Option<String> = row.get(4)?;
+
+        // Skip clerk_org_id column
+        if name == "clerk_org_id" {
+            return Ok(None);
+        }
+
+        let col_def = if not_null != 0 {
+            format!("{} {} NOT NULL", name, type_name)
+        } else {
+            format!("{} {}", name, type_name)
+        };
+
+        if let Some(default) = default_val {
+            columns.push(format!("\"{}\"", name));
+            definitions.push(format!("{} DEFAULT {}", col_def, default));
+            Ok(Some((name, col_def)))
+        } else {
+            columns.push(name.clone());
+            definitions.push(col_def.clone());
+            Ok(Some((name, col_def)))
+        }
+    })?;
+
+    for row in rows {
+        let _ = row?;
+    }
+
+    Ok((columns, definitions))
+}
+
+/// Recreate indexes for a table (excluding clerk_org_id indexes)
+fn recreate_table_indexes(conn: &Connection, table: &str) -> SqliteResult<()> {
+    match table {
+        "leads" => {
+            // Add back any non-org_id indexes
+            // (leads doesn't have other indexes currently)
+        }
+        "people" => {
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_people_lead_id ON people(lead_id)",
+                [],
+            )?;
+        }
+        "lead_scores" => {
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_lead_scores_lead_id ON lead_scores(lead_id)",
+                [],
+            )?;
+        }
+        "jobs" => {
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)", [])?;
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)", [])?;
+        }
+        _ => {}
+    }
     Ok(())
 }
 

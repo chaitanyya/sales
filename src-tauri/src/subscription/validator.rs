@@ -1,17 +1,21 @@
-use crate::crypto::{TokenEncryption, get_device_fingerprint, verify_device_fingerprint};
+//! Subscription validation logic
+//!
+//! This module provides comprehensive subscription status validation.
+
+use crate::crypto::{TokenEncryption, verify_device_fingerprint};
 use crate::db::schema::SubscriptionState;
 use crate::subscription::store::load_subscription_state;
 use std::sync::{Arc, Mutex};
 use rusqlite::Connection;
 use chrono::Utc;
 
-const GRACE_PERIOD_DAYS: i64 = 7;
-
 /// Subscription validator handles all subscription-related validation logic
+#[allow(dead_code)]
 pub struct SubscriptionValidator {
     state: Option<SubscriptionState>,
 }
 
+#[allow(dead_code)]
 impl SubscriptionValidator {
     /// Load validator from database
     pub fn load(conn: &Arc<Mutex<Connection>>) -> Result<Self, String> {
@@ -54,17 +58,6 @@ impl SubscriptionValidator {
             }
             _ => false,
         }
-    }
-
-    /// Check if token should be renewed (older than 23 hours)
-    pub fn should_renew_token(&self) -> bool {
-        let Some(state) = &self.state else {
-            return false;
-        };
-
-        let now = Utc::now().timestamp();
-        let token_age = now - state.token_issued_at;
-        token_age > (23 * 3600)
     }
 
     /// Get the lockout reason if subscription is invalid

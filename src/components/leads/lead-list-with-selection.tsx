@@ -15,7 +15,6 @@ import {
   validateLeadUserStatus,
   LEAD_USER_STATUS_CONFIG,
 } from "@/lib/constants/status-config";
-import { useAuthStore } from "@/lib/store/auth-store";
 
 type LeadWithScore = {
   id: number;
@@ -48,12 +47,6 @@ export function LeadListWithSelection({ groupedLeads, onRefresh }: LeadListWithS
 
   const handleResearch = React.useCallback(
     async (selectedIds: number[]) => {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        return;
-      }
-
       let started = 0;
       let failed = 0;
 
@@ -65,7 +58,7 @@ export function LeadListWithSelection({ groupedLeads, onRefresh }: LeadListWithS
         try {
           // Start research - backend will emit events
           // Stream logs to Zustand via handleStreamEvent
-          await startResearch(leadId, handleStreamEvent, undefined, clerkOrgId);
+          await startResearch(leadId, handleStreamEvent, undefined);
 
           started++;
         } catch (error) {

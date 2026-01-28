@@ -7,7 +7,5 @@ pub mod enrichment;
 
 pub use queue::*;
 pub use result_parser::*;
-pub use recovery::*;
-pub use enrichment::*;
 // Note: StreamProcessor and CompletionHandler are used internally by queue.rs
 // They are exposed here for potential external use or testing

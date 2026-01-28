@@ -1,16 +1,13 @@
-use tauri_plugin_store::{StoreBuilder, StoreExt};
+use tauri_plugin_store::StoreBuilder;
 use tauri::AppHandle;
 
 const STORE_FILENAME: &str = "auth.json";
 
 /// Get a value from the secure storage
 #[tauri::command]
-async fn storage_get(key: String, app: AppHandle) -> Result<Option<String>, String> {
-    let store = StoreBuilder::new(&app, STORE_FILENAME.as_ref()).build()
+pub async fn storage_get(key: String, app: AppHandle) -> Result<Option<String>, String> {
+    let store = StoreBuilder::new(&app, STORE_FILENAME).build()
         .map_err(|e| format!("Failed to open store: {}", e))?;
-
-    // Load the store from disk
-    let _ = store.load();
 
     match store.get(key.as_str()) {
         Some(value) => {
@@ -28,12 +25,9 @@ async fn storage_get(key: String, app: AppHandle) -> Result<Option<String>, Stri
 
 /// Set a value in the secure storage
 #[tauri::command]
-async fn storage_set(key: String, value: String, app: AppHandle) -> Result<(), String> {
-    let mut store = StoreBuilder::new(&app, STORE_FILENAME.as_ref()).build()
+pub async fn storage_set(key: String, value: String, app: AppHandle) -> Result<(), String> {
+    let store = StoreBuilder::new(&app, STORE_FILENAME).build()
         .map_err(|e| format!("Failed to open store: {}", e))?;
-
-    // Load existing store
-    let _ = store.load();
 
     // Set the value
     store.set(key.as_str(), value);
@@ -44,12 +38,9 @@ async fn storage_set(key: String, value: String, app: AppHandle) -> Result<(), S
 
 /// Remove a value from the secure storage
 #[tauri::command]
-async fn storage_remove(key: String, app: AppHandle) -> Result<(), String> {
-    let mut store = StoreBuilder::new(&app, STORE_FILENAME.as_ref()).build()
+pub async fn storage_remove(key: String, app: AppHandle) -> Result<(), String> {
+    let store = StoreBuilder::new(&app, STORE_FILENAME).build()
         .map_err(|e| format!("Failed to open store: {}", e))?;
-
-    // Load existing store
-    let _ = store.load();
 
     // Delete the key
     store.delete(key.as_str());
@@ -60,12 +51,9 @@ async fn storage_remove(key: String, app: AppHandle) -> Result<(), String> {
 
 /// Clear all values from the secure storage
 #[tauri::command]
-async fn storage_clear(app: AppHandle) -> Result<(), String> {
-    let mut store = StoreBuilder::new(&app, STORE_FILENAME.as_ref()).build()
+pub async fn storage_clear(app: AppHandle) -> Result<(), String> {
+    let store = StoreBuilder::new(&app, STORE_FILENAME).build()
         .map_err(|e| format!("Failed to open store: {}", e))?;
-
-    // Load existing store
-    let _ = store.load();
 
     // Clear all keys
     store.clear();
@@ -76,16 +64,9 @@ async fn storage_clear(app: AppHandle) -> Result<(), String> {
 
 /// Get all keys from the secure storage
 #[tauri::command]
-async fn storage_keys(app: AppHandle) -> Result<Vec<String>, String> {
-    let store = StoreBuilder::new(&app, STORE_FILENAME.as_ref()).build()
+pub async fn storage_keys(app: AppHandle) -> Result<Vec<String>, String> {
+    let store = StoreBuilder::new(&app, STORE_FILENAME).build()
         .map_err(|e| format!("Failed to open store: {}", e))?;
 
-    // Load the store from disk
-    let _ = store.load();
-
     Ok(store.keys().into_iter().collect())
-}
-
-pub fn has_storage() -> bool {
-    true
 }

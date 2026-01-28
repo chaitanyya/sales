@@ -3,6 +3,7 @@ mod crypto;
 mod db;
 mod events;
 mod jobs;
+mod org_store;
 mod prompts;
 mod subscription;
 
@@ -158,6 +159,13 @@ pub fn run() {
             commands::validate_subscription_token,
             commands::update_subscription_status,
             commands::clear_subscription_state,
+            // Org binding commands (single-tenant)
+            commands::get_org_binding,
+            commands::bind_org,
+            commands::change_org_binding,
+            commands::verify_machine_binding,
+            commands::get_machine_id,
+            commands::is_org_bound,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

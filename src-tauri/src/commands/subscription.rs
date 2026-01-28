@@ -3,7 +3,7 @@ use crate::db::DbState;
 use crate::crypto::{get_device_fingerprint, TokenEncryption};
 use crate::subscription::{
     save_subscription_state,
-    get_subscription_status,
+    get_subscription_status as subscription_get_status,
     check_lockout_status,
     load_subscription_state,
 };
@@ -13,7 +13,7 @@ use crate::subscription::{
 pub async fn get_subscription_status(
     state: State<'_, DbState>,
 ) -> Result<crate::db::schema::SubscriptionStatus, String> {
-    get_subscription_status(&state.conn).map_err(|e| e.to_string())
+    subscription_get_status(&state.conn).map_err(|e| e.to_string())
 }
 
 /// Check if the user is locked out
@@ -61,8 +61,8 @@ pub async fn update_subscription_status(
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
-    // Load current state to get the encrypted token and device fingerprint
-    let current = load_subscription_state(&state.conn)
+    // Load current state to validate (token and device fingerprint are preserved)
+    let _current = load_subscription_state(&state.conn)
         .map_err(|e| e.to_string())?
         .ok_or("No subscription state found")?;
 
@@ -78,7 +78,9 @@ pub async fn update_subscription_status(
         "UPDATE subscription_state
          SET subscription_status = ?1, subscription_expires_at = ?2, grace_period_ends_at = ?3
          WHERE id = 1",
-        [subscription_status, subscription_expires_at, grace_period_ends_at],
+        [&subscription_status as &dyn rusqlite::ToSql,
+         &subscription_expires_at as &dyn rusqlite::ToSql,
+         &grace_period_ends_at as &dyn rusqlite::ToSql],
     ).map_err(|e| e.to_string())?;
 
     Ok(())
@@ -93,22 +95,4 @@ pub async fn clear_subscription_state(
     conn.execute("DELETE FROM subscription_state WHERE id = 1", [])
         .map_err(|e| e.to_string())?;
     Ok(())
-}
-
-/// Get the decrypted token (for internal use - not exposed to frontend)
-/// This is used by the renewal task to get the current token for refresh
-pub fn get_current_token(state: &DbState) -> Result<String, String> {
-    let subscription_state = load_subscription_state(&state.conn)
-        .map_err(|e| e.to_string())?
-        .ok_or("No subscription state found")?;
-
-    // Verify device fingerprint
-    let device_id = get_device_fingerprint()?;
-    if device_id != subscription_state.device_fingerprint {
-        return Err("Device fingerprint mismatch".to_string());
-    }
-
-    // Decrypt token
-    let encryption = TokenEncryption::from_device_fingerprint(&device_id);
-    encryption.decrypt_token(&subscription_state.encrypted_token)
 }

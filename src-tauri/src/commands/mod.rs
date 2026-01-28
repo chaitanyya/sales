@@ -1,4 +1,5 @@
 mod database;
+mod org;
 mod research;
 mod prompts;
 mod jobs;
@@ -8,6 +9,7 @@ mod storage;
 mod subscription;
 
 pub use database::*;
+pub use org::*;
 pub use research::*;
 pub use prompts::*;
 pub use jobs::*;

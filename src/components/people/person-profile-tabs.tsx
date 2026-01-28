@@ -9,7 +9,6 @@ import { useIsJobActive } from "@/lib/hooks/use-stream-tabs";
 import { startPersonResearch, startConversationGeneration } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
 import { toast } from "sonner";
-import { useAuthStore } from "@/lib/store/auth-store";
 
 interface PersonProfileTabsProps {
   personId: number;
@@ -32,14 +31,9 @@ export function PersonProfileTabs({
 
   const handleResearch = async () => {
     try {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        return;
-      }
       // Start research - backend will emit events
       // Stream logs to Zustand via handleStreamEvent
-      await startPersonResearch(personId, handleStreamEvent, undefined, clerkOrgId);
+      await startPersonResearch(personId, handleStreamEvent, undefined);
 
       toast.success(`Started research for ${personName}`);
     } catch (error) {
@@ -50,14 +44,9 @@ export function PersonProfileTabs({
 
   const handleConversation = async () => {
     try {
-      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
-      if (!clerkOrgId) {
-        toast.error("No organization selected");
-        return;
-      }
       // Start conversation - backend will emit events
       // Stream logs to Zustand via handleStreamEvent
-      await startConversationGeneration(personId, handleStreamEvent, clerkOrgId);
+      await startConversationGeneration(personId, handleStreamEvent);
 
       toast.success(`Started conversation generation for ${personName}`);
     } catch (error) {

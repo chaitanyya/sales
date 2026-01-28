@@ -31,8 +31,6 @@ pub struct EntityContext {
     pub entity_id: i64,
     /// Status to set when job fails before starting (e.g., "pending" or "failed")
     pub rollback_status: String,
-    /// Organization context for multi-tenant isolation
-    pub clerk_org_id: Option<String>,
 }
 
 // Configuration
@@ -53,6 +51,7 @@ pub struct StreamEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // Infrastructure for job result parsing
 pub struct JobResult {
     pub job_id: String,
     pub status: String,
@@ -105,27 +104,6 @@ impl JobGuard {
     /// Call this when the job completes normally.
     fn defuse(&mut self) {
         self.defused = true;
-    }
-
-    /// Manually trigger cleanup (useful for early returns).
-    /// This also defuses the guard to prevent double cleanup.
-    async fn cleanup(&mut self) {
-        if self.defused {
-            return;
-        }
-        self.defused = true;
-
-        // Remove from active jobs
-        self.active_jobs.lock().await.remove(&self.job_id);
-
-        // Reset entity status if context provided
-        if let Some(ref ctx) = self.entity_context {
-            db_reset_entity_status(&self.db_conn, ctx, &self.app_handle);
-        }
-
-        // Update job status to error
-        db_update_job_status(&self.db_conn, &self.job_id, "error", None, Some("Job aborted unexpectedly"));
-        events::emit_job_status_changed(&self.app_handle, self.job_id.clone(), "error".to_string(), None);
     }
 }
 
@@ -300,15 +278,13 @@ impl JobQueue {
                 model: Some(settings.model.clone()),
                 working_dir: working_dir.clone(),
                 output_path: Some(metadata.primary_output_path.to_string_lossy().to_string()),
-                clerk_org_id: metadata.clerk_org_id.clone(),
             };
             crate::db::insert_job(&conn, &new_job).map_err(|e| e.to_string())?;
             settings
         };
 
-        // Emit job created event with clerk_org_id
-        let clerk_org_id = metadata.clerk_org_id.clone();
-        events::emit_job_created(&app, job_id.clone(), job_type_str.to_string(), metadata.entity_id, entity_label, clerk_org_id.clone());
+        // Emit job created event
+        events::emit_job_created(&app, job_id.clone(), job_type_str.to_string(), metadata.entity_id, entity_label);
 
         let job_id_clone = job_id.clone();
         let app_clone = app.clone();
@@ -334,12 +310,11 @@ impl JobQueue {
             let job_id_for_status = job_id_clone.clone();
             let app_for_status = app_clone.clone();
             let db_conn_for_status = db_conn.clone();
-            let clerk_org_id_for_status = clerk_org_id.clone();
 
             // Helper to update job status in DB and emit event
             let update_job_status = move |status: &str, exit_code: Option<i32>, error_msg: Option<&str>| {
                 db_update_job_status(&db_conn_for_status, &job_id_for_status, status, exit_code, error_msg);
-                events::emit_job_status_changed(&app_for_status, job_id_for_status.clone(), status.to_string(), exit_code, clerk_org_id_for_status.clone());
+                events::emit_job_status_changed(&app_for_status, job_id_for_status.clone(), status.to_string(), exit_code);
             };
 
             // Try to acquire semaphore with queue timeout
@@ -617,21 +592,20 @@ impl JobQueue {
                 // Update job status to error
                 db_update_job_status(&db_conn, &job_id_clone, "error", None, Some(&format!("Completion handler error: {}", e)));
                 // Emit entity updated event so frontend updates
-                let clerk_org_id = metadata.clerk_org_id.clone();
                 match metadata.job_type {
                     super::result_parser::JobType::CompanyResearch => {
-                        events::emit_lead_updated(&app_clone, metadata.entity_id, clerk_org_id);
+                        events::emit_lead_updated(&app_clone, metadata.entity_id);
                     }
                     super::result_parser::JobType::PersonResearch | super::result_parser::JobType::Conversation => {
                         // Get lead_id for the person to emit person-updated event
                         if let Ok(conn) = db_conn.lock() {
-                            if let Ok(Some(person)) = crate::db::get_person_raw(&conn, metadata.entity_id, metadata.clerk_org_id.as_deref()) {
-                                events::emit_person_updated(&app_clone, metadata.entity_id, person.lead_id, clerk_org_id);
+                            if let Ok(Some(person)) = crate::db::get_person_raw(&conn, metadata.entity_id) {
+                                events::emit_person_updated(&app_clone, metadata.entity_id, person.lead_id);
                             }
                         }
                     }
                     super::result_parser::JobType::Scoring => {
-                        events::emit_lead_updated(&app_clone, metadata.entity_id, clerk_org_id);
+                        events::emit_lead_updated(&app_clone, metadata.entity_id);
                     }
                 }
             }
@@ -707,15 +681,14 @@ fn db_reset_entity_status(
             eprintln!("[job_queue] Failed to reset entity status: {}", e);
         } else {
             // Emit event to notify frontend of status change
-            let clerk_org_id = entity_ctx.clerk_org_id.clone();
             match entity_ctx.entity_type {
                 EntityType::Lead => {
-                    events::emit_lead_updated(app, entity_ctx.entity_id, clerk_org_id);
+                    events::emit_lead_updated(app, entity_ctx.entity_id);
                 }
                 EntityType::Person => {
                     // Get lead_id for person-updated event
-                    if let Ok(Some(person)) = crate::db::get_person_raw(&conn, entity_ctx.entity_id, entity_ctx.clerk_org_id.as_deref()) {
-                        events::emit_person_updated(app, entity_ctx.entity_id, person.lead_id, clerk_org_id);
+                    if let Ok(Some(person)) = crate::db::get_person_raw(&conn, entity_ctx.entity_id) {
+                        events::emit_person_updated(app, entity_ctx.entity_id, person.lead_id);
                     }
                 }
             }

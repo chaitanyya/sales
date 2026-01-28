@@ -54,7 +54,7 @@ pub fn get_device_fingerprint() -> Result<String, String> {
     }
 
     // Add hostname for additional entropy
-    if let Ok(hostname) = whoami::hostname() {
+    if let Ok(hostname) = whoami::fallible::hostname() {
         hasher.update(hostname.as_bytes());
     }
 
@@ -65,6 +65,7 @@ pub fn get_device_fingerprint() -> Result<String, String> {
 }
 
 /// Verify that the current device matches the stored fingerprint
+#[allow(dead_code)]
 pub fn verify_device_fingerprint(stored: &str) -> bool {
     match get_device_fingerprint() {
         Ok(current) => current == stored,

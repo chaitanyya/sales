@@ -115,7 +115,6 @@ export const defaultScoringConfig = {
   tierHotMin: 80,
   tierWarmMin: 50,
   tierNurtureMin: 30,
-  clerkOrgId: null as string | null,
 };
 
 // Lead with score for list display

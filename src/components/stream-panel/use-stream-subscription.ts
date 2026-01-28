@@ -1,7 +1,6 @@
 "use client";
 
 import { useStreamPanelStore } from "@/lib/store/stream-panel-store";
-import { useAuthStore } from "@/lib/store/auth-store";
 import { killJob as tauriKillJob, deleteJob as tauriDeleteJob } from "@/lib/tauri/commands";
 import { queryClient } from "@/lib/query/query-client";
 import { queryKeys } from "@/lib/query/keys";
@@ -12,14 +11,13 @@ export function useStreamSubscription() {
   const clearLogs = useStreamPanelStore((s) => s.clearLogs);
   const setActiveTab = useStreamPanelStore((s) => s.setActiveTab);
   const activeTabId = useStreamPanelStore((s) => s.activeTabId);
-  const clerkOrgId = useAuthStore((s) => s.getCurrentOrgId());
 
   // Kill a running job
   const killJob = async (jobId: string) => {
     try {
       await tauriKillJob(jobId);
       // Invalidate jobs query to reflect status change
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobsRecent(clerkOrgId, 50) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobsRecent(50) });
     } catch {
       toast.error("Failed to stop job");
     }
@@ -30,7 +28,7 @@ export function useStreamSubscription() {
     // If this is the active tab, select another tab before closing
     if (activeTabId === jobId) {
       // Get current jobs from query cache
-      const jobs = queryClient.getQueryData<Job[]>(queryKeys.jobsRecent(clerkOrgId, 50)) ?? [];
+      const jobs = queryClient.getQueryData<Job[]>(queryKeys.jobsRecent(50)) ?? [];
       // Sort by creation time (oldest first) to match tab order
       const sortedJobs = [...jobs].sort((a, b) => a.createdAt - b.createdAt);
       const currentIndex = sortedJobs.findIndex((j) => j.id === jobId);
@@ -69,7 +67,7 @@ export function useStreamSubscription() {
     clearLogs(jobId);
 
     // Invalidate jobs query so tab disappears
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobsRecent(clerkOrgId, 50) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobsRecent(50) });
   };
 
   return { killJob, closeTab };

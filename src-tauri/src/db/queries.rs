@@ -1242,3 +1242,51 @@ pub fn enrich_person<C: std::ops::Deref<Target = Connection>>(
         ],
     )
 }
+
+// ============================================================================
+// Note Queries
+// ============================================================================
+
+pub fn insert_note(conn: &Connection, entity_type: &str, entity_id: i64, content: &str) -> SqliteResult<i64> {
+    let now = chrono::Utc::now().timestamp_millis();
+    conn.execute(
+        "INSERT INTO notes (entity_type, entity_id, content, created_at) VALUES (?1, ?2, ?3, ?4)",
+        params![entity_type, entity_id, content, now],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn get_notes(conn: &Connection, entity_type: &str, entity_id: i64) -> SqliteResult<Vec<Note>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, entity_type, entity_id, content, created_at FROM notes
+         WHERE entity_type = ?1 AND entity_id = ?2 ORDER BY created_at DESC"
+    )?;
+    
+    let rows = stmt.query_map(params![entity_type, entity_id], |row| {
+        Ok(Note {
+            id: row.get(0)?,
+            entity_type: row.get(1)?,
+            entity_id: row.get(2)?,
+            content: row.get(3)?,
+            created_at: row.get(4)?,
+        })
+    })?;
+
+    rows.collect()
+}
+
+pub fn update_note(conn: &Connection, note_id: i64, content: &str) -> SqliteResult<()> {
+    conn.execute(
+        "UPDATE notes SET content = ?1 WHERE id = ?2",
+        params![content, note_id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_note(conn: &Connection, note_id: i64) -> SqliteResult<()> {
+    conn.execute(
+        "DELETE FROM notes WHERE id = ?1",
+        params![note_id],
+    )?;
+    Ok(())
+}

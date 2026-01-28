@@ -170,6 +170,11 @@ pub fn run() {
             commands::verify_machine_binding,
             commands::get_machine_id,
             commands::is_org_bound,
+            // Note commands
+            commands::add_note,
+            commands::get_notes,
+            commands::update_note,
+            commands::delete_note,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

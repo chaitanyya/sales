@@ -368,3 +368,31 @@ pub fn get_onboarding_status(state: State<'_, DbState>) -> Result<OnboardingStat
         has_conversation_topics,
     })
 }
+
+// ============================================================================
+// Note Commands
+// ============================================================================
+
+#[tauri::command]
+pub fn add_note(state: State<'_, DbState>, entity_type: String, entity_id: i64, content: String) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::insert_note(&conn, &entity_type, entity_id, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_notes(state: State<'_, DbState>, entity_type: String, entity_id: i64) -> Result<Vec<db::Note>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::get_notes(&conn, &entity_type, entity_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_note(state: State<'_, DbState>, id: i64, content: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::update_note(&conn, id, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_note(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::delete_note(&conn, id).map_err(|e| e.to_string())
+}

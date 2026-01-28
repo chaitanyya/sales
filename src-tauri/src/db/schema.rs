@@ -329,3 +329,26 @@ pub struct LockoutStatus {
     pub reason: Option<String>,
     pub grace_period_ends_at: Option<i64>,
 }
+
+// ============================================================================
+// Note Table
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: i64,
+    pub entity_type: String,
+    pub entity_id: i64,
+    pub content: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewNote {
+    pub entity_type: String,
+    pub entity_id: i64,
+    pub content: String,
+}
+

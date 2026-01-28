@@ -303,3 +303,16 @@ export interface BulkUploadResult {
   errorCount: number;
   errors: string[];
 }
+
+
+// ============================================================================
+// Note Types
+// ============================================================================
+
+export interface Note {
+  id: number;
+  entityType: string;
+  entityId: number;
+  content: string;
+  createdAt: number;
+}

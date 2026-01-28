@@ -8,6 +8,7 @@ import {
   IconUsers,
   IconCircleCheck,
   IconLoader2,
+  IconPencil,
 } from "@tabler/icons-react";
 import { LeadResearchPanel } from "@/components/lead/lead-research-panel";
 import { ScoreCard } from "@/components/leads/score-bars";
@@ -21,10 +22,12 @@ import {
   SidebarProperty,
 } from "@/components/layout/entity-detail-layout";
 import { useLeadDetail } from "@/lib/hooks/use-leads";
+import { useNotes } from "@/lib/hooks/use-notes";
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const leadId = parseInt(id || "", 10);
+  const { notes, addNote, updateNote, deleteNote } = useNotes("lead", leadId);
 
   const { lead, score, people, adjacentLeads, isLoading, error } = useLeadDetail(leadId);
 
@@ -56,6 +59,18 @@ export default function LeadDetailPage() {
 
   const activityContent = (
     <>
+      {notes.map((note) => (
+        <ActivityItem
+          key={note.id}
+          icon={<IconPencil className="w-3.5 h-3.5 text-orange-500" />}
+          iconBgColor="bg-orange-500/20"
+          label={note.content}
+          date={new Date(note.createdAt)}
+          isEditable
+          onEdit={async (content) => { await updateNote({ id: note.id, content }); }}
+          onDelete={async () => { await deleteNote(note.id); }}
+        />
+      ))}
       {lead.researchedAt && (
         <ActivityItem
           icon={<IconCircleCheck className="w-3.5 h-3.5 text-green-500" />}
@@ -194,6 +209,7 @@ export default function LeadDetailPage() {
       }
       activityContent={activityContent}
       sidebarContent={sidebarContent}
+      onAddNote={async (c) => { await addNote(c); }}
     />
   );
 }

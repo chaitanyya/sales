@@ -5,7 +5,18 @@ import {
   IconChevronUp,
   IconStar,
   IconDotsVertical,
+  IconPencil,
+  IconTrash,
+  IconCheck,
+  IconX,
+  IconBold,
+  IconItalic,
+  IconList,
+  IconCode,
 } from "@tabler/icons-react";
+import React, { useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EntityDetailLayoutProps {
   /** Back link href (e.g., "/lead" or "/people") */
@@ -30,6 +41,8 @@ interface EntityDetailLayoutProps {
   activityContent: React.ReactNode;
   /** Right sidebar content */
   sidebarContent: React.ReactNode;
+  /** Callback to add a note */
+  onAddNote?: (content: string) => Promise<void>;
 }
 
 export function EntityDetailLayout({
@@ -44,7 +57,50 @@ export function EntityDetailLayout({
   mainContent,
   activityContent,
   sidebarContent,
+  onAddNote,
 }: EntityDetailLayoutProps) {
+  const [noteContent, setNoteContent] = useState("");
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertFormat = (prefix: string, suffix: string = "") => {
+    if (!textareaRef.current) return;
+
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const text = noteContent;
+    const before = text.substring(0, start);
+    const selection = text.substring(start, end);
+    const after = text.substring(end);
+
+    const newText = before + prefix + selection + suffix + after;
+    setNoteContent(newText);
+
+    // Defer focus and selection update to next tick to ensure state update has processed
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newCursorPos = start + prefix.length + selection.length + suffix.length;
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
+  const handleNoteKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!noteContent.trim() || !onAddNote || isSubmittingNote) return;
+
+      setIsSubmittingNote(true);
+      try {
+        await onAddNote(noteContent);
+        setNoteContent("");
+      } finally {
+        setIsSubmittingNote(false);
+      }
+    }
+  };
+
   return (
     <>
       <header data-tauri-drag-region className="h-10 border-b border-sidebar-border flex items-center px-3 gap-2">
@@ -104,16 +160,58 @@ export function EntityDetailLayout({
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-medium">Activity</h2>
               </div>
-              <div className="space-y-3">{activityContent}</div>
 
-              <div className="mt-6">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-secondary/30 text-sm text-muted-foreground focus-within:border-primary/20">
-                  <input
-                    type="text"
-                    placeholder="Leave a note..."
-                    className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground/50"
-                  />
+              <div className="mb-6 relative">
+                <div className="flex items-center gap-1 mb-2 p-1 bg-secondary/20 rounded-md border border-border/50 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => insertFormat("**", "**")}
+                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                    title="Bold"
+                  >
+                    <IconBold className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertFormat("*", "*")}
+                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                    title="Italic"
+                  >
+                    <IconItalic className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertFormat("- ")}
+                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                    title="List"
+                  >
+                    <IconList className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertFormat("`", "`")}
+                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                    title="Code"
+                  >
+                    <IconCode className="w-4 h-4" />
+                  </button>
                 </div>
+                <Textarea
+                  ref={textareaRef}
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  onKeyDown={handleNoteKeyDown}
+                  disabled={isSubmittingNote}
+                  placeholder="Leave a note... (supports **bold**, *italic*, - lists, `code`)"
+                  className="min-h-[80px] pr-12 resize-none bg-secondary/30 border-border focus-visible:ring-1 focus-visible:ring-primary/20"
+                />
+                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 pointer-events-none">
+                  ↵ to submit
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {activityContent}
               </div>
             </div>
           </div>
@@ -130,20 +228,66 @@ export function EntityDetailLayout({
 interface ActivityItemProps {
   icon: React.ReactNode;
   iconBgColor: string;
-  label: string;
+  label: React.ReactNode;
   date: Date;
+  isEditable?: boolean;
+  onEdit?: (newContent: string) => Promise<void>;
+  onDelete?: () => Promise<void>;
 }
 
-export function ActivityItem({ icon, iconBgColor, label, date }: ActivityItemProps) {
+export function ActivityItem({ icon, iconBgColor, label, date, isEditable, onEdit, onDelete }: ActivityItemProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+
+  // Initialize edit content from label if it's a string or element containing string
+  const startEdit = () => {
+    let content = "";
+    if (typeof label === 'string') {
+      content = label;
+    } else if (React.isValidElement(label)) {
+      const element = label as React.ReactElement<{ children: string }>;
+      if (element.props.children) {
+        content = element.props.children;
+      }
+    }
+    setEditContent(content);
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (onEdit) {
+      await onEdit(editContent);
+      setIsEditing(false);
+    }
+  };
+
+  const content = isEditing ? (
+    <div className="flex flex-col gap-2 w-full">
+      <Textarea
+        value={editContent}
+        onChange={(e) => setEditContent(e.target.value)}
+        className="min-h-[60px] resize-y"
+      />
+      <div className="flex items-center gap-2">
+        <button onClick={handleSave} className="p-1 hover:bg-green-500/10 text-green-500 rounded"><IconCheck className="w-4 h-4" /></button>
+        <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-red-500/10 text-red-500 rounded"><IconX className="w-4 h-4" /></button>
+      </div>
+    </div>
+  ) : (
+    <div className="prose prose-sm dark:prose-invert max-w-none [&>*]:text-foreground [&_strong]:text-foreground [&_em]:text-foreground [&_code]:text-foreground [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_ul]:text-foreground [&_li]:text-foreground">
+      {typeof label === 'string' ? <ReactMarkdown>{label}</ReactMarkdown> : label}
+    </div>
+  );
+
   return (
-    <div className="flex items-start gap-3 text-sm">
+    <div className="flex items-start gap-3 text-sm group">
       <div
-        className={`w-6 h-6 rounded-full ${iconBgColor} flex items-center justify-center mt-0.5`}
+        className={`w-6 h-6 rounded-full ${iconBgColor} flex items-center justify-center mt-0.5 shrink-0`}
       >
         {icon}
       </div>
-      <div>
-        <p className="text-muted-foreground">{label}</p>
+      <div className="flex-1 min-w-0">
+        {content}
         <p className="text-xs text-muted-foreground/60 mt-0.5">
           {date.toLocaleDateString("en-US", {
             month: "short",
@@ -152,6 +296,16 @@ export function ActivityItem({ icon, iconBgColor, label, date }: ActivityItemPro
           })}
         </p>
       </div>
+      {isEditable && !isEditing && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          <button onClick={startEdit} className="p-1 hover:bg-secondary text-muted-foreground rounded" title="Edit">
+            <IconPencil className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onDelete} className="p-1 hover:bg-red-500/10 text-red-500 rounded" title="Delete">
+            <IconTrash className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

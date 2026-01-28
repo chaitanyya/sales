@@ -150,6 +150,16 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             completion_state TEXT DEFAULT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notes_entity ON notes(entity_type, entity_id);
+
         -- Job logs table for persisting stream output
         CREATE TABLE IF NOT EXISTS job_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

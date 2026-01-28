@@ -8,6 +8,7 @@ import {
   IconUser,
   IconCircleCheck,
   IconLoader2,
+  IconPencil,
 } from "@tabler/icons-react";
 import { PersonProfileTabs } from "@/components/people/person-profile-tabs";
 import { UserStatusSelector } from "@/components/status/user-status-selector";
@@ -20,10 +21,12 @@ import {
   SidebarProperty,
 } from "@/components/layout/entity-detail-layout";
 import { usePersonDetail } from "@/lib/hooks/use-people";
+import { useNotes } from "@/lib/hooks/use-notes";
 
 export default function PersonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const personId = parseInt(id || "", 10);
+  const { notes, addNote, updateNote, deleteNote } = useNotes("person", personId);
 
   const { person, adjacentPeople, isLoading, error } = usePersonDetail(personId);
 
@@ -62,6 +65,18 @@ export default function PersonDetailPage() {
 
   const activityContent = (
     <>
+      {notes.map((note) => (
+        <ActivityItem
+          key={note.id}
+          icon={<IconPencil className="w-3.5 h-3.5 text-orange-500" />}
+          iconBgColor="bg-orange-500/20"
+          label={note.content}
+          date={new Date(note.createdAt)}
+          isEditable
+          onEdit={async (content) => { await updateNote({ id: note.id, content }); }}
+          onDelete={async () => { await deleteNote(note.id); }}
+        />
+      ))}
       {person.researchedAt && (
         <ActivityItem
           icon={<IconCircleCheck className="w-3.5 h-3.5 text-green-500" />}
@@ -214,6 +229,7 @@ export default function PersonDetailPage() {
       }
       activityContent={activityContent}
       sidebarContent={sidebarContent}
+      onAddNote={async (c) => { await addNote(c); }}
     />
   );
 }

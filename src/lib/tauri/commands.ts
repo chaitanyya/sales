@@ -17,6 +17,7 @@ import type {
   Job,
   JobLog,
   BulkUploadResult,
+  Note,
 } from "./types";
 
 // ============================================================================
@@ -481,4 +482,36 @@ export async function storageClear(): Promise<void> {
 
 export async function storageKeys(): Promise<string[]> {
   return invoke("storage_keys");
+}
+
+// ============================================================================
+// Note Commands
+// ============================================================================
+
+export async function addNote(
+  entityType: string,
+  entityId: number,
+  content: string
+): Promise<number> {
+  return invoke("add_note", { entityType, entityId, content });
+}
+
+export async function getNotes(
+  entityType: string,
+  entityId: number
+): Promise<Note[]> {
+  return invoke("get_notes", { entityType, entityId });
+}
+
+export async function updateNote(
+  id: number,
+  content: string
+): Promise<void> {
+  return invoke("update_note", { id, content });
+}
+
+export async function deleteNote(
+  id: number
+): Promise<void> {
+  return invoke("delete_note", { id });
 }

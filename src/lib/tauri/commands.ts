@@ -16,6 +16,7 @@ import type {
   OnboardingStatus,
   Job,
   JobLog,
+  BulkUploadResult,
 } from "./types";
 
 // ============================================================================
@@ -44,6 +45,14 @@ export async function updateLeadUserStatus(leadId: number, status: string): Prom
 
 export async function deleteLeads(leadIds: number[]): Promise<number> {
   return invoke("delete_leads", { leadIds });
+}
+
+export async function insertLeadsBulk(leads: NewLead[]): Promise<BulkUploadResult> {
+  return invoke("insert_leads_bulk", { leads });
+}
+
+export async function insertPeopleBulk(people: NewPerson[]): Promise<BulkUploadResult> {
+  return invoke("insert_people_bulk", { people });
 }
 
 // ============================================================================
@@ -402,14 +411,7 @@ export async function clearSubscriptionState(): Promise<void> {
 // Org Binding Commands (Single-Tenant)
 // ============================================================================
 
-export interface OrgBinding {
-  orgId: string;
-  orgName: string;
-  boundAt: number;
-  boundByUserId: string;
-  boundByUserEmail: string;
-  machineId: string;
-}
+import type { OrgBinding } from "./types";
 
 export async function getOrgBinding(): Promise<OrgBinding | null> {
   return invoke("get_org_binding");

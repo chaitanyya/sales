@@ -68,6 +68,65 @@ pub fn delete_leads(app: AppHandle, state: State<'_, DbState>, lead_ids: Vec<i64
     Ok(deleted)
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkUploadResult {
+    pub success_count: usize,
+    pub error_count: usize,
+    pub errors: Vec<String>,
+}
+
+#[tauri::command]
+pub fn insert_leads_bulk(app: AppHandle, state: State<'_, DbState>, leads: Vec<NewLead>) -> Result<BulkUploadResult, String> {
+    println!("[insert_leads_bulk] Received {} leads to insert", leads.len());
+    for (i, lead) in leads.iter().enumerate() {
+        println!("[insert_leads_bulk] Lead {}: company_name={:?}, website={:?}", i, lead.company_name, lead.website);
+    }
+
+    let mut conn = state.conn.lock().map_err(|e| {
+        println!("[insert_leads_bulk] Failed to lock connection: {}", e);
+        e.to_string()
+    })?;
+
+    match db::insert_leads_bulk(&mut conn, &leads) {
+        Ok(count) => {
+            println!("[insert_leads_bulk] Successfully inserted {} leads", count);
+            drop(conn);
+            events::emit_leads_bulk_created(&app, count);
+            Ok(BulkUploadResult {
+                success_count: count,
+                error_count: 0,
+                errors: vec![],
+            })
+        }
+        Err(e) => {
+            println!("[insert_leads_bulk] Insert failed: {}", e);
+            Ok(BulkUploadResult {
+                success_count: 0,
+                error_count: leads.len(),
+                errors: vec![e.to_string()],
+            })
+        }
+    }
+}
+
+#[tauri::command]
+pub fn insert_people_bulk(state: State<'_, DbState>, people: Vec<NewPerson>) -> Result<BulkUploadResult, String> {
+    let mut conn = state.conn.lock().map_err(|e| e.to_string())?;
+    match db::insert_people_bulk(&mut conn, &people) {
+        Ok(count) => Ok(BulkUploadResult {
+            success_count: count,
+            error_count: 0,
+            errors: vec![],
+        }),
+        Err(e) => Ok(BulkUploadResult {
+            success_count: 0,
+            error_count: people.len(),
+            errors: vec![e.to_string()],
+        }),
+    }
+}
+
 // ============================================================================
 // Person Commands
 // ============================================================================

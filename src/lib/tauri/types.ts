@@ -293,3 +293,13 @@ export interface OrgBinding {
   boundByUserEmail: string;
   machineId: string;
 }
+
+// ============================================================================
+// Bulk Upload Types
+// ============================================================================
+
+export interface BulkUploadResult {
+  successCount: number;
+  errorCount: number;
+  errors: string[];
+}

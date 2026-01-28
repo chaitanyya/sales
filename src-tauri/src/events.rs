@@ -58,6 +58,16 @@ pub fn emit_lead_created(app: &AppHandle, id: i64) {
     let _ = app.emit("lead-created", LeadCreatedPayload { id });
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeadsBulkCreatedPayload {
+    pub count: usize,
+}
+
+pub fn emit_leads_bulk_created(app: &AppHandle, count: usize) {
+    let _ = app.emit("leads-bulk-created", LeadsBulkCreatedPayload { count });
+}
+
 pub fn emit_lead_deleted(app: &AppHandle, ids: Vec<i64>) {
     let _ = app.emit("lead-deleted", LeadDeletedPayload { ids });
 }

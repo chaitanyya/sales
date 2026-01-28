@@ -101,6 +101,29 @@ pub fn insert_lead(conn: &Connection, data: &NewLead) -> SqliteResult<i64> {
     Ok(conn.last_insert_rowid())
 }
 
+/// Bulk insert leads - returns count of successfully inserted leads
+pub fn insert_leads_bulk(conn: &mut Connection, leads: &[NewLead]) -> SqliteResult<usize> {
+    println!("[insert_leads_bulk query] Starting transaction for {} leads", leads.len());
+    let tx = conn.transaction()?;
+    let now = chrono::Utc::now().timestamp();
+    let mut count = 0;
+
+    for lead in leads {
+        println!("[insert_leads_bulk query] Inserting lead: {:?}", lead.company_name);
+        tx.execute(
+            "INSERT INTO leads (company_name, website, city, state, country, research_status, user_status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
+            params![lead.company_name, lead.website, lead.city, lead.state, lead.country, now],
+        )?;
+        count += 1;
+    }
+
+    println!("[insert_leads_bulk query] Committing transaction with {} leads", count);
+    tx.commit()?;
+    println!("[insert_leads_bulk query] Transaction committed successfully");
+    Ok(count)
+}
+
 #[allow(dead_code)] // API function for updating lead research status
 pub fn update_lead_research(
     conn: &Connection,
@@ -322,6 +345,25 @@ pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
         params![data.first_name, data.last_name, data.email, data.title, data.linkedin_url, data.lead_id, now],
     )?;
     Ok(conn.last_insert_rowid())
+}
+
+/// Bulk insert people - returns count of successfully inserted people
+pub fn insert_people_bulk(conn: &mut Connection, people: &[NewPerson]) -> SqliteResult<usize> {
+    let tx = conn.transaction()?;
+    let now = chrono::Utc::now().timestamp();
+    let mut count = 0;
+    
+    for person in people {
+        tx.execute(
+            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
+            params![person.first_name, person.last_name, person.email, person.title, person.linkedin_url, person.lead_id, now],
+        )?;
+        count += 1;
+    }
+    
+    tx.commit()?;
+    Ok(count)
 }
 
 #[allow(dead_code)] // API function for cascade delete

@@ -35,6 +35,10 @@ interface PersonDeletedPayload {
   ids: number[];
 }
 
+interface LeadsBulkCreatedPayload {
+  count: number;
+}
+
 // Job event payloads
 interface JobStatusChangedPayload {
   jobId: string;
@@ -120,6 +124,14 @@ export async function initializeEventBridge(): Promise<void> {
     queryClient.invalidateQueries({ queryKey: queryKeys.peopleList() });
   });
   unlisteners.push(peopleBulkCreatedUnlisten);
+
+  // Leads bulk created → invalidate leads list + onboarding status
+  const leadsBulkCreatedUnlisten = await listen<LeadsBulkCreatedPayload>("leads-bulk-created", (event) => {
+    console.log("[event-bridge] leads-bulk-created event received, count:", event.payload.count);
+    queryClient.invalidateQueries({ queryKey: queryKeys.leadsWithScores() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.onboardingStatus() });
+  });
+  unlisteners.push(leadsBulkCreatedUnlisten);
 
   // Leads deleted → remove from cache + invalidate lists + onboarding
   const leadDeletedUnlisten = await listen<LeadDeletedPayload>("lead-deleted", (event) => {

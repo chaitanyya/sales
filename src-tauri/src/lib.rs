@@ -1,8 +1,10 @@
 mod commands;
+mod crypto;
 mod db;
 mod events;
 mod jobs;
 mod prompts;
+mod subscription;
 
 use db::{DbState, get_db_path};
 use jobs::JobQueue;
@@ -20,6 +22,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             // Initialize database
             let db_path = get_db_path();
@@ -143,6 +146,18 @@ pub fn run() {
             // Settings commands
             commands::get_settings,
             commands::update_settings,
+            // Storage commands (for Clerk auth)
+            commands::storage_get,
+            commands::storage_set,
+            commands::storage_remove,
+            commands::storage_clear,
+            commands::storage_keys,
+            // Subscription commands
+            commands::get_subscription_status,
+            commands::check_lockout,
+            commands::validate_subscription_token,
+            commands::update_subscription_status,
+            commands::clear_subscription_state,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

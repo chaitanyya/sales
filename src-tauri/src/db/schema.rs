@@ -25,6 +25,8 @@ pub struct Lead {
     pub user_status: String,
     pub created_at: i64,
     pub company_profile: Option<String>,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +62,8 @@ pub struct Person {
     pub conversation_topics: Option<String>,
     pub conversation_generated_at: Option<i64>,
     pub created_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +88,8 @@ pub struct PersonWithCompany {
     pub company_name: Option<String>,
     pub company_website: Option<String>,
     pub company_industry: Option<String>,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +116,8 @@ pub struct Prompt {
     pub content: String,
     pub created_at: i64,
     pub updated_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -129,6 +137,8 @@ pub struct ScoringConfig {
     pub tier_nurture_min: i64,
     pub created_at: i64,
     pub updated_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,6 +154,8 @@ pub struct ParsedScoringConfig {
     pub tier_nurture_min: i64,
     pub created_at: i64,
     pub updated_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -164,6 +176,8 @@ pub struct LeadScore {
     pub scoring_notes: Option<String>,
     pub scored_at: Option<i64>,
     pub created_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,6 +194,8 @@ pub struct ParsedLeadScore {
     pub scoring_notes: Option<String>,
     pub scored_at: Option<i64>,
     pub created_at: i64,
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -225,6 +241,9 @@ pub struct Job {
     pub total_stdout_bytes: i64,
     pub total_stderr_bytes: i64,
     pub completion_state: Option<String>,
+    /// Organization context for multi-tenant isolation
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,6 +257,9 @@ pub struct NewJob {
     pub model: Option<String>,
     pub working_dir: String,
     pub output_path: Option<String>,
+    /// Organization context for multi-tenant isolation
+    #[serde(rename = "clerkOrgId")]
+    pub clerk_org_id: Option<String>,
 }
 
 // ============================================================================
@@ -268,4 +290,39 @@ pub struct Settings {
     pub use_chrome: bool,
     pub use_glm_gateway: bool,
     pub updated_at: i64,
+}
+
+// ============================================================================
+// Subscription State Table
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionState {
+    pub id: i64,
+    pub encrypted_token: String,
+    pub subscription_status: String,    // "active", "past_due", "canceled", "expired"
+    pub subscription_expires_at: Option<i64>,
+    pub token_issued_at: i64,
+    pub token_expires_at: i64,
+    pub last_validated_at: i64,
+    pub device_fingerprint: String,
+    pub grace_period_ends_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionStatus {
+    pub status: String,                    // "active", "past_due", "canceled", "expired"
+    pub is_valid: bool,
+    pub grace_period_ends_at: Option<i64>,
+    pub days_until_lockout: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LockoutStatus {
+    pub locked: bool,
+    pub reason: Option<String>,
+    pub grace_period_ends_at: Option<i64>,
 }

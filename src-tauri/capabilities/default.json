@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capabilities for qual",
+  "description": "Default capabilities for liidi",
   "windows": ["main"],
   "permissions": [
     "core:default",

@@ -6,15 +6,27 @@ use crate::jobs::enrichment::{LeadEnrichment, PersonEnrichment};
 // Lead Queries
 // ============================================================================
 
-pub fn get_lead(conn: &Connection, id: i64) -> SqliteResult<Option<Lead>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
-                revenue, revenue_range, company_linkedin_url, city, state, country,
-                research_status, researched_at, user_status, created_at, company_profile
-         FROM leads WHERE id = ?1"
-    )?;
+pub fn get_lead(conn: &Connection, id: i64, clerk_org_id: Option<&str>) -> SqliteResult<Option<Lead>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
+                    revenue, revenue_range, company_linkedin_url, city, state, country,
+                    research_status, researched_at, user_status, created_at, company_profile, clerk_org_id
+             FROM leads WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+            params![id, org_id],
+        )
+    } else {
+        (
+            "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
+                    revenue, revenue_range, company_linkedin_url, city, state, country,
+                    research_status, researched_at, user_status, created_at, company_profile, clerk_org_id
+             FROM leads WHERE id = ?1",
+            params![id],
+        )
+    };
 
-    let mut rows = stmt.query(params![id])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(Lead {
@@ -36,21 +48,35 @@ pub fn get_lead(conn: &Connection, id: i64) -> SqliteResult<Option<Lead>> {
             user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            clerk_org_id: row.get(18)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn get_all_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
-                revenue, revenue_range, company_linkedin_url, city, state, country,
-                research_status, researched_at, user_status, created_at, company_profile
-         FROM leads ORDER BY company_name ASC"
-    )?;
+pub fn get_all_leads(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Vec<Lead>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
+                    revenue, revenue_range, company_linkedin_url, city, state, country,
+                    research_status, researched_at, user_status, created_at, company_profile, clerk_org_id
+             FROM leads WHERE clerk_org_id IS NULL OR clerk_org_id = ?1 ORDER BY company_name ASC",
+            params![org_id],
+        )
+    } else {
+        (
+            "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
+                    revenue, revenue_range, company_linkedin_url, city, state, country,
+                    research_status, researched_at, user_status, created_at, company_profile, clerk_org_id
+             FROM leads ORDER BY company_name ASC",
+            params![],
+        )
+    };
 
-    let rows = stmt.query_map([], |row| {
+    let mut stmt = conn.prepare(sql)?;
+
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(Lead {
             id: row.get(0)?,
             company_name: row.get(1)?,
@@ -70,15 +96,25 @@ pub fn get_all_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
             user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            clerk_org_id: row.get(18)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn get_adjacent_leads(conn: &Connection, current_id: i64) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
-    let all_ids: Vec<i64> = conn.prepare("SELECT id FROM leads ORDER BY company_name ASC")?
-        .query_map([], |row| row.get(0))?
+pub fn get_adjacent_leads(conn: &Connection, current_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id FROM leads WHERE clerk_org_id IS NULL OR clerk_org_id = ?1 ORDER BY company_name ASC",
+            params![org_id],
+        )
+    } else {
+        ("SELECT id FROM leads ORDER BY company_name ASC", params![])
+    };
+
+    let all_ids: Vec<i64> = conn.prepare(sql)?
+        .query_map(params.as_ref(), |row| row.get(0))?
         .collect::<SqliteResult<Vec<_>>>()?;
 
     let total = all_ids.len();
@@ -90,13 +126,21 @@ pub fn get_adjacent_leads(conn: &Connection, current_id: i64) -> SqliteResult<(O
     Ok((prev_id, next_id, current_index + 1, total))
 }
 
-pub fn insert_lead(conn: &Connection, data: &NewLead) -> SqliteResult<i64> {
+pub fn insert_lead(conn: &Connection, data: &NewLead, clerk_org_id: Option<&str>) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "INSERT INTO leads (company_name, website, city, state, country, research_status, user_status, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
-        params![data.company_name, data.website, data.city, data.state, data.country, now],
-    )?;
+    if let Some(org_id) = clerk_org_id {
+        conn.execute(
+            "INSERT INTO leads (company_name, website, city, state, country, research_status, user_status, created_at, clerk_org_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6, ?7)",
+            params![data.company_name, data.website, data.city, data.state, data.country, now, org_id],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO leads (company_name, website, city, state, country, research_status, user_status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
+            params![data.company_name, data.website, data.city, data.state, data.country, now],
+        )?;
+    }
     Ok(conn.last_insert_rowid())
 }
 
@@ -105,67 +149,144 @@ pub fn update_lead_research(
     lead_id: i64,
     status: &str,
     profile: Option<&str>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
-        params![status, profile, now, lead_id],
-    )?;
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4 AND (clerk_org_id IS NULL OR clerk_org_id = ?5)",
+            params![status, profile, now, lead_id, org_id],
+        )
+    } else {
+        (
+            "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
+            params![status, profile, now, lead_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
-pub fn update_lead_user_status(conn: &Connection, lead_id: i64, status: &str) -> SqliteResult<()> {
-    conn.execute(
-        "UPDATE leads SET user_status = ?1 WHERE id = ?2",
-        params![status, lead_id],
-    )?;
+pub fn update_lead_user_status(conn: &Connection, lead_id: i64, status: &str, clerk_org_id: Option<&str>) -> SqliteResult<()> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE leads SET user_status = ?1 WHERE id = ?2 AND (clerk_org_id IS NULL OR clerk_org_id = ?3)",
+            params![status, lead_id, org_id],
+        )
+    } else {
+        (
+            "UPDATE leads SET user_status = ?1 WHERE id = ?2",
+            params![status, lead_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
-pub fn delete_leads(conn: &Connection, lead_ids: &[i64]) -> SqliteResult<usize> {
+pub fn delete_leads(conn: &Connection, lead_ids: &[i64], clerk_org_id: Option<&str>) -> SqliteResult<usize> {
     if lead_ids.is_empty() {
         return Ok(0);
     }
 
     let placeholders: String = lead_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let placeholder_refs: Vec<&i64> = lead_ids.iter().collect();
 
-    // Delete associated people
-    conn.execute(
-        &format!("DELETE FROM people WHERE lead_id IN ({})", placeholders),
-        rusqlite::params_from_iter(lead_ids.iter()),
-    )?;
+    // Delete associated people (respecting org)
+    if let Some(org_id) = clerk_org_id {
+        // First get lead_ids that belong to this org
+        let valid_lead_ids: Vec<i64> = {
+            let mut stmt = conn.prepare(&format!("SELECT id FROM leads WHERE id IN ({}) AND (clerk_org_id IS NULL OR clerk_org_id = ?)", placeholders))?;
+            let mut ids = Vec::new();
+            let mut params_vec: Vec<&dyn rusqlite::ToSql> = placeholder_refs.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+            params_vec.push(org_id as &dyn rusqlite::ToSql);
 
-    // Delete associated scores
-    conn.execute(
-        &format!("DELETE FROM lead_scores WHERE lead_id IN ({})", placeholders),
-        rusqlite::params_from_iter(lead_ids.iter()),
-    )?;
+            let mut rows = stmt.query(params_vec.as_slice())?;
+            while let Some(row) = rows.next()? {
+                ids.push(row.get(0)?);
+            }
+            ids
+        };
 
-    // Delete leads
-    let deleted = conn.execute(
-        &format!("DELETE FROM leads WHERE id IN ({})", placeholders),
-        rusqlite::params_from_iter(lead_ids.iter()),
-    )?;
+        if valid_lead_ids.is_empty() {
+            return Ok(0);
+        }
 
-    Ok(deleted)
+        let valid_placeholders: String = valid_lead_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let valid_refs: Vec<&i64> = valid_lead_ids.iter().collect();
+
+        // Delete associated people
+        conn.execute(
+            &format!("DELETE FROM people WHERE lead_id IN ({})", valid_placeholders),
+            rusqlite::params_from_iter(valid_refs.iter()),
+        )?;
+
+        // Delete associated scores
+        conn.execute(
+            &format!("DELETE FROM lead_scores WHERE lead_id IN ({})", valid_placeholders),
+            rusqlite::params_from_iter(valid_refs.iter()),
+        )?;
+
+        // Delete leads
+        let deleted = conn.execute(
+            &format!("DELETE FROM leads WHERE id IN ({})", valid_placeholders),
+            rusqlite::params_from_iter(valid_refs.iter()),
+        )?;
+
+        Ok(deleted)
+    } else {
+        // Delete associated people
+        conn.execute(
+            &format!("DELETE FROM people WHERE lead_id IN ({})", placeholders),
+            rusqlite::params_from_iter(lead_ids.iter()),
+        )?;
+
+        // Delete associated scores
+        conn.execute(
+            &format!("DELETE FROM lead_scores WHERE lead_id IN ({})", placeholders),
+            rusqlite::params_from_iter(lead_ids.iter()),
+        )?;
+
+        // Delete leads
+        let deleted = conn.execute(
+            &format!("DELETE FROM leads WHERE id IN ({})", placeholders),
+            rusqlite::params_from_iter(lead_ids.iter()),
+        )?;
+
+        Ok(deleted)
+    }
 }
 
 // ============================================================================
 // Person Queries
 // ============================================================================
 
-pub fn get_person(conn: &Connection, id: i64) -> SqliteResult<Option<PersonWithCompany>> {
-    let mut stmt = conn.prepare(
-        "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
-                p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
-                p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at,
-                l.company_name, l.website, l.industry
-         FROM people p
-         LEFT JOIN leads l ON p.lead_id = l.id
-         WHERE p.id = ?1"
-    )?;
+pub fn get_person(conn: &Connection, id: i64, clerk_org_id: Option<&str>) -> SqliteResult<Option<PersonWithCompany>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
+                    p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
+                    p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at, p.clerk_org_id,
+                    l.company_name, l.website, l.industry
+             FROM people p
+             LEFT JOIN leads l ON p.lead_id = l.id
+             WHERE p.id = ?1 AND (p.clerk_org_id IS NULL OR p.clerk_org_id = ?2)",
+            params![id, org_id],
+        )
+    } else {
+        (
+            "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
+                    p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
+                    p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at, p.clerk_org_id,
+                    l.company_name, l.website, l.industry
+             FROM people p
+             LEFT JOIN leads l ON p.lead_id = l.id
+             WHERE p.id = ?1",
+            params![id],
+        )
+    };
 
-    let mut rows = stmt.query(params![id])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(PersonWithCompany {
@@ -185,24 +306,37 @@ pub fn get_person(conn: &Connection, id: i64) -> SqliteResult<Option<PersonWithC
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
-            company_name: row.get(16)?,
-            company_website: row.get(17)?,
-            company_industry: row.get(18)?,
+            clerk_org_id: row.get(16)?,
+            company_name: row.get(17)?,
+            company_website: row.get(18)?,
+            company_industry: row.get(19)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn get_person_raw(conn: &Connection, id: i64) -> SqliteResult<Option<Person>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, lead_id, first_name, last_name, email, title, management_level,
-                linkedin_url, year_joined, person_profile, research_status, researched_at,
-                user_status, conversation_topics, conversation_generated_at, created_at
-         FROM people WHERE id = ?1"
-    )?;
+pub fn get_person_raw(conn: &Connection, id: i64, clerk_org_id: Option<&str>) -> SqliteResult<Option<Person>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, lead_id, first_name, last_name, email, title, management_level,
+                    linkedin_url, year_joined, person_profile, research_status, researched_at,
+                    user_status, conversation_topics, conversation_generated_at, created_at, clerk_org_id
+             FROM people WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+            params![id, org_id],
+        )
+    } else {
+        (
+            "SELECT id, lead_id, first_name, last_name, email, title, management_level,
+                    linkedin_url, year_joined, person_profile, research_status, researched_at,
+                    user_status, conversation_topics, conversation_generated_at, created_at, clerk_org_id
+             FROM people WHERE id = ?1",
+            params![id],
+        )
+    };
 
-    let mut rows = stmt.query(params![id])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(Person {
@@ -222,21 +356,35 @@ pub fn get_person_raw(conn: &Connection, id: i64) -> SqliteResult<Option<Person>
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
+            clerk_org_id: row.get(16)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn get_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<Vec<Person>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, lead_id, first_name, last_name, email, title, management_level,
-                linkedin_url, year_joined, person_profile, research_status, researched_at,
-                user_status, conversation_topics, conversation_generated_at, created_at
-         FROM people WHERE lead_id = ?1 ORDER BY last_name ASC, first_name ASC"
-    )?;
+pub fn get_people_for_lead(conn: &Connection, lead_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<Vec<Person>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, lead_id, first_name, last_name, email, title, management_level,
+                    linkedin_url, year_joined, person_profile, research_status, researched_at,
+                    user_status, conversation_topics, conversation_generated_at, created_at, clerk_org_id
+             FROM people WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2) ORDER BY last_name ASC, first_name ASC",
+            params![lead_id, org_id],
+        )
+    } else {
+        (
+            "SELECT id, lead_id, first_name, last_name, email, title, management_level,
+                    linkedin_url, year_joined, person_profile, research_status, researched_at,
+                    user_status, conversation_topics, conversation_generated_at, created_at, clerk_org_id
+             FROM people WHERE lead_id = ?1 ORDER BY last_name ASC, first_name ASC",
+            params![lead_id],
+        )
+    };
 
-    let rows = stmt.query_map(params![lead_id], |row| {
+    let mut stmt = conn.prepare(sql)?;
+
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(Person {
             id: row.get(0)?,
             lead_id: row.get(1)?,
@@ -254,24 +402,42 @@ pub fn get_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<Vec<
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
+            clerk_org_id: row.get(16)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>> {
-    let mut stmt = conn.prepare(
-        "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
-                p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
-                p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at,
-                l.company_name, l.website, l.industry
-         FROM people p
-         LEFT JOIN leads l ON p.lead_id = l.id
-         ORDER BY p.last_name ASC, p.first_name ASC"
-    )?;
+pub fn get_all_people(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Vec<PersonWithCompany>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
+                    p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
+                    p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at, p.clerk_org_id,
+                    l.company_name, l.website, l.industry
+             FROM people p
+             LEFT JOIN leads l ON p.lead_id = l.id
+             WHERE p.clerk_org_id IS NULL OR p.clerk_org_id = ?1
+             ORDER BY p.last_name ASC, p.first_name ASC",
+            params![org_id],
+        )
+    } else {
+        (
+            "SELECT p.id, p.lead_id, p.first_name, p.last_name, p.email, p.title, p.management_level,
+                    p.linkedin_url, p.year_joined, p.person_profile, p.research_status, p.researched_at,
+                    p.user_status, p.conversation_topics, p.conversation_generated_at, p.created_at, p.clerk_org_id,
+                    l.company_name, l.website, l.industry
+             FROM people p
+             LEFT JOIN leads l ON p.lead_id = l.id
+             ORDER BY p.last_name ASC, p.first_name ASC",
+            params![],
+        )
+    };
 
-    let rows = stmt.query_map([], |row| {
+    let mut stmt = conn.prepare(sql)?;
+
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(PersonWithCompany {
             id: row.get(0)?,
             lead_id: row.get(1)?,
@@ -289,18 +455,28 @@ pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>>
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
-            company_name: row.get(16)?,
-            company_website: row.get(17)?,
-            company_industry: row.get(18)?,
+            clerk_org_id: row.get(16)?,
+            company_name: row.get(17)?,
+            company_website: row.get(18)?,
+            company_industry: row.get(19)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn get_adjacent_people(conn: &Connection, current_id: i64) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
-    let all_ids: Vec<i64> = conn.prepare("SELECT id FROM people ORDER BY last_name ASC, first_name ASC")?
-        .query_map([], |row| row.get(0))?
+pub fn get_adjacent_people(conn: &Connection, current_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id FROM people WHERE clerk_org_id IS NULL OR clerk_org_id = ?1 ORDER BY last_name ASC, first_name ASC",
+            params![org_id],
+        )
+    } else {
+        ("SELECT id FROM people ORDER BY last_name ASC, first_name ASC", params![])
+    };
+
+    let all_ids: Vec<i64> = conn.prepare(sql)?
+        .query_map(params.as_ref(), |row| row.get(0))?
         .collect::<SqliteResult<Vec<_>>>()?;
 
     let total = all_ids.len();
@@ -312,30 +488,57 @@ pub fn get_adjacent_people(conn: &Connection, current_id: i64) -> SqliteResult<(
     Ok((prev_id, next_id, current_index + 1, total))
 }
 
-pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
+pub fn insert_person(conn: &Connection, data: &NewPerson, clerk_org_id: Option<&str>) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
-        params![data.first_name, data.last_name, data.email, data.title, data.linkedin_url, data.lead_id, now],
-    )?;
+    if let Some(org_id) = clerk_org_id {
+        conn.execute(
+            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at, clerk_org_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7, ?8)",
+            params![data.first_name, data.last_name, data.email, data.title, data.linkedin_url, data.lead_id, now, org_id],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
+            params![data.first_name, data.last_name, data.email, data.title, data.linkedin_url, data.lead_id, now],
+        )?;
+    }
     Ok(conn.last_insert_rowid())
 }
 
-pub fn delete_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
-    conn.execute("DELETE FROM people WHERE lead_id = ?1", params![lead_id])?;
+pub fn delete_people_for_lead(conn: &Connection, lead_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<()> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "DELETE FROM people WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+            params![lead_id, org_id],
+        )
+    } else {
+        (
+            "DELETE FROM people WHERE lead_id = ?1",
+            params![lead_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
 #[allow(dead_code)] // API function for batch people insertion
-pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPerson]) -> SqliteResult<()> {
+pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPerson], clerk_org_id: Option<&str>) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
     for p in people {
-        conn.execute(
-            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, year_joined, lead_id, research_status, user_status, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 'new', ?8)",
-            params![p.first_name, p.last_name, p.email, p.title, None::<String>, None::<i64>, lead_id, now],
-        )?;
+        if let Some(org_id) = clerk_org_id {
+            conn.execute(
+                "INSERT INTO people (first_name, last_name, email, title, linkedin_url, year_joined, lead_id, research_status, user_status, created_at, clerk_org_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 'new', ?8, ?9)",
+                params![p.first_name, p.last_name, p.email, p.title, None::<String>, None::<i64>, lead_id, now, org_id],
+            )?;
+        } else {
+            conn.execute(
+                "INSERT INTO people (first_name, last_name, email, title, linkedin_url, year_joined, lead_id, research_status, user_status, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', 'new', ?8)",
+                params![p.first_name, p.last_name, p.email, p.title, None::<String>, None::<i64>, lead_id, now],
+            )?;
+        }
     }
     Ok(())
 }
@@ -345,12 +548,21 @@ pub fn update_person_research(
     person_id: i64,
     status: &str,
     profile: Option<&str>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
-        params![status, profile, now, person_id],
-    )?;
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4 AND (clerk_org_id IS NULL OR clerk_org_id = ?5)",
+            params![status, profile, now, person_id, org_id],
+        )
+    } else {
+        (
+            "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
+            params![status, profile, now, person_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
@@ -358,48 +570,105 @@ pub fn update_person_conversation(
     conn: &Connection,
     person_id: i64,
     topics: Option<&str>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
-        params![topics, now, person_id],
-    )?;
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3 AND (clerk_org_id IS NULL OR clerk_org_id = ?4)",
+            params![topics, now, person_id, org_id],
+        )
+    } else {
+        (
+            "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
+            params![topics, now, person_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
-pub fn update_person_user_status(conn: &Connection, person_id: i64, status: &str) -> SqliteResult<()> {
-    conn.execute(
-        "UPDATE people SET user_status = ?1 WHERE id = ?2",
-        params![status, person_id],
-    )?;
+pub fn update_person_user_status(conn: &Connection, person_id: i64, status: &str, clerk_org_id: Option<&str>) -> SqliteResult<()> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE people SET user_status = ?1 WHERE id = ?2 AND (clerk_org_id IS NULL OR clerk_org_id = ?3)",
+            params![status, person_id, org_id],
+        )
+    } else {
+        (
+            "UPDATE people SET user_status = ?1 WHERE id = ?2",
+            params![status, person_id],
+        )
+    };
+    conn.execute(sql, params)?;
     Ok(())
 }
 
-pub fn delete_people(conn: &Connection, person_ids: &[i64]) -> SqliteResult<usize> {
+pub fn delete_people(conn: &Connection, person_ids: &[i64], clerk_org_id: Option<&str>) -> SqliteResult<usize> {
     if person_ids.is_empty() {
         return Ok(0);
     }
 
     let placeholders: String = person_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-    let deleted = conn.execute(
-        &format!("DELETE FROM people WHERE id IN ({})", placeholders),
-        rusqlite::params_from_iter(person_ids.iter()),
-    )?;
 
-    Ok(deleted)
+    if let Some(org_id) = clerk_org_id {
+        // First get person_ids that belong to this org
+        let valid_person_ids: Vec<i64> = {
+            let mut stmt = conn.prepare(&format!("SELECT id FROM people WHERE id IN ({}) AND (clerk_org_id IS NULL OR clerk_org_id = ?)", placeholders))?;
+            let mut ids = Vec::new();
+            let placeholder_refs: Vec<&i64> = person_ids.iter().collect();
+            let mut params_vec: Vec<&dyn rusqlite::ToSql> = placeholder_refs.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+            params_vec.push(org_id as &dyn rusqlite::ToSql);
+
+            let mut rows = stmt.query(params_vec.as_slice())?;
+            while let Some(row) = rows.next()? {
+                ids.push(row.get(0)?);
+            }
+            ids
+        };
+
+        if valid_person_ids.is_empty() {
+            return Ok(0);
+        }
+
+        let valid_placeholders: String = valid_person_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let deleted = conn.execute(
+            &format!("DELETE FROM people WHERE id IN ({})", valid_placeholders),
+            rusqlite::params_from_iter(valid_person_ids.iter()),
+        )?;
+
+        Ok(deleted)
+    } else {
+        let deleted = conn.execute(
+            &format!("DELETE FROM people WHERE id IN ({})", placeholders),
+            rusqlite::params_from_iter(person_ids.iter()),
+        )?;
+
+        Ok(deleted)
+    }
 }
 
 // ============================================================================
 // Prompt Queries
 // ============================================================================
 
-pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str) -> SqliteResult<Option<Prompt>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, type, content, created_at, updated_at
-         FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1"
-    )?;
+pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str, clerk_org_id: Option<&str>) -> SqliteResult<Option<Prompt>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, type, content, created_at, updated_at, clerk_org_id
+             FROM prompts WHERE type = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2) ORDER BY id DESC LIMIT 1",
+            params![prompt_type, org_id],
+        )
+    } else {
+        (
+            "SELECT id, type, content, created_at, updated_at, clerk_org_id
+             FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
+            params![prompt_type],
+        )
+    };
 
-    let mut rows = stmt.query(params![prompt_type])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(Prompt {
@@ -408,21 +677,30 @@ pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str) -> SqliteResult<
             content: row.get(2)?,
             created_at: row.get(3)?,
             updated_at: row.get(4)?,
+            clerk_org_id: row.get(5)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str) -> SqliteResult<i64> {
+pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str, clerk_org_id: Option<&str>) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
 
-    // Check if exists
-    let existing: Option<i64> = conn.query_row(
-        "SELECT id FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
-        params![prompt_type],
-        |row| row.get(0),
-    ).ok();
+    // Check if exists (filtered by org)
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id FROM prompts WHERE type = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2) ORDER BY id DESC LIMIT 1",
+            params![prompt_type, org_id],
+        )
+    } else {
+        (
+            "SELECT id FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
+            params![prompt_type],
+        )
+    };
+
+    let existing: Option<i64> = conn.query_row(sql, params.as_ref(), |row| row.get(0)).ok();
 
     if let Some(id) = existing {
         conn.execute(
@@ -431,10 +709,17 @@ pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str) 
         )?;
         Ok(id)
     } else {
-        conn.execute(
-            "INSERT INTO prompts (type, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-            params![prompt_type, content, now, now],
-        )?;
+        if let Some(org_id) = clerk_org_id {
+            conn.execute(
+                "INSERT INTO prompts (type, content, created_at, updated_at, clerk_org_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![prompt_type, content, now, now, org_id],
+            )?;
+        } else {
+            conn.execute(
+                "INSERT INTO prompts (type, content, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+                params![prompt_type, content, now, now],
+            )?;
+        }
         Ok(conn.last_insert_rowid())
     }
 }
@@ -443,14 +728,25 @@ pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str) 
 // Scoring Config Queries
 // ============================================================================
 
-pub fn get_active_scoring_config(conn: &Connection) -> SqliteResult<Option<ParsedScoringConfig>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, is_active, required_characteristics, demand_signifiers,
-                tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at
-         FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
-    )?;
+pub fn get_active_scoring_config(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Option<ParsedScoringConfig>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, name, is_active, required_characteristics, demand_signifiers,
+                    tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at, clerk_org_id
+             FROM scoring_config WHERE is_active = 1 AND (clerk_org_id IS NULL OR clerk_org_id = ?1) ORDER BY id DESC LIMIT 1",
+            params![org_id],
+        )
+    } else {
+        (
+            "SELECT id, name, is_active, required_characteristics, demand_signifiers,
+                    tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at, clerk_org_id
+             FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+            params![],
+        )
+    };
 
-    let mut rows = stmt.query([])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         let required_chars: String = row.get(3)?;
@@ -467,6 +763,7 @@ pub fn get_active_scoring_config(conn: &Connection) -> SqliteResult<Option<Parse
             tier_nurture_min: row.get(7)?,
             created_at: row.get(8)?,
             updated_at: row.get(9)?,
+            clerk_org_id: row.get(10)?,
         }))
     } else {
         Ok(None)
@@ -482,26 +779,47 @@ pub fn save_scoring_config(
     tier_warm_min: i64,
     tier_nurture_min: i64,
     id: Option<i64>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
 
     if let Some(existing_id) = id {
-        conn.execute(
-            "UPDATE scoring_config SET name = ?1, required_characteristics = ?2, demand_signifiers = ?3,
-             tier_hot_min = ?4, tier_warm_min = ?5, tier_nurture_min = ?6, updated_at = ?7 WHERE id = ?8",
-            params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, existing_id],
-        )?;
+        // Validate that the config belongs to this org before updating
+        let (sql, params) = if let Some(org_id) = clerk_org_id {
+            (
+                "UPDATE scoring_config SET name = ?1, required_characteristics = ?2, demand_signifiers = ?3,
+                 tier_hot_min = ?4, tier_warm_min = ?5, tier_nurture_min = ?6, updated_at = ?7
+                 WHERE id = ?8 AND (clerk_org_id IS NULL OR clerk_org_id = ?9)",
+                params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, existing_id, org_id],
+            )
+        } else {
+            (
+                "UPDATE scoring_config SET name = ?1, required_characteristics = ?2, demand_signifiers = ?3,
+                 tier_hot_min = ?4, tier_warm_min = ?5, tier_nurture_min = ?6, updated_at = ?7 WHERE id = ?8",
+                params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, existing_id],
+            )
+        };
+        conn.execute(sql, params)?;
         Ok(existing_id)
     } else {
-        // Deactivate all existing configs
-        conn.execute("UPDATE scoring_config SET is_active = 0", [])?;
-
-        conn.execute(
-            "INSERT INTO scoring_config (name, is_active, required_characteristics, demand_signifiers,
-             tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at)
-             VALUES (?1, 1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, now],
-        )?;
+        // Deactivate all existing configs for this org
+        if let Some(org_id) = clerk_org_id {
+            conn.execute("UPDATE scoring_config SET is_active = 0 WHERE clerk_org_id IS NULL OR clerk_org_id = ?1", params![org_id])?;
+            conn.execute(
+                "INSERT INTO scoring_config (name, is_active, required_characteristics, demand_signifiers,
+                 tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at, clerk_org_id)
+                 VALUES (?1, 1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, now, org_id],
+            )?;
+        } else {
+            conn.execute("UPDATE scoring_config SET is_active = 0", [])?;
+            conn.execute(
+                "INSERT INTO scoring_config (name, is_active, required_characteristics, demand_signifiers,
+                 tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at)
+                 VALUES (?1, 1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![name, required_characteristics, demand_signifiers, tier_hot_min, tier_warm_min, tier_nurture_min, now, now],
+            )?;
+        }
         Ok(conn.last_insert_rowid())
     }
 }
@@ -510,14 +828,25 @@ pub fn save_scoring_config(
 // Lead Score Queries
 // ============================================================================
 
-pub fn get_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<Option<ParsedLeadScore>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, lead_id, config_id, passes_requirements, requirement_results,
-                total_score, score_breakdown, tier, scoring_notes, scored_at, created_at
-         FROM lead_scores WHERE lead_id = ?1 ORDER BY id DESC LIMIT 1"
-    )?;
+pub fn get_lead_score(conn: &Connection, lead_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<Option<ParsedLeadScore>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, lead_id, config_id, passes_requirements, requirement_results,
+                    total_score, score_breakdown, tier, scoring_notes, scored_at, created_at, clerk_org_id
+             FROM lead_scores WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2) ORDER BY id DESC LIMIT 1",
+            params![lead_id, org_id],
+        )
+    } else {
+        (
+            "SELECT id, lead_id, config_id, passes_requirements, requirement_results,
+                    total_score, score_breakdown, tier, scoring_notes, scored_at, created_at, clerk_org_id
+             FROM lead_scores WHERE lead_id = ?1 ORDER BY id DESC LIMIT 1",
+            params![lead_id],
+        )
+    };
 
-    let mut rows = stmt.query(params![lead_id])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         let req_results: String = row.get(4)?;
@@ -535,36 +864,53 @@ pub fn get_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<Option<Pa
             scoring_notes: row.get(8)?,
             scored_at: row.get(9)?,
             created_at: row.get(10)?,
+            clerk_org_id: row.get(11)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn get_leads_with_scores(conn: &Connection) -> SqliteResult<Vec<LeadWithScore>> {
-    let leads = get_all_leads(conn)?;
+pub fn get_leads_with_scores(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Vec<LeadWithScore>> {
+    let leads = get_all_leads(conn, clerk_org_id)?;
     let mut result = Vec::with_capacity(leads.len());
 
-    for lead in leads {
-        let score = get_lead_score(conn, lead.id)?;
-        result.push(LeadWithScore { lead, score });
+    for lead in &leads {
+        let score = get_lead_score(conn, lead.id, clerk_org_id)?;
+        result.push(LeadWithScore { lead: lead.clone(), score });
     }
 
     Ok(result)
 }
 
-pub fn get_unscored_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
-    let mut stmt = conn.prepare(
-        "SELECT l.id, l.company_name, l.website, l.industry, l.sub_industry, l.employees, l.employee_range,
-                l.revenue, l.revenue_range, l.company_linkedin_url, l.city, l.state, l.country,
-                l.research_status, l.researched_at, l.user_status, l.created_at, l.company_profile
-         FROM leads l
-         LEFT JOIN lead_scores ls ON l.id = ls.lead_id
-         WHERE ls.id IS NULL
-         ORDER BY l.company_name ASC"
-    )?;
+pub fn get_unscored_leads(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Vec<Lead>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT l.id, l.company_name, l.website, l.industry, l.sub_industry, l.employees, l.employee_range,
+                    l.revenue, l.revenue_range, l.company_linkedin_url, l.city, l.state, l.country,
+                    l.research_status, l.researched_at, l.user_status, l.created_at, l.company_profile, l.clerk_org_id
+             FROM leads l
+             LEFT JOIN lead_scores ls ON l.id = ls.lead_id
+             WHERE ls.id IS NULL AND (l.clerk_org_id IS NULL OR l.clerk_org_id = ?1)
+             ORDER BY l.company_name ASC",
+            params![org_id],
+        )
+    } else {
+        (
+            "SELECT l.id, l.company_name, l.website, l.industry, l.sub_industry, l.employees, l.employee_range,
+                    l.revenue, l.revenue_range, l.company_linkedin_url, l.city, l.state, l.country,
+                    l.research_status, l.researched_at, l.user_status, l.created_at, l.company_profile, l.clerk_org_id
+             FROM leads l
+             LEFT JOIN lead_scores ls ON l.id = ls.lead_id
+             WHERE ls.id IS NULL
+             ORDER BY l.company_name ASC",
+            params![],
+        )
+    };
 
-    let rows = stmt.query_map([], |row| {
+    let mut stmt = conn.prepare(sql)?;
+
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(Lead {
             id: row.get(0)?,
             company_name: row.get(1)?,
@@ -584,6 +930,7 @@ pub fn get_unscored_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
             user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            clerk_org_id: row.get(18)?,
         })
     })?;
 
@@ -600,24 +947,38 @@ pub fn save_lead_score(
     score_breakdown: &str,
     tier: &str,
     scoring_notes: Option<&str>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
 
-    // Delete existing scores for this lead
-    conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
-
-    conn.execute(
-        "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
-         total_score, score_breakdown, tier, scoring_notes, scored_at, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![lead_id, config_id, passes_requirements, requirement_results, total_score, score_breakdown, tier, scoring_notes, now, now],
-    )?;
+    // Delete existing scores for this lead (respecting org)
+    if let Some(org_id) = clerk_org_id {
+        conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)", params![lead_id, org_id])?;
+        conn.execute(
+            "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
+             total_score, score_breakdown, tier, scoring_notes, scored_at, created_at, clerk_org_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![lead_id, config_id, passes_requirements, requirement_results, total_score, score_breakdown, tier, scoring_notes, now, now, org_id],
+        )?;
+    } else {
+        conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
+        conn.execute(
+            "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
+             total_score, score_breakdown, tier, scoring_notes, scored_at, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![lead_id, config_id, passes_requirements, requirement_results, total_score, score_breakdown, tier, scoring_notes, now, now],
+        )?;
+    }
 
     Ok(conn.last_insert_rowid())
 }
 
-pub fn delete_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
-    conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
+pub fn delete_lead_score(conn: &Connection, lead_id: i64, clerk_org_id: Option<&str>) -> SqliteResult<()> {
+    if let Some(org_id) = clerk_org_id {
+        conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)", params![lead_id, org_id])?;
+    } else {
+        conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
+    }
     Ok(())
 }
 
@@ -627,21 +988,40 @@ pub fn delete_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
 
 pub fn insert_job(conn: &Connection, job: &NewJob) -> SqliteResult<String> {
     let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "INSERT INTO jobs (id, job_type, entity_id, entity_label, status, prompt, model, working_dir, output_path, created_at)
-         VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9)",
-        params![
-            job.id,
-            job.job_type,
-            job.entity_id,
-            job.entity_label,
-            job.prompt,
-            job.model,
-            job.working_dir,
-            job.output_path,
-            now
-        ],
-    )?;
+    if let Some(org_id) = &job.clerk_org_id {
+        conn.execute(
+            "INSERT INTO jobs (id, job_type, entity_id, entity_label, status, prompt, model, working_dir, output_path, created_at, clerk_org_id)
+             VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                job.id,
+                job.job_type,
+                job.entity_id,
+                job.entity_label,
+                job.prompt,
+                job.model,
+                job.working_dir,
+                job.output_path,
+                now,
+                org_id,
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO jobs (id, job_type, entity_id, entity_label, status, prompt, model, working_dir, output_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9)",
+            params![
+                job.id,
+                job.job_type,
+                job.entity_id,
+                job.entity_label,
+                job.prompt,
+                job.model,
+                job.working_dir,
+                job.output_path,
+                now,
+            ],
+        )?;
+    }
     Ok(job.id.clone())
 }
 
@@ -732,16 +1112,29 @@ pub fn update_job_completion_state(conn: &Connection, job_id: &str, state: Optio
     Ok(())
 }
 
-pub fn get_job(conn: &Connection, job_id: &str) -> SqliteResult<Option<Job>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
-                output_path, exit_code, error_message, created_at, started_at, completed_at,
-                pid, claude_session_id, claude_model, last_event_index,
-                stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state
-         FROM jobs WHERE id = ?1"
-    )?;
+pub fn get_job(conn: &Connection, job_id: &str, clerk_org_id: Option<&str>) -> SqliteResult<Option<Job>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+            params![job_id, org_id],
+        )
+    } else {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs WHERE id = ?1",
+            params![job_id],
+        )
+    };
 
-    let mut rows = stmt.query(params![job_id])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(Job {
@@ -768,6 +1161,7 @@ pub fn get_job(conn: &Connection, job_id: &str) -> SqliteResult<Option<Job>> {
             total_stdout_bytes: row.get::<_, Option<i64>>(20)?.unwrap_or(0),
             total_stderr_bytes: row.get::<_, Option<i64>>(21)?.unwrap_or(0),
             completion_state: row.get(22)?,
+            clerk_org_id: row.get(23)?,
         }))
     } else {
         Ok(None)
@@ -779,19 +1173,37 @@ pub fn get_active_job_for_entity(
     conn: &Connection,
     entity_id: i64,
     job_type: &str,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<Option<Job>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
-                output_path, exit_code, error_message, created_at, started_at, completed_at,
-                pid, claude_session_id, claude_model, last_event_index,
-                stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state
-         FROM jobs
-         WHERE entity_id = ?1 AND job_type = ?2 AND status IN ('queued', 'running')
-         ORDER BY created_at DESC
-         LIMIT 1"
-    )?;
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs
+             WHERE entity_id = ?1 AND job_type = ?2 AND status IN ('queued', 'running')
+             AND (clerk_org_id IS NULL OR clerk_org_id = ?3)
+             ORDER BY created_at DESC
+             LIMIT 1",
+            params![entity_id, job_type, org_id],
+        )
+    } else {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs
+             WHERE entity_id = ?1 AND job_type = ?2 AND status IN ('queued', 'running')
+             ORDER BY created_at DESC
+             LIMIT 1",
+            params![entity_id, job_type],
+        )
+    };
 
-    let mut rows = stmt.query(params![entity_id, job_type])?;
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params.as_ref())?;
 
     if let Some(row) = rows.next()? {
         Ok(Some(Job {
@@ -818,23 +1230,39 @@ pub fn get_active_job_for_entity(
             total_stdout_bytes: row.get::<_, Option<i64>>(20)?.unwrap_or(0),
             total_stderr_bytes: row.get::<_, Option<i64>>(21)?.unwrap_or(0),
             completion_state: row.get(22)?,
+            clerk_org_id: row.get(23)?,
         }))
     } else {
         Ok(None)
     }
 }
 
-pub fn get_active_jobs_db(conn: &Connection) -> SqliteResult<Vec<Job>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
-                output_path, exit_code, error_message, created_at, started_at, completed_at,
-                pid, claude_session_id, claude_model, last_event_index,
-                stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state
-         FROM jobs WHERE status IN ('queued', 'running')
-         ORDER BY created_at DESC"
-    )?;
+pub fn get_active_jobs_db(conn: &Connection, clerk_org_id: Option<&str>) -> SqliteResult<Vec<Job>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs WHERE status IN ('queued', 'running')
+             AND (clerk_org_id IS NULL OR clerk_org_id = ?1)
+             ORDER BY created_at DESC",
+            params![org_id],
+        )
+    } else {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs WHERE status IN ('queued', 'running')
+             ORDER BY created_at DESC",
+            params![],
+        )
+    };
 
-    let rows = stmt.query_map([], |row| {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(Job {
             id: row.get(0)?,
             job_type: row.get(1)?,
@@ -859,24 +1287,41 @@ pub fn get_active_jobs_db(conn: &Connection) -> SqliteResult<Vec<Job>> {
             total_stdout_bytes: row.get::<_, Option<i64>>(20)?.unwrap_or(0),
             total_stderr_bytes: row.get::<_, Option<i64>>(21)?.unwrap_or(0),
             completion_state: row.get(22)?,
+            clerk_org_id: row.get(23)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn get_recent_jobs(conn: &Connection, limit: i64) -> SqliteResult<Vec<Job>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
-                output_path, exit_code, error_message, created_at, started_at, completed_at,
-                pid, claude_session_id, claude_model, last_event_index,
-                stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state
-         FROM jobs
-         ORDER BY created_at DESC
-         LIMIT ?1"
-    )?;
+pub fn get_recent_jobs(conn: &Connection, limit: i64, clerk_org_id: Option<&str>) -> SqliteResult<Vec<Job>> {
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs
+             WHERE clerk_org_id IS NULL OR clerk_org_id = ?1
+             ORDER BY created_at DESC
+             LIMIT ?2",
+            params![org_id, limit],
+        )
+    } else {
+        (
+            "SELECT id, job_type, entity_id, entity_label, status, prompt, model, working_dir,
+                    output_path, exit_code, error_message, created_at, started_at, completed_at,
+                    pid, claude_session_id, claude_model, last_event_index,
+                    stdout_truncated, stderr_truncated, total_stdout_bytes, total_stderr_bytes, completion_state, clerk_org_id
+             FROM jobs
+             ORDER BY created_at DESC
+             LIMIT ?1",
+            params![limit],
+        )
+    };
 
-    let rows = stmt.query_map(params![limit], |row| {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(params.as_ref(), |row| {
         Ok(Job {
             id: row.get(0)?,
             job_type: row.get(1)?,
@@ -901,26 +1346,35 @@ pub fn get_recent_jobs(conn: &Connection, limit: i64) -> SqliteResult<Vec<Job>> 
             total_stdout_bytes: row.get::<_, Option<i64>>(20)?.unwrap_or(0),
             total_stderr_bytes: row.get::<_, Option<i64>>(21)?.unwrap_or(0),
             completion_state: row.get(22)?,
+            clerk_org_id: row.get(23)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn cleanup_old_jobs(conn: &Connection, days: i64) -> SqliteResult<usize> {
+pub fn cleanup_old_jobs(conn: &Connection, days: i64, clerk_org_id: Option<&str>) -> SqliteResult<usize> {
     let cutoff = chrono::Utc::now().timestamp() - (days * 24 * 60 * 60);
 
+    let (log_sql, job_sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "DELETE FROM job_logs WHERE job_id IN (SELECT id FROM jobs WHERE created_at < ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2))",
+            "DELETE FROM jobs WHERE created_at < ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+            params![cutoff, org_id],
+        )
+    } else {
+        (
+            "DELETE FROM job_logs WHERE job_id IN (SELECT id FROM jobs WHERE created_at < ?1)",
+            "DELETE FROM jobs WHERE created_at < ?1",
+            params![cutoff],
+        )
+    };
+
     // First delete logs for old jobs
-    conn.execute(
-        "DELETE FROM job_logs WHERE job_id IN (SELECT id FROM jobs WHERE created_at < ?1)",
-        params![cutoff],
-    )?;
+    conn.execute(log_sql, params.as_ref())?;
 
     // Then delete old jobs
-    let deleted = conn.execute(
-        "DELETE FROM jobs WHERE created_at < ?1",
-        params![cutoff],
-    )?;
+    let deleted = conn.execute(job_sql, params.as_ref())?;
 
     Ok(deleted)
 }
@@ -1006,7 +1460,20 @@ pub fn get_job_logs(
     job_id: &str,
     after_sequence: Option<i64>,
     limit: Option<i64>,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<Vec<JobLog>> {
+    // First verify the job belongs to the org (if org is specified)
+    if let Some(org_id) = clerk_org_id {
+        let job_exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2))",
+            params![job_id, org_id],
+            |row| row.get(0),
+        )?;
+        if !job_exists {
+            return Ok(Vec::new()); // Return empty if job doesn't exist or belongs to different org
+        }
+    }
+
     // Build query dynamically
     let mut query = String::from(
         "SELECT id, job_id, log_type, content, tool_name, timestamp, sequence, source FROM job_logs WHERE job_id = ?1"
@@ -1068,7 +1535,19 @@ pub fn get_job_log_count(conn: &Connection, job_id: &str) -> SqliteResult<i64> {
     )
 }
 
-pub fn delete_job(conn: &Connection, job_id: &str) -> SqliteResult<()> {
+pub fn delete_job(conn: &Connection, job_id: &str, clerk_org_id: Option<&str>) -> SqliteResult<()> {
+    // For org-scoped deletion, verify job exists and belongs to org first
+    if let Some(org_id) = clerk_org_id {
+        let job_exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2))",
+            params![job_id, org_id],
+            |row| row.get(0),
+        )?;
+        if !job_exists {
+            return Ok(()); // Silently succeed if job doesn't exist or belongs to different org
+        }
+    }
+
     // Delete logs first (foreign key constraint)
     conn.execute(
         "DELETE FROM job_logs WHERE job_id = ?1",
@@ -1138,36 +1617,71 @@ pub fn enrich_lead<C: std::ops::Deref<Target = Connection>>(
     conn: &C,
     lead_id: i64,
     e: &LeadEnrichment,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<usize> {
-    conn.execute(
-        "UPDATE leads SET
-            website = COALESCE(website, ?1),
-            industry = COALESCE(industry, ?2),
-            sub_industry = COALESCE(sub_industry, ?3),
-            employees = COALESCE(employees, ?4),
-            employee_range = COALESCE(employee_range, ?5),
-            revenue = COALESCE(revenue, ?6),
-            revenue_range = COALESCE(revenue_range, ?7),
-            company_linkedin_url = COALESCE(company_linkedin_url, ?8),
-            city = COALESCE(city, ?9),
-            state = COALESCE(state, ?10),
-            country = COALESCE(country, ?11)
-         WHERE id = ?12",
-        params![
-            e.website,
-            e.industry,
-            e.sub_industry,
-            e.employees,
-            e.employee_range,
-            e.revenue,
-            e.revenue_range,
-            e.company_linkedin_url,
-            e.city,
-            e.state,
-            e.country,
-            lead_id
-        ],
-    )
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE leads SET
+                website = COALESCE(website, ?1),
+                industry = COALESCE(industry, ?2),
+                sub_industry = COALESCE(sub_industry, ?3),
+                employees = COALESCE(employees, ?4),
+                employee_range = COALESCE(employee_range, ?5),
+                revenue = COALESCE(revenue, ?6),
+                revenue_range = COALESCE(revenue_range, ?7),
+                company_linkedin_url = COALESCE(company_linkedin_url, ?8),
+                city = COALESCE(city, ?9),
+                state = COALESCE(state, ?10),
+                country = COALESCE(country, ?11)
+             WHERE id = ?12 AND (clerk_org_id IS NULL OR clerk_org_id = ?13)",
+            params![
+                e.website,
+                e.industry,
+                e.sub_industry,
+                e.employees,
+                e.employee_range,
+                e.revenue,
+                e.revenue_range,
+                e.company_linkedin_url,
+                e.city,
+                e.state,
+                e.country,
+                lead_id,
+                org_id,
+            ],
+        )
+    } else {
+        (
+            "UPDATE leads SET
+                website = COALESCE(website, ?1),
+                industry = COALESCE(industry, ?2),
+                sub_industry = COALESCE(sub_industry, ?3),
+                employees = COALESCE(employees, ?4),
+                employee_range = COALESCE(employee_range, ?5),
+                revenue = COALESCE(revenue, ?6),
+                revenue_range = COALESCE(revenue_range, ?7),
+                company_linkedin_url = COALESCE(company_linkedin_url, ?8),
+                city = COALESCE(city, ?9),
+                state = COALESCE(state, ?10),
+                country = COALESCE(country, ?11)
+             WHERE id = ?12",
+            params![
+                e.website,
+                e.industry,
+                e.sub_industry,
+                e.employees,
+                e.employee_range,
+                e.revenue,
+                e.revenue_range,
+                e.company_linkedin_url,
+                e.city,
+                e.state,
+                e.country,
+                lead_id,
+            ],
+        )
+    };
+    conn.execute(sql, params)
 }
 
 /// Enrich person data, only updating fields that are currently NULL
@@ -1176,22 +1690,45 @@ pub fn enrich_person<C: std::ops::Deref<Target = Connection>>(
     conn: &C,
     person_id: i64,
     e: &PersonEnrichment,
+    clerk_org_id: Option<&str>,
 ) -> SqliteResult<usize> {
-    conn.execute(
-        "UPDATE people SET
-            email = COALESCE(email, ?1),
-            title = COALESCE(title, ?2),
-            management_level = COALESCE(management_level, ?3),
-            linkedin_url = COALESCE(linkedin_url, ?4),
-            year_joined = COALESCE(year_joined, ?5)
-         WHERE id = ?6",
-        params![
-            e.email,
-            e.title,
-            e.management_level,
-            e.linkedin_url,
-            e.year_joined,
-            person_id
-        ],
-    )
+    let (sql, params) = if let Some(org_id) = clerk_org_id {
+        (
+            "UPDATE people SET
+                email = COALESCE(email, ?1),
+                title = COALESCE(title, ?2),
+                management_level = COALESCE(management_level, ?3),
+                linkedin_url = COALESCE(linkedin_url, ?4),
+                year_joined = COALESCE(year_joined, ?5)
+             WHERE id = ?6 AND (clerk_org_id IS NULL OR clerk_org_id = ?7)",
+            params![
+                e.email,
+                e.title,
+                e.management_level,
+                e.linkedin_url,
+                e.year_joined,
+                person_id,
+                org_id,
+            ],
+        )
+    } else {
+        (
+            "UPDATE people SET
+                email = COALESCE(email, ?1),
+                title = COALESCE(title, ?2),
+                management_level = COALESCE(management_level, ?3),
+                linkedin_url = COALESCE(linkedin_url, ?4),
+                year_joined = COALESCE(year_joined, ?5)
+             WHERE id = ?6",
+            params![
+                e.email,
+                e.title,
+                e.management_level,
+                e.linkedin_url,
+                e.year_joined,
+                person_id,
+            ],
+        )
+    };
+    conn.execute(sql, params)
 }

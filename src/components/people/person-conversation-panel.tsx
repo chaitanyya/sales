@@ -8,6 +8,7 @@ import { IconPlayerPlay, IconFileText } from "@tabler/icons-react";
 import { startConversationGeneration } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
 import { toast } from "sonner";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface PersonConversationPanelProps {
   personId: number;
@@ -27,10 +28,15 @@ export function PersonConversationPanel({
 
   const handleStartGeneration = async () => {
     await submit(async () => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        toast.error("No organization selected");
+        throw new Error("Cannot start conversation generation: No organization selected");
+      }
       // Start generation - backend will emit events
       // Event bridge handles tab creation and status updates
       // Logs stream directly via Channel callback for real-time display
-      const result = await startConversationGeneration(personId, handleStreamEvent);
+      const result = await startConversationGeneration(personId, handleStreamEvent, clerkOrgId);
 
       toast.success(`Started conversation generation for ${personName}`);
       return result;

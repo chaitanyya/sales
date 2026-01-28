@@ -147,7 +147,7 @@ pub fn recover_stale_jobs(
                     "UPDATE leads SET research_status = 'pending' WHERE id = ?1 AND research_status = 'in_progress'",
                     params![job.entity_id],
                 ).map_err(|e| e.to_string())?;
-                events::emit_lead_updated(app, job.entity_id);
+                events::emit_lead_updated(app, job.entity_id, None);
             }
             "person_research" => {
                 conn.execute(
@@ -160,7 +160,7 @@ pub fn recover_stale_jobs(
                     params![job.entity_id],
                     |row| row.get::<_, Option<i64>>(0),
                 ).ok().flatten();
-                events::emit_person_updated(app, job.entity_id, lead_id);
+                events::emit_person_updated(app, job.entity_id, lead_id, None);
             }
             _ => {
                 // Scoring and conversation jobs don't have a research_status to reset
@@ -188,7 +188,7 @@ pub fn recover_stuck_entities(
             "UPDATE leads SET research_status = 'pending' WHERE id = ?1",
             params![lead.id],
         ).map_err(|e| e.to_string())?;
-        events::emit_lead_updated(app, lead.id);
+        events::emit_lead_updated(app, lead.id, None);
         recovered += 1;
         eprintln!("[recovery] Recovered stuck lead {} ({})", lead.id, lead.name);
     }
@@ -204,7 +204,7 @@ pub fn recover_stuck_entities(
             params![person.id],
             |row| row.get::<_, Option<i64>>(0),
         ).ok().flatten();
-        events::emit_person_updated(app, person.id, lead_id);
+        events::emit_person_updated(app, person.id, lead_id, None);
         recovered += 1;
         eprintln!("[recovery] Recovered stuck person {} ({})", person.id, person.name);
     }

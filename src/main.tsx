@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { enableMapSet } from "immer";
 import { open } from "@tauri-apps/plugin-shell";
+import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
 import "./globals.css";
 
@@ -21,10 +22,15 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Clerk publishable key - should be in .env file
+const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "";
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ClerkProvider publishableKey={clerkKey}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ClerkProvider>
   </StrictMode>
 );

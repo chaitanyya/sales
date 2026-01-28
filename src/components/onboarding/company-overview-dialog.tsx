@@ -16,6 +16,7 @@ import { IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface CompanyOverviewDialogProps {
   hasCompanyOverview: boolean;
@@ -26,6 +27,7 @@ export function CompanyOverviewDialog({ hasCompanyOverview }: CompanyOverviewDia
   const [content, setContent] = useState("");
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
+  const clerkOrgId = useAuthStore((state) => state.getCurrentOrgId());
 
   const handleSubmit = () => {
     if (!content.trim()) {
@@ -35,8 +37,8 @@ export function CompanyOverviewDialog({ hasCompanyOverview }: CompanyOverviewDia
 
     startTransition(async () => {
       try {
-        await saveCompanyOverview(content);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.onboardingStatus() });
+        await saveCompanyOverview(content, clerkOrgId);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.onboardingStatus(clerkOrgId) });
         setOpen(false);
       } catch (e) {
         toast.error("Failed to save", {

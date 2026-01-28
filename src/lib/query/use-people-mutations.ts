@@ -7,6 +7,7 @@ import {
 import type { NewPerson, PersonWithCompany } from "@/lib/tauri/types";
 import { queryClient } from "./query-client";
 import { queryKeys } from "./keys";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 /**
  * Insert a new person
@@ -14,7 +15,13 @@ import { queryKeys } from "./keys";
  */
 export function useInsertPerson() {
   return useMutation({
-    mutationFn: (data: NewPerson) => insertPerson(data),
+    mutationFn: (data: NewPerson) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        throw new Error("Cannot create person: No organization selected");
+      }
+      return insertPerson(data, clerkOrgId);
+    },
     // No onSuccess - event bridge handles invalidation
   });
 }
@@ -24,30 +31,37 @@ export function useInsertPerson() {
  */
 export function useUpdatePersonStatus() {
   return useMutation({
-    mutationFn: ({ personId, status }: { personId: number; status: string }) =>
-      updatePersonUserStatus(personId, status),
+    mutationFn: ({ personId, status }: { personId: number; status: string }) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        throw new Error("Cannot update person: No organization selected");
+      }
+      return updatePersonUserStatus(personId, status, clerkOrgId);
+    },
     onMutate: async ({ personId, status }) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.person(personId) });
-      await queryClient.cancelQueries({ queryKey: queryKeys.peopleList() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.person(personId, clerkOrgId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.peopleList(clerkOrgId) });
 
       // Snapshot previous values
       const previousPerson = queryClient.getQueryData<PersonWithCompany | null>(
-        queryKeys.person(personId)
+        queryKeys.person(personId, clerkOrgId)
       );
       const previousPeople = queryClient.getQueryData<PersonWithCompany[]>(
-        queryKeys.peopleList()
+        queryKeys.peopleList(clerkOrgId)
       );
 
       // Optimistically update individual person
       queryClient.setQueryData<PersonWithCompany | null>(
-        queryKeys.person(personId),
+        queryKeys.person(personId, clerkOrgId),
         (old) => (old ? { ...old, userStatus: status } : old)
       );
 
       // Optimistically update people list
       queryClient.setQueryData<PersonWithCompany[]>(
-        queryKeys.peopleList(),
+        queryKeys.peopleList(clerkOrgId),
         (old) =>
           old?.map((person) =>
             person.id === personId ? { ...person, userStatus: status } : person
@@ -57,15 +71,16 @@ export function useUpdatePersonStatus() {
       return { previousPerson, previousPeople };
     },
     onError: (_err, { personId }, context) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
       // Rollback on error
       if (context?.previousPerson !== undefined) {
         queryClient.setQueryData(
-          queryKeys.person(personId),
+          queryKeys.person(personId, clerkOrgId),
           context.previousPerson
         );
       }
       if (context?.previousPeople !== undefined) {
-        queryClient.setQueryData(queryKeys.peopleList(), context.previousPeople);
+        queryClient.setQueryData(queryKeys.peopleList(clerkOrgId), context.previousPeople);
       }
     },
   });
@@ -76,34 +91,44 @@ export function useUpdatePersonStatus() {
  */
 export function useDeletePeople() {
   return useMutation({
-    mutationFn: (personIds: number[]) => deletePeople(personIds),
+    mutationFn: (personIds: number[]) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        throw new Error("Cannot delete people: No organization selected");
+      }
+      return deletePeople(personIds, clerkOrgId);
+    },
     onMutate: async (personIds) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.peopleList() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.peopleList(clerkOrgId) });
 
       // Snapshot previous value
       const previousPeople = queryClient.getQueryData<PersonWithCompany[]>(
-        queryKeys.peopleList()
+        queryKeys.peopleList(clerkOrgId)
       );
 
       // Optimistically remove from list
       queryClient.setQueryData<PersonWithCompany[]>(
-        queryKeys.peopleList(),
+        queryKeys.peopleList(clerkOrgId),
         (old) => old?.filter((person) => !personIds.includes(person.id))
       );
 
       return { previousPeople };
     },
     onError: (_err, _personIds, context) => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
       // Rollback on error
       if (context?.previousPeople !== undefined) {
-        queryClient.setQueryData(queryKeys.peopleList(), context.previousPeople);
+        queryClient.setQueryData(queryKeys.peopleList(clerkOrgId), context.previousPeople);
       }
     },
     onSettled: () => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
       // Invalidate to ensure consistency
       // Note: Event bridge also handles this via person-deleted event
-      queryClient.invalidateQueries({ queryKey: queryKeys.peopleList() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.peopleList(clerkOrgId) });
     },
   });
 }

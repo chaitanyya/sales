@@ -26,7 +26,7 @@ tsc -b
 
 ## Architecture Overview
 
-Qual is a **Tauri 2 desktop application** for B2B lead research and qualification. It uses Claude CLI as an AI backend for company/person research, scoring, and conversation generation.
+Liidi is a **Tauri 2 desktop application** for B2B lead research and qualification. It uses Claude CLI as an AI backend for company/person research, scoring, and conversation generation.
 
 ### Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS 4
@@ -83,7 +83,7 @@ Research/scoring jobs spawn Claude CLI subprocesses:
 
 ## Database
 
-Location: `~/.local/share/qual/data.db`
+Location: `~/.local/share/liidi/data.db`
 
 Tables: `leads`, `people`, `prompts`, `scoring_config`, `lead_scores`
 

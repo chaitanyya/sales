@@ -43,7 +43,7 @@ pub fn reset_entity_status(
                 "UPDATE leads SET research_status = ?1 WHERE id = ?2",
                 rusqlite::params![new_status, entity_id],
             ).map_err(|e| e.to_string())?;
-            events::emit_lead_updated(&app, entity_id);
+            events::emit_lead_updated(&app, entity_id, None);
         }
         "person" => {
             conn.execute(
@@ -56,7 +56,7 @@ pub fn reset_entity_status(
                 rusqlite::params![entity_id],
                 |row| row.get::<_, Option<i64>>(0),
             ).ok().flatten();
-            events::emit_person_updated(&app, entity_id, lead_id);
+            events::emit_person_updated(&app, entity_id, lead_id, None);
         }
         _ => {
             return Err(format!("Unknown entity type: {}", entity_type));

@@ -1,5 +1,5 @@
 {
-  "name": "qual",
+  "name": "liidi",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
+    "@clerk/clerk-react": "^5.59.6",
     "@tabler/icons-react": "^3.36.1",
     "@tanstack/react-query": "^5.90.19",
     "@tanstack/react-query-devtools": "^5.91.2",

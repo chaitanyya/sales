@@ -6,6 +6,8 @@ use rusqlite::{Connection, Result as SqliteResult};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+pub use subscription::*;
+
 pub use schema::*;
 pub use queries::*;
 
@@ -62,7 +64,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             researched_at INTEGER,
             user_status TEXT DEFAULT 'new',
             created_at INTEGER NOT NULL,
-            company_profile TEXT
+            company_profile TEXT,
+            clerk_org_id TEXT
         );
 
         CREATE TABLE IF NOT EXISTS people (
@@ -81,7 +84,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             user_status TEXT DEFAULT 'new',
             conversation_topics TEXT,
             conversation_generated_at INTEGER,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            clerk_org_id TEXT
         );
 
         CREATE TABLE IF NOT EXISTS prompts (
@@ -89,7 +93,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             type TEXT NOT NULL DEFAULT 'company',
             content TEXT NOT NULL,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            clerk_org_id TEXT
         );
 
         CREATE TABLE IF NOT EXISTS scoring_config (
@@ -102,7 +107,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             tier_warm_min INTEGER NOT NULL DEFAULT 50,
             tier_nurture_min INTEGER NOT NULL DEFAULT 30,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            clerk_org_id TEXT
         );
 
         CREATE TABLE IF NOT EXISTS lead_scores (
@@ -116,7 +122,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             tier TEXT NOT NULL,
             scoring_notes TEXT,
             scored_at INTEGER,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            clerk_org_id TEXT
         );
 
         CREATE INDEX IF NOT EXISTS idx_people_lead_id ON people(lead_id);
@@ -147,7 +154,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             stderr_truncated INTEGER DEFAULT 0,
             total_stdout_bytes INTEGER DEFAULT 0,
             total_stderr_bytes INTEGER DEFAULT 0,
-            completion_state TEXT DEFAULT NULL
+            completion_state TEXT DEFAULT NULL,
+            clerk_org_id TEXT
         );
 
         -- Job logs table for persisting stream output
@@ -182,6 +190,9 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
 
         "#,
     )?;
+
+    // Initialize subscription table
+    crate::subscription::init_subscription_table(conn)?;
 
     // Run migrations for new columns
     run_migrations(conn)?;
@@ -280,6 +291,28 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
         eprintln!("[db] Migration complete: people table updated");
     }
 
+    // Migration: Add clerk_org_id columns for multi-tenant support
+    let tables_with_org_id = ["leads", "people", "prompts", "scoring_config", "lead_scores", "jobs"];
+    for table in tables_with_org_id {
+        if !column_exists(conn, table, "clerk_org_id") {
+            eprintln!("[db] Migrating {} table to add clerk_org_id column", table);
+            conn.execute(
+                &format!("ALTER TABLE {} ADD COLUMN clerk_org_id TEXT", table),
+                [],
+            )?;
+            eprintln!("[db] Migration complete: {} table updated", table);
+        }
+    }
+
+    // Create indexes for clerk_org_id on main tables for performance
+    for table in ["leads", "people", "scoring_config", "lead_scores", "prompts", "jobs"] {
+        let index_name = format!("idx_{}_clerk_org_id", table);
+        conn.execute(
+            &format!("CREATE INDEX IF NOT EXISTS {} ON {}(clerk_org_id)", index_name, table),
+            [],
+        )?;
+    }
+
     Ok(())
 }
 
@@ -287,7 +320,7 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
 pub fn get_db_path() -> PathBuf {
     let data_dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("qual");
+        .join("liidi");
 
     data_dir.join("data.db")
 }

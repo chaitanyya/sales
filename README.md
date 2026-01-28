@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/logo.svg" alt="Qualify" width="200" />
+<img src="public/logo.svg" alt="Liidi" width="200" />
 
 <br/>
 <br/>
@@ -8,7 +8,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/chaitanyya/sales?style=flat-square)](https://github.com/chaitanyya/sales/stargazers)
 [![Download](https://img.shields.io/badge/Download-Latest-blue?style=flat-square)](https://github.com/chaitanyya/sales/releases/latest)
 [![Release](https://img.shields.io/github/v/release/chaitanyya/sales?style=flat-square&color=green)](https://github.com/chaitanyya/sales/releases/latest)
-[![Share on X](https://img.shields.io/badge/Share-000000?style=flat-square&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20Qualify%20-%20Claude%20Code%20for%20Sales&url=https://github.com/chaitanyya/sales)
+[![Share on X](https://img.shields.io/badge/Share-000000?style=flat-square&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20Liidi%20-%20AI%20Powered%20Lead%20Research&url=https://github.com/chaitanyya/sales)
 
 </div>
 
@@ -20,7 +20,7 @@ Lead research and qualification tool. Uses Claude Code to automatically research
 
 ## What it does
 
-Qualify takes a list of companies and does the tedious research work for you:
+Liidi takes a list of companies and does the tedious research work for you:
 
 - **Deep company research** - Automatically pulls company information, business model, products/services, employee count, funding, and more
 - **AI-powered scoring** - Scores leads against your custom criteria (target industry, company size, growth signals, urgency indicators)
@@ -31,7 +31,7 @@ Qualify takes a list of companies and does the tedious research work for you:
 
 ## Lead Scoring
 
-Define your ideal customer profile and let Qualify score every lead automatically:
+Define your ideal customer profile and let Liidi score every lead automatically:
 
 - Required characteristics (industry, size, location)
 - Demand signifiers (technology adoption, recent changes)
@@ -60,8 +60,8 @@ Each lead gets a score from 0-100 with detailed reasoning you can review.
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/qual.git
-cd qual
+git clone https://github.com/yourusername/liidi.git
+cd liidi
 
 # Install dependencies
 bun install

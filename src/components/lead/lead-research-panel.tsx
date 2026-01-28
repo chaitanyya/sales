@@ -24,6 +24,7 @@ import { useJobSubmission } from "@/lib/hooks/use-job-submission";
 import { toast } from "sonner";
 import { startScoring, startResearch } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface LeadResearchPanelProps {
   lead: Lead;
@@ -48,10 +49,15 @@ export function LeadResearchPanel({
 
   const handleStartResearch = async () => {
     await submitResearch(async () => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        toast.error("No organization selected");
+        throw new Error("Cannot start research: No organization selected");
+      }
       // Start the research - backend will emit job-created, job-logs-appended, job-status-changed events
       // Event bridge handles tab creation and status updates
       // Logs stream directly via Channel callback for real-time display
-      const result = await startResearch(lead.id, handleStreamEvent);
+      const result = await startResearch(lead.id, handleStreamEvent, undefined, clerkOrgId);
 
       toast.success(`Started research for ${lead.companyName}`);
       return result;
@@ -63,9 +69,14 @@ export function LeadResearchPanel({
 
   const handleScore = async () => {
     await submitScoring(async () => {
+      const clerkOrgId = useAuthStore.getState().getCurrentOrgId();
+      if (!clerkOrgId) {
+        toast.error("No organization selected");
+        throw new Error("Cannot start scoring: No organization selected");
+      }
       // Start scoring - backend will emit events
       // Logs stream directly via Channel callback for real-time display
-      const result = await startScoring(lead.id, handleStreamEvent);
+      const result = await startScoring(lead.id, handleStreamEvent, clerkOrgId);
 
       toast.success(`Started scoring for ${lead.companyName}`);
       return result;

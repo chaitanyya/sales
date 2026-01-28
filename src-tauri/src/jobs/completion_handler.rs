@@ -305,15 +305,23 @@ impl CompletionHandler {
         parsed: &ParsedOutput,
         metadata: &JobMetadata,
     ) -> Result<(), CompletionError> {
+        let org_id = metadata.clerk_org_id.as_deref();
+
         match parsed {
             ParsedOutput::CompanyResearch { profile, people, enrichment } => {
                 let lead_id = metadata.entity_id;
 
-                // Update people if available
+                // Update people if available (respecting org boundaries)
                 if let Some(people_data) = people {
-                    // Delete existing people
-                    tx.execute("DELETE FROM people WHERE lead_id = ?1", rusqlite::params![lead_id])
-                        .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                    // Delete existing people for this lead (respecting org)
+                    if let Some(org) = org_id {
+                        tx.execute("DELETE FROM people WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+                            rusqlite::params![lead_id, org])
+                            .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                    } else {
+                        tx.execute("DELETE FROM people WHERE lead_id = ?1", rusqlite::params![lead_id])
+                            .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                    }
 
                     // Insert new people with enrichment fields
                     let now = chrono::Utc::now().timestamp();
@@ -326,50 +334,86 @@ impl CompletionHandler {
                         let management_level = p.get("managementLevel").and_then(|v| v.as_str());
                         let year_joined = p.get("yearJoined").and_then(|v| v.as_i64());
 
-                        tx.execute(
-                            "INSERT INTO people (first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, research_status, user_status, created_at)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', 'new', ?9)",
-                            rusqlite::params![first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, now],
-                        ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                        if let Some(org) = org_id {
+                            tx.execute(
+                                "INSERT INTO people (first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, research_status, user_status, created_at, clerk_org_id)
+                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', 'new', ?9, ?10)",
+                                rusqlite::params![first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, now, org],
+                            ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                        } else {
+                            tx.execute(
+                                "INSERT INTO people (first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, research_status, user_status, created_at)
+                                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', 'new', ?9)",
+                                rusqlite::params![first_name, last_name, email, title, linkedin_url, management_level, year_joined, lead_id, now],
+                            ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                        }
                     }
                 }
 
-                // Update lead with company profile
+                // Update lead with company profile (respecting org boundaries)
                 let now = chrono::Utc::now().timestamp();
-                tx.execute(
-                    "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
-                    rusqlite::params!["completed", profile, now, lead_id],
-                ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                if let Some(org) = org_id {
+                    tx.execute(
+                        "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4 AND (clerk_org_id IS NULL OR clerk_org_id = ?5)",
+                        rusqlite::params!["completed", profile, now, lead_id, org],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                } else {
+                    tx.execute(
+                        "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
+                        rusqlite::params!["completed", profile, now, lead_id],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
 
-                // Apply enrichment data if available (only updates NULL fields)
+                // Apply enrichment data if available (only updates NULL fields, respecting org)
                 if let Some(e) = enrichment {
-                    db::enrich_lead(tx, lead_id, e)
+                    db::enrich_lead(tx, lead_id, e, org_id)
                         .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
                 }
             }
             ParsedOutput::PersonResearch { profile, enrichment } => {
                 let person_id = metadata.entity_id;
                 let now = chrono::Utc::now().timestamp();
-                tx.execute(
-                    "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
-                    rusqlite::params!["completed", profile, now, person_id],
-                ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                if let Some(org) = org_id {
+                    tx.execute(
+                        "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4 AND (clerk_org_id IS NULL OR clerk_org_id = ?5)",
+                        rusqlite::params!["completed", profile, now, person_id, org],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                } else {
+                    tx.execute(
+                        "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
+                        rusqlite::params!["completed", profile, now, person_id],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
 
-                // Apply enrichment data if available (only updates NULL fields)
+                // Apply enrichment data if available (only updates NULL fields, respecting org)
                 if let Some(e) = enrichment {
-                    db::enrich_person(tx, person_id, e)
+                    db::enrich_person(tx, person_id, e, org_id)
                         .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
                 }
             }
             ParsedOutput::Scoring { score_data } => {
                 let lead_id = metadata.entity_id;
 
-                // Get active config (read operation, safe outside transaction scope)
+                // Get active config (respecting org boundaries)
+                let (config_query, config_params): (&str, Vec<&dyn rusqlite::ToSql>) = if let Some(org) = org_id {
+                    (
+                        "SELECT id, name, is_active, required_characteristics, demand_signifiers,
+                                tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at
+                         FROM scoring_config WHERE is_active = 1 AND (clerk_org_id IS NULL OR clerk_org_id = ?1) ORDER BY id DESC LIMIT 1",
+                        vec![org as &dyn rusqlite::ToSql],
+                    )
+                } else {
+                    (
+                        "SELECT id, name, is_active, required_characteristics, demand_signifiers,
+                                tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at
+                         FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+                        vec![],
+                    )
+                };
+
                 let config: db::ParsedScoringConfig = tx.query_row(
-                    "SELECT id, name, is_active, required_characteristics, demand_signifiers,
-                            tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at
-                     FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
-                    [],
+                    config_query,
+                    config_params.as_slice(),
                     |row| {
                         let required_chars: String = row.get(3)?;
                         let demand_sigs: String = row.get(4)?;
@@ -384,6 +428,7 @@ impl CompletionHandler {
                             tier_nurture_min: row.get(7)?,
                             created_at: row.get(8)?,
                             updated_at: row.get(9)?,
+                            clerk_org_id: row.get(10)?,
                         })
                     },
                 ).map_err(|e| match e {
@@ -419,26 +464,48 @@ impl CompletionHandler {
 
                 let now = chrono::Utc::now().timestamp();
 
-                // Delete existing scores for this lead
-                tx.execute("DELETE FROM lead_scores WHERE lead_id = ?1", rusqlite::params![lead_id])
-                    .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                // Delete existing scores for this lead (respecting org boundaries)
+                if let Some(org) = org_id {
+                    tx.execute("DELETE FROM lead_scores WHERE lead_id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+                        rusqlite::params![lead_id, org])
+                        .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
 
-                // Insert new score
-                tx.execute(
-                    "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
-                     total_score, score_breakdown, tier, scoring_notes, scored_at, created_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                    rusqlite::params![lead_id, config.id, passes_requirements, requirement_results,
-                                      total_score, score_breakdown, tier, scoring_notes, now, now],
-                ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                    // Insert new score with org context
+                    tx.execute(
+                        "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
+                         total_score, score_breakdown, tier, scoring_notes, scored_at, created_at, clerk_org_id)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                        rusqlite::params![lead_id, config.id, passes_requirements, requirement_results,
+                                          total_score, score_breakdown, tier, scoring_notes, now, now, org],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                } else {
+                    tx.execute("DELETE FROM lead_scores WHERE lead_id = ?1", rusqlite::params![lead_id])
+                        .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+
+                    // Insert new score without org context
+                    tx.execute(
+                        "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
+                         total_score, score_breakdown, tier, scoring_notes, scored_at, created_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                        rusqlite::params![lead_id, config.id, passes_requirements, requirement_results,
+                                          total_score, score_breakdown, tier, scoring_notes, now, now],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
             }
             ParsedOutput::Conversation { topics } => {
                 let person_id = metadata.entity_id;
                 let now = chrono::Utc::now().timestamp();
-                tx.execute(
-                    "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
-                    rusqlite::params![topics, now, person_id],
-                ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                if let Some(org) = org_id {
+                    tx.execute(
+                        "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3 AND (clerk_org_id IS NULL OR clerk_org_id = ?4)",
+                        rusqlite::params![topics, now, person_id, org],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                } else {
+                    tx.execute(
+                        "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
+                        rusqlite::params![topics, now, person_id],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+                }
             }
         }
 
@@ -472,47 +539,63 @@ impl CompletionHandler {
 
     /// Emit completion events for frontend cache invalidation
     fn emit_completion_events(&self, metadata: &JobMetadata) {
+        let clerk_org_id = metadata.clerk_org_id.clone();
         match metadata.job_type {
             JobType::CompanyResearch => {
-                events::emit_lead_updated(&self.app_handle, metadata.entity_id);
-                events::emit_people_bulk_created(&self.app_handle, metadata.entity_id);
+                events::emit_lead_updated(&self.app_handle, metadata.entity_id, clerk_org_id.clone());
+                events::emit_people_bulk_created(&self.app_handle, metadata.entity_id, clerk_org_id);
             }
             JobType::PersonResearch => {
                 // Get lead_id for the person
                 if let Ok(conn) = self.db_conn.lock() {
-                    if let Ok(Some(person)) = db::get_person_raw(&conn, metadata.entity_id) {
-                        events::emit_person_updated(&self.app_handle, metadata.entity_id, person.lead_id);
+                    if let Ok(Some(person)) = db::get_person_raw(&conn, metadata.entity_id, metadata.clerk_org_id.as_deref()) {
+                        events::emit_person_updated(&self.app_handle, metadata.entity_id, person.lead_id, clerk_org_id);
                     }
                 }
             }
             JobType::Scoring => {
-                events::emit_lead_scored(&self.app_handle, metadata.entity_id);
+                events::emit_lead_scored(&self.app_handle, metadata.entity_id, clerk_org_id);
             }
             JobType::Conversation => {
                 if let Ok(conn) = self.db_conn.lock() {
-                    if let Ok(Some(person)) = db::get_person_raw(&conn, metadata.entity_id) {
-                        events::emit_person_updated(&self.app_handle, metadata.entity_id, person.lead_id);
+                    if let Ok(Some(person)) = db::get_person_raw(&conn, metadata.entity_id, metadata.clerk_org_id.as_deref()) {
+                        events::emit_person_updated(&self.app_handle, metadata.entity_id, person.lead_id, clerk_org_id);
                     }
                 }
             }
         }
     }
 
-    /// Mark entity as failed when job fails
+    /// Mark entity as failed when job fails (respecting org boundaries)
     pub fn mark_entity_failed(&self, metadata: &JobMetadata) {
         if let Ok(conn) = self.db_conn.lock() {
+            let org_id = metadata.clerk_org_id.as_deref();
             match metadata.job_type {
                 JobType::CompanyResearch => {
-                    let _ = conn.execute(
-                        "UPDATE leads SET research_status = 'failed' WHERE id = ?1",
-                        rusqlite::params![metadata.entity_id],
-                    );
+                    if let Some(org) = org_id {
+                        let _ = conn.execute(
+                            "UPDATE leads SET research_status = 'failed' WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+                            rusqlite::params![metadata.entity_id, org],
+                        );
+                    } else {
+                        let _ = conn.execute(
+                            "UPDATE leads SET research_status = 'failed' WHERE id = ?1",
+                            rusqlite::params![metadata.entity_id],
+                        );
+                    }
                 }
                 JobType::PersonResearch => {
-                    let _ = conn.execute(
-                        "UPDATE people SET research_status = 'failed' WHERE id = ?1",
-                        rusqlite::params![metadata.entity_id],
-                    );
+                    if let Some(org) = org_id {
+                        let _ = conn.execute(
+                            "UPDATE people SET research_status = 'failed' WHERE id = ?1 AND (clerk_org_id IS NULL OR clerk_org_id = ?2)",
+                            rusqlite::params![metadata.entity_id, org],
+                        );
+                    } else {
+                        let _ = conn.execute(
+                            "UPDATE people SET research_status = 'failed' WHERE id = ?1",
+                            rusqlite::params![metadata.entity_id],
+                        );
+                    }
                 }
                 JobType::Scoring | JobType::Conversation => {
                     // No status field to update for these types

@@ -26,11 +26,12 @@ interface StreamPanelState {
   setLogs: (jobId: string, logs: ClientLogEntry[]) => void;
   hydrateAll: (allLogs: Map<string, ClientLogEntry[]>) => void;
   clearLogs: (jobId: string) => void;
+  getLogsSequence: (jobId: string) => number;
 }
 
 export const useStreamPanelStore = create<StreamPanelState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       isOpen: false,
       activeTabId: null,
       jobLogs: new Map(),
@@ -78,6 +79,11 @@ export const useStreamPanelStore = create<StreamPanelState>()(
           newJobLogs.delete(jobId);
           return { jobLogs: newJobLogs };
         }),
+
+      getLogsSequence: (jobId) => {
+        const logs = get().jobLogs.get(jobId);
+        return logs?.length ?? 0;
+      },
     }),
     {
       name: "stream-panel-storage",

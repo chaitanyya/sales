@@ -1,19 +1,19 @@
 [package]
-name = "qualify"
+name = "liidi"
 version = "0.1.0"
 edition = "2021"
 description = "Lead Research and Qualification System"
 authors = [""]
 license = ""
 repository = ""
-default-run = "qualify"
+default-run = "liidi"
 
 [lib]
-name = "qualify_lib"
+name = "liidi_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "qualify"
+name = "liidi"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -22,6 +22,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
+tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full", "sync"] }
@@ -32,6 +33,12 @@ thiserror = "2"
 dirs = "5"
 which = "7"
 dotenvy = "0.15.7"
+
+# Subscription token encryption
+aes-gcm = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+whoami = "1.5"
 
 # Unix signal handling for graceful process shutdown
 [target.'cfg(unix)'.dependencies]

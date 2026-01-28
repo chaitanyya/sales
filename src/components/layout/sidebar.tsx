@@ -5,15 +5,25 @@ import {
   IconUsers,
   IconTypography,
   IconTargetArrow,
+  IconLogout,
 } from "@tabler/icons-react";
 import { ModelSelector } from "./model-selector";
 import { ChromeToggle } from "./chrome-toggle";
 import { GlmToggle } from "./glm-toggle";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { useOnboardingStatus } from "@/lib/query";
+import { OrgSwitcher } from "@/components/auth/org-switcher";
+import { useAuth } from "@clerk/clerk-react";
 
 export function Sidebar() {
   const { data: onboardingStatus } = useOnboardingStatus();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    // Clear auth store
+    window.location.href = "/auth/login";
+  };
 
   return (
     <aside className="w-52 bg-sidebar flex flex-col text-[13px] shrink-0 border-r border-white/5 pt-8">
@@ -23,7 +33,11 @@ export function Sidebar() {
           <div className="w-6 h-6 flex rounded-md items-center font-sans justify-center text-[12px] font-semibold text-primary-foreground bg-white/10 backdrop-blur">
             <img className="w-4 h-4" src="./menubar.png" alt="" />
           </div>
-          <span className="flex-1 text-left truncate">Qualify</span>
+          <span className="flex-1 text-left truncate">Liidi</span>
+        </div>
+        {/* Org switcher */}
+        <div className="px-2 mt-1">
+          <OrgSwitcher />
         </div>
       </div>
 
@@ -82,6 +96,15 @@ export function Sidebar() {
         <ModelSelector />
         <ChromeToggle />
         <GlmToggle />
+
+        {/* Logout button */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-white/[0.12] rounded text-left"
+        >
+          <IconLogout className="w-4 h-4" />
+          <span className="text-xs">Sign out</span>
+        </button>
       </div>
 
       {onboardingStatus && <OnboardingChecklist status={onboardingStatus} />}

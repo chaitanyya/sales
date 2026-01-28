@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconAlertCircle, IconAlertTriangle, IconInfo, IconLoader2 } from "@tabler/icons-react";
+import { IconAlertCircle, IconAlertTriangle, IconInfoCircle, IconLoader2 } from "@tabler/icons-react";
 import type { OrgBinding } from "@/lib/tauri/types";
 
 interface OrgChangeDangerZoneProps {
@@ -126,11 +126,10 @@ export function OrgChangeDangerZone({ currentBinding, onChanged }: OrgChangeDang
                     type="button"
                     onClick={() => setSelectedOrgId(membership.organization.id)}
                     disabled={isProcessing}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
-                      selectedOrgId === membership.organization.id
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${selectedOrgId === membership.organization.id
                         ? "border-primary bg-primary/5"
                         : "border-border hover:bg-muted"
-                    } ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <span className="text-sm font-medium text-primary">
@@ -177,7 +176,7 @@ export function OrgChangeDangerZone({ currentBinding, onChanged }: OrgChangeDang
           {/* Backup info */}
           {backupPath && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-muted">
-              <IconInfo className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+              <IconInfoCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
               <div className="text-sm">
                 <p className="font-medium">Backup Created</p>
                 <p className="text-muted-foreground text-xs break-all">{backupPath}</p>

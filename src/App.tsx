@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+// ReactQueryDevtools removed - was causing crash
+// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useAuth } from "@clerk/clerk-react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { StreamPanelWrapper } from "@/components/stream-panel/stream-panel-wrapper";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,6 +13,7 @@ import { CompanyOverviewDialog } from "@/components/onboarding/company-overview-
 import { OrgRegistrationDialog } from "@/components/org";
 import { useOnboardingStatus } from "@/lib/query";
 import { useOrgBinding } from "@/lib/hooks/use-org-binding";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { IconLoader2 } from "@tabler/icons-react";
 import { AuthLoadingPage } from "@/pages/auth/login";
 import { SubscriptionLock } from "@/components/subscription";
@@ -29,16 +32,20 @@ import LoginPage from "@/pages/auth/login";
 import SignUpPage from "@/pages/auth/signup";
 
 function AppContent() {
+  const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
+  const { user } = useAuthStore();
   const { data: onboardingStatus, isLoading } = useOnboardingStatus();
   const { orgBinding, isLoading: isLoadingOrg, refetch } = useOrgBinding();
   const [showRegistration, setShowRegistration] = useState(false);
 
-  // Show registration dialog if not bound and user is authenticated
+  // Show registration dialog only when user is authenticated AND synced to Zustand
   useEffect(() => {
-    if (!isLoadingOrg && !orgBinding) {
+    if (isAuthLoaded && isSignedIn && user && !isLoadingOrg && !orgBinding) {
       setShowRegistration(true);
+    } else if (!isSignedIn) {
+      setShowRegistration(false);
     }
-  }, [isLoadingOrg, orgBinding]);
+  }, [isAuthLoaded, isSignedIn, user, isLoadingOrg, orgBinding]);
 
   if (isLoading || isLoadingOrg) {
     return (
@@ -59,7 +66,9 @@ function AppContent() {
         open={showRegistration}
         onComplete={handleOrgRegistrationComplete}
       />
-      <CompanyOverviewDialog hasCompanyOverview={onboardingStatus?.hasCompanyOverview ?? false} />
+      {isAuthLoaded && isSignedIn && user && (
+        <CompanyOverviewDialog hasCompanyOverview={onboardingStatus?.hasCompanyOverview ?? false} />
+      )}
       <Routes>
         {/* Public routes - redirect to app if authenticated */}
         <Route
@@ -117,7 +126,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <SubscriptionLock />
       <AppContent />
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* ReactQueryDevtools disabled - was causing app crash */}
     </QueryClientProvider>
   );
 }

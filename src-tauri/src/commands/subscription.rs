@@ -67,11 +67,11 @@ pub async fn update_subscription_status(
         .ok_or("No subscription state found")?;
 
     // Update status while preserving token
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     let grace_period_ends_at = if subscription_status == "active" {
         None
     } else {
-        Some(now + (7 * 24 * 60 * 60)) // 7 days
+        Some(now + (7 * 24 * 60 * 60 * 1000)) // 7 days in ms
     };
 
     conn.execute(

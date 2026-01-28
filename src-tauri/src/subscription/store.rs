@@ -32,14 +32,14 @@ pub fn save_subscription_state(
     subscription_expires_at: Option<i64>,
     device_fingerprint: &str,
 ) -> Result<SubscriptionState> {
-    let now = chrono::Utc::now().timestamp();
-    let token_expires_at = now + (24 * 60 * 60); // 24 hours from now
+    let now = chrono::Utc::now().timestamp_millis();
+    let token_expires_at = now + (24 * 60 * 60 * 1000); // 24 hours from now in ms
 
     // Calculate grace period end time
     let grace_period_ends_at = if subscription_status == "active" {
         None
     } else {
-        Some(now + (GRACE_PERIOD_DAYS * 24 * 60 * 60))
+        Some(now + (GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000))
     };
 
     let conn = conn.lock().unwrap();
@@ -115,7 +115,7 @@ pub fn get_subscription_status(conn: &Arc<Mutex<Connection>>) -> Result<Subscrip
             let days_until_lockout = if !is_valid {
                 state.grace_period_ends_at.map(|end| {
                     let remaining = end - now;
-                    (remaining / (24 * 60 * 60)).max(0)
+                    (remaining / (24 * 60 * 60 * 1000)).max(0)
                 })
             } else {
                 None
@@ -139,7 +139,7 @@ pub fn get_subscription_status(conn: &Arc<Mutex<Connection>>) -> Result<Subscrip
 
 /// Check if user is locked out
 pub fn check_lockout_status(conn: &Arc<Mutex<Connection>>) -> Result<LockoutStatus> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
 
     match load_subscription_state(conn)? {
         Some(state) => {

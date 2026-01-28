@@ -105,7 +105,7 @@ export default function PersonDetailPage() {
 
         {person.managementLevel && (
           <SidebarProperty label="Level">
-            <span className="inline-flex px-2 py-0.5 rounded bg-white/5 text-xs">
+            <span className="inline-flex px-2 py-0.5 rounded bg-secondary/50 text-xs">
               {person.managementLevel}
             </span>
           </SidebarProperty>
@@ -120,7 +120,7 @@ export default function PersonDetailPage() {
           </SidebarProperty>
         )}
 
-        <div className="border-t border-white/5 pt-4 mt-4">
+        <div className="border-t border-sidebar-border pt-4 mt-4">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
             Company
           </h4>
@@ -146,7 +146,7 @@ export default function PersonDetailPage() {
         </div>
 
         {(person.email || person.linkedinUrl) && (
-          <div className="border-t border-white/5 pt-4 mt-4">
+          <div className="border-t border-sidebar-border pt-4 mt-4">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
               Contact
             </h4>
@@ -176,7 +176,7 @@ export default function PersonDetailPage() {
         )}
 
         {person.researchedAt && (
-          <div className="border-t border-white/5 pt-4 mt-4">
+          <div className="border-t border-sidebar-border pt-4 mt-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <IconCalendar className="w-3.5 h-3.5" />
               <span>

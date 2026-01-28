@@ -43,10 +43,10 @@ export function CollapsibleStatusGroup({
 
   return (
     <div className="group/status">
-      <div className="sticky top-0 bg-black/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-2 text-sm border-b border-white/5">
+      <div className="sticky top-0 bg-secondary/95 backdrop-blur-sm z-10 flex items-center gap-2 px-3 py-2 text-sm border-b border-border">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-4 shrink-0 flex items-center justify-center hover:bg-white/10 transition-colors"
+          className="w-4 shrink-0 flex items-center justify-center hover:bg-accent/50 rounded transition-colors"
         >
           {isOpen ? (
             <IconChevronDown className="w-3 h-3 text-muted-foreground" />
@@ -58,7 +58,7 @@ export function CollapsibleStatusGroup({
         <span className="font-medium">{config.label}</span>
         <span className="text-muted-foreground text-xs">{count}</span>
         <div className="flex-1" />
-        <button className="p-1 hover:bg-white/10 opacity-0 group-hover/status:opacity-100 transition-opacity">
+        <button className="p-1 hover:bg-accent/50 rounded opacity-0 group-hover/status:opacity-100 transition-opacity">
           <IconPlus className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
       </div>

@@ -42,8 +42,8 @@ export default function PeopleListPage() {
   if (isLoading && people.length === 0) {
     return (
       <>
-        <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
-          <div className="flex items-center rounded gap-1 px-2 py-1 bg-white/10 text-sm">
+        <header data-tauri-drag-region className="h-10 border-b border-border flex items-center px-3 gap-1">
+          <div className="flex items-center rounded gap-1 px-2 py-1 bg-secondary text-sm">
             <IconUsers className="w-3.5 h-3.5" />
             <span>All People</span>
           </div>
@@ -57,8 +57,8 @@ export default function PeopleListPage() {
 
   return (
     <>
-      <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
-        <div className="flex items-center rounded gap-1 px-2 py-1 bg-white/10 text-sm">
+      <header data-tauri-drag-region className="h-10 border-b border-border flex items-center px-3 gap-1">
+        <div className="flex items-center rounded gap-1 px-2 py-1 bg-secondary text-sm">
           <IconUsers className="w-3.5 h-3.5" />
           <span>All People</span>
         </div>
@@ -67,7 +67,7 @@ export default function PeopleListPage() {
         <AddPersonModal leads={leads} onSuccess={refresh} />
       </header>
 
-      <div className="h-9 border-b border-white/5 flex items-center px-3 gap-2">
+      <div className="h-9 border-b border-border flex items-center px-3 gap-2">
         <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground px-2">
           <IconSearch className="w-3.5 h-3.5 mr-1" />
           Filter

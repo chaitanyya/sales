@@ -40,7 +40,7 @@ export function SelectableRow({ id, children, className }: SelectableRowProps) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors text-sm",
+        "group flex items-center gap-2 px-3 py-2 border-b border-border hover:bg-accent/30 transition-colors text-sm",
         checked && "bg-primary/5",
         className
       )}

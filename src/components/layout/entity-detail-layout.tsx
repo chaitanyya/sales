@@ -47,7 +47,7 @@ export function EntityDetailLayout({
 }: EntityDetailLayoutProps) {
   return (
     <>
-      <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-2">
+      <header data-tauri-drag-region className="h-10 border-b border-sidebar-border flex items-center px-3 gap-2">
         <Link
           to={backHref}
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -63,10 +63,10 @@ export function EntityDetailLayout({
         </div>
 
         <div className="flex items-center gap-1 ml-2">
-          <button className="p-1 rounded hover:bg-white/5 text-muted-foreground">
+          <button className="p-1 rounded hover:bg-muted text-muted-foreground">
             <IconStar className="w-4 h-4" />
           </button>
-          <button className="p-1 rounded hover:bg-white/5 text-muted-foreground">
+          <button className="p-1 rounded hover:bg-muted text-muted-foreground">
             <IconDotsVertical className="w-4 h-4" />
           </button>
         </div>
@@ -79,13 +79,13 @@ export function EntityDetailLayout({
           </span>
           <Link
             to={prevUrl ?? "#"}
-            className={`p-1 rounded hover:bg-white/5 ${!prevUrl ? "opacity-30 pointer-events-none" : ""}`}
+            className={`p-1 rounded hover:bg-muted ${!prevUrl ? "opacity-30 pointer-events-none" : ""}`}
           >
             <IconChevronUp className="w-4 h-4" />
           </Link>
           <Link
             to={nextUrl ?? "#"}
-            className={`p-1 rounded hover:bg-white/5 ${!nextUrl ? "opacity-30 pointer-events-none" : ""}`}
+            className={`p-1 rounded hover:bg-muted ${!nextUrl ? "opacity-30 pointer-events-none" : ""}`}
           >
             <IconChevronDown className="w-4 h-4" />
           </Link>
@@ -100,14 +100,14 @@ export function EntityDetailLayout({
 
             {mainContent}
 
-            <div className="mt-8 pt-6 border-t border-white/5">
+            <div className="mt-8 pt-6 border-t border-border">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-medium">Activity</h2>
               </div>
               <div className="space-y-3">{activityContent}</div>
 
               <div className="mt-6">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-muted-foreground focus-within:border-white/20">
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-secondary/30 text-sm text-muted-foreground focus-within:border-primary/20">
                   <input
                     type="text"
                     placeholder="Leave a note..."
@@ -119,7 +119,7 @@ export function EntityDetailLayout({
           </div>
         </div>
 
-        <aside className="w-64 border-l bg-black/95 border-white/5 overflow-y-scroll scroll-stable shrink-0">
+        <aside className="w-64 border-l bg-sidebar border-sidebar-border overflow-y-scroll scroll-stable shrink-0">
           <div className="p-4">{sidebarContent}</div>
         </aside>
       </div>
@@ -166,7 +166,7 @@ export function SidebarSection({ title, children, hasBorder = false }: SidebarSe
   return (
     <div
       className={
-        hasBorder ? "border-t border-white/5 pt-4 mt-4" : "mb-6 pb-4 border-b border-white/5"
+        hasBorder ? "border-t border-sidebar-border pt-4 mt-4" : "mb-6 pb-4 border-b border-sidebar-border"
       }
     >
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">

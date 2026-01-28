@@ -8,9 +8,7 @@ use rusqlite::{Connection, params};
 use tauri::AppHandle;
 use crate::events;
 
-/// Maximum age (in seconds) for a job to be considered "running" before it's stale.
-/// Jobs older than this are assumed to have died without proper cleanup.
-const STALE_JOB_THRESHOLD_SECS: i64 = 600; // 10 minutes
+const STALE_JOB_THRESHOLD_MS: i64 = 600 * 1000; // 10 minutes in ms
 
 /// Result of stale job detection
 #[derive(Debug, serde::Serialize)]
@@ -46,8 +44,8 @@ pub struct StuckEntity {
 
 /// Detect stale jobs - jobs with "running" or "queued" status that are too old
 pub fn detect_stale_jobs(conn: &Connection) -> Result<Vec<StaleJob>, String> {
-    let now = chrono::Utc::now().timestamp();
-    let threshold = now - STALE_JOB_THRESHOLD_SECS;
+    let now = chrono::Utc::now().timestamp_millis();
+    let threshold = now - STALE_JOB_THRESHOLD_MS;
 
     let mut stmt = conn.prepare(
         "SELECT id, job_type, entity_id, entity_label, status, started_at, created_at

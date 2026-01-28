@@ -192,7 +192,7 @@ function LeadRow({ lead }: { lead: LeadWithScore }) {
 
       <div className="flex items-center gap-2 shrink-0">
         {lead.industry && (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
             {lead.industry}
           </span>
         )}

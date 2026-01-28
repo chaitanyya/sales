@@ -92,7 +92,7 @@ pub fn get_adjacent_leads(conn: &Connection, current_id: i64) -> SqliteResult<(O
 }
 
 pub fn insert_lead(conn: &Connection, data: &NewLead) -> SqliteResult<i64> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "INSERT INTO leads (company_name, website, city, state, country, research_status, user_status, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, 'pending', 'new', ?6)",
@@ -105,7 +105,7 @@ pub fn insert_lead(conn: &Connection, data: &NewLead) -> SqliteResult<i64> {
 pub fn insert_leads_bulk(conn: &mut Connection, leads: &[NewLead]) -> SqliteResult<usize> {
     println!("[insert_leads_bulk query] Starting transaction for {} leads", leads.len());
     let tx = conn.transaction()?;
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     let mut count = 0;
 
     for lead in leads {
@@ -131,7 +131,7 @@ pub fn update_lead_research(
     status: &str,
     profile: Option<&str>,
 ) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
         params![status, profile, now, lead_id],
@@ -338,7 +338,7 @@ pub fn get_adjacent_people(conn: &Connection, current_id: i64) -> SqliteResult<(
 }
 
 pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "INSERT INTO people (first_name, last_name, email, title, linkedin_url, lead_id, research_status, user_status, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
@@ -350,7 +350,7 @@ pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
 /// Bulk insert people - returns count of successfully inserted people
 pub fn insert_people_bulk(conn: &mut Connection, people: &[NewPerson]) -> SqliteResult<usize> {
     let tx = conn.transaction()?;
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     let mut count = 0;
     
     for person in people {
@@ -377,7 +377,7 @@ pub fn delete_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<(
 
 #[allow(dead_code)] // API function for batch people insertion
 pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPerson]) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     for p in people {
         conn.execute(
             "INSERT INTO people (first_name, last_name, email, title, linkedin_url, year_joined, lead_id, research_status, user_status, created_at)
@@ -395,7 +395,7 @@ pub fn update_person_research(
     status: &str,
     profile: Option<&str>,
 ) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
         params![status, profile, now, person_id],
@@ -409,7 +409,7 @@ pub fn update_person_conversation(
     person_id: i64,
     topics: Option<&str>,
 ) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
         params![topics, now, person_id],
@@ -465,7 +465,7 @@ pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str) -> SqliteResult<
 }
 
 pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str) -> SqliteResult<i64> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
 
     let existing: Option<i64> = conn.query_row(
         "SELECT id FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
@@ -531,7 +531,7 @@ pub fn save_scoring_config(
     tier_nurture_min: i64,
     id: Option<i64>,
 ) -> SqliteResult<i64> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
 
     if let Some(existing_id) = id {
         conn.execute(
@@ -647,7 +647,7 @@ pub fn save_lead_score(
     tier: &str,
     scoring_notes: Option<&str>,
 ) -> SqliteResult<i64> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
 
     // Delete existing scores for this lead
     conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
@@ -671,7 +671,7 @@ pub fn delete_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
 // ============================================================================
 
 pub fn insert_job(conn: &Connection, job: &NewJob) -> SqliteResult<String> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
     conn.execute(
         "INSERT INTO jobs (id, job_type, entity_id, entity_label, status, prompt, model, working_dir, output_path, created_at)
          VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?7, ?8, ?9)",
@@ -697,7 +697,7 @@ pub fn update_job_status(
     exit_code: Option<i32>,
     error_message: Option<&str>,
 ) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
+    let now = chrono::Utc::now().timestamp_millis();
 
     // If transitioning to running, set started_at
     // If transitioning to completed/error/timeout/cancelled, set completed_at

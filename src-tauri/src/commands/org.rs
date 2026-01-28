@@ -46,7 +46,7 @@ pub async fn bind_org(
     let binding = OrgBinding {
         org_id: org_id.clone(),
         org_name: org_name.clone(),
-        bound_at: chrono::Utc::now().timestamp(),
+        bound_at: chrono::Utc::now().timestamp_millis(),
         bound_by_user_id: user_id,
         bound_by_user_email: user_email,
         machine_id: machine_id.clone(),
@@ -90,7 +90,7 @@ pub async fn change_org_binding(
     let binding = OrgBinding {
         org_id: new_org_id.clone(),
         org_name: new_org_name.clone(),
-        bound_at: chrono::Utc::now().timestamp(),
+        bound_at: chrono::Utc::now().timestamp_millis(),
         bound_by_user_id: user_id,
         bound_by_user_email: user_email,
         machine_id: machine_id.clone(),

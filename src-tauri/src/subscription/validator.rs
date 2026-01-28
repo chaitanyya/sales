@@ -45,7 +45,7 @@ impl SubscriptionValidator {
             return false;
         };
 
-        self.is_status_valid(state, Utc::now().timestamp())
+        self.is_status_valid(state, Utc::now().timestamp_millis())
     }
 
     /// Check if subscription status is valid (ignoring device fingerprint)
@@ -69,7 +69,7 @@ impl SubscriptionValidator {
         let state = self.state.as_ref()?;
         let grace_end = state.grace_period_ends_at.unwrap_or(0);
 
-        if Utc::now().timestamp() < grace_end {
+        if Utc::now().timestamp_millis() < grace_end {
             // Still in grace period - no lockout
             None
         } else {
@@ -89,9 +89,9 @@ impl SubscriptionValidator {
     pub fn get_grace_period_days_remaining(&self) -> Option<i64> {
         let state = self.state.as_ref()?;
         let grace_end = state.grace_period_ends_at?;
-        let now = Utc::now().timestamp();
+        let now = Utc::now().timestamp_millis();
         let remaining = grace_end - now;
-        Some((remaining / (24 * 60 * 60)).max(0))
+        Some((remaining / (24 * 60 * 60 * 1000)).max(0))
     }
 
     /// Get the stored subscription state
@@ -127,16 +127,16 @@ mod tests {
     use super::*;
 
     fn create_test_state(status: &str, grace_ends_at: Option<i64>) -> SubscriptionState {
-        let now = Utc::now().timestamp();
+        let now = Utc::now().timestamp_millis();
         SubscriptionState {
             id: 1,
             encrypted_token: "test_token".to_string(),
             subscription_status: status.to_string(),
             subscription_expires_at: None,
             token_issued_at: now,
-            token_expires_at: now + 86400,
+            token_expires_at: now + 86400 * 1000,
             last_validated_at: now,
-            device_fingerprint: get_device_fingerprint().unwrap_or_default(),
+            device_fingerprint: crate::crypto::get_device_fingerprint().unwrap_or_default(),
             grace_period_ends_at: grace_ends_at,
         }
     }
@@ -149,16 +149,16 @@ mod tests {
 
     #[test]
     fn test_expired_subscription_in_grace_period() {
-        let now = Utc::now().timestamp();
-        let grace_end = now + 86400; // 1 day from now
+        let now = Utc::now().timestamp_millis();
+        let grace_end = now + 86400 * 1000; // 1 day from now
         let validator = SubscriptionValidator::from_state(create_test_state("expired", Some(grace_end)));
         assert!(validator.is_subscription_valid());
     }
 
     #[test]
     fn test_expired_subscription_past_grace_period() {
-        let now = Utc::now().timestamp();
-        let grace_end = now - 86400; // 1 day ago
+        let now = Utc::now().timestamp_millis();
+        let grace_end = now - 86400 * 1000; // 1 day ago
         let validator = SubscriptionValidator::from_state(create_test_state("expired", Some(grace_end)));
         assert!(!validator.is_subscription_valid());
     }

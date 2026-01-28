@@ -66,8 +66,8 @@ export default function LeadListPage() {
 
   return (
     <>
-      <header data-tauri-drag-region className="h-10 border-b border-white/5 flex items-center px-3 gap-1">
-        <div className="flex items-center rounded gap-1 px-2 py-1 bg-white/10 text-sm">
+      <header data-tauri-drag-region className="h-10 border-b border-border flex items-center px-3 gap-1">
+        <div className="flex items-center rounded gap-1 px-2 py-1 bg-secondary text-sm">
           <IconBuilding className="w-3.5 h-3.5" />
           <span>All Companies</span>
         </div>
@@ -76,7 +76,7 @@ export default function LeadListPage() {
         <AddLeadModal onSuccess={refresh} />
       </header>
 
-      <div className="h-9 border-b border-white/5 flex items-center px-3 gap-2">
+      <div className="h-9 border-b border-border flex items-center px-3 gap-2">
         <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground px-2">
           <IconSearch className="w-3.5 h-3.5 mr-1" />
           Filter

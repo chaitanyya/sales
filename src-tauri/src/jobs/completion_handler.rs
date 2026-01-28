@@ -316,7 +316,7 @@ impl CompletionHandler {
                         .map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
 
                     // Insert new people with enrichment fields
-                    let now = chrono::Utc::now().timestamp();
+                    let now = chrono::Utc::now().timestamp_millis();
                     for p in people_data {
                         let first_name = extract_first_name(p);
                         let last_name = extract_last_name(p);
@@ -335,7 +335,7 @@ impl CompletionHandler {
                 }
 
                 // Update lead with company profile
-                let now = chrono::Utc::now().timestamp();
+                let now = chrono::Utc::now().timestamp_millis();
                 tx.execute(
                     "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
                     rusqlite::params!["completed", profile, now, lead_id],
@@ -349,7 +349,7 @@ impl CompletionHandler {
             }
             ParsedOutput::PersonResearch { profile, enrichment } => {
                 let person_id = metadata.entity_id;
-                let now = chrono::Utc::now().timestamp();
+                let now = chrono::Utc::now().timestamp_millis();
                 tx.execute(
                     "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
                     rusqlite::params!["completed", profile, now, person_id],
@@ -417,7 +417,7 @@ impl CompletionHandler {
                 let scoring_notes = score_data.get("scoringNotes")
                     .and_then(|v| v.as_str());
 
-                let now = chrono::Utc::now().timestamp();
+                let now = chrono::Utc::now().timestamp_millis();
 
                 // Delete existing scores for this lead
                 tx.execute("DELETE FROM lead_scores WHERE lead_id = ?1", rusqlite::params![lead_id])
@@ -434,7 +434,7 @@ impl CompletionHandler {
             }
             ParsedOutput::Conversation { topics } => {
                 let person_id = metadata.entity_id;
-                let now = chrono::Utc::now().timestamp();
+                let now = chrono::Utc::now().timestamp_millis();
                 tx.execute(
                     "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
                     rusqlite::params![topics, now, person_id],

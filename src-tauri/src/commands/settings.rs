@@ -12,7 +12,8 @@ pub fn update_settings(
     state: State<'_, DbState>,
     model: String,
     use_chrome: bool,
+    use_glm_gateway: bool,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::update_settings(&conn, &model, use_chrome).map_err(|e| e.to_string())
+    db::update_settings(&conn, &model, use_chrome, use_glm_gateway).map_err(|e| e.to_string())
 }

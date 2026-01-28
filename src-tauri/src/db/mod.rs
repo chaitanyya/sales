@@ -172,6 +172,7 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             id INTEGER PRIMARY KEY CHECK (id = 1),
             model TEXT NOT NULL DEFAULT 'sonnet',
             use_chrome INTEGER NOT NULL DEFAULT 0,
+            use_glm_gateway INTEGER NOT NULL DEFAULT 1,
             updated_at INTEGER NOT NULL
         );
 
@@ -208,6 +209,33 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
             }
         }
         false
+    }
+
+    // Helper to check if a column exists
+    fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+        let query = format!("PRAGMA table_info({})", table);
+        if let Ok(mut stmt) = conn.prepare(&query) {
+            if let Ok(rows) = stmt.query_map([], |row| {
+                Ok(row.get::<_, String>(1)?)
+            }) {
+                for name in rows.flatten() {
+                    if name == column {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    // Migration: Add use_glm_gateway to settings if not exists
+    if !column_exists(conn, "settings", "use_glm_gateway") {
+        eprintln!("[db] Migrating settings table to add use_glm_gateway column");
+        conn.execute(
+            "ALTER TABLE settings ADD COLUMN use_glm_gateway INTEGER NOT NULL DEFAULT 1",
+            [],
+        )?;
+        eprintln!("[db] Migration complete: settings table updated");
     }
 
     // Migration: Fix people.lead_id NOT NULL constraint

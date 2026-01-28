@@ -7,7 +7,7 @@ import { ScoreBars } from "@/components/leads/score-bars";
 import { ResearchStatusBadge } from "@/components/status/research-status-badge";
 import { toast } from "sonner";
 import { useSelectionStore } from "@/lib/store/selection-store";
-import { deleteLeads, startResearch } from "@/lib/tauri/commands";
+import { deleteLeads, startResearch, startScoring } from "@/lib/tauri/commands";
 import { handleStreamEvent } from "@/lib/stream/handle-stream-event";
 import type { LeadScore } from "@/lib/tauri/types";
 import {
@@ -78,12 +78,35 @@ export function LeadListWithSelection({ groupedLeads, onRefresh }: LeadListWithS
   );
 
   const handleScore = React.useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async (selectedIds: number[]) => {
-      // TODO: Implement scoring via Tauri
-      toast.info("Scoring not yet implemented in Tauri version");
+      let started = 0;
+      let failed = 0;
+
+      // Start scoring for each selected lead
+      for (const leadId of selectedIds) {
+        const lead = leadMap.get(leadId);
+        if (!lead) continue;
+
+        try {
+          // Start scoring - backend will emit events
+          // Stream logs to Zustand via handleStreamEvent
+          await startScoring(leadId, handleStreamEvent);
+
+          started++;
+        } catch (error) {
+          console.error(`Failed to start scoring for lead ${leadId}:`, error);
+          failed++;
+        }
+      }
+
+      if (started > 0) {
+        toast.success(`Started scoring for ${started} lead${started > 1 ? "s" : ""}`);
+      }
+      if (failed > 0) {
+        toast.error(`Failed to start scoring for ${failed} lead${failed > 1 ? "s" : ""}`);
+      }
     },
-    []
+    [leadMap]
   );
 
   const handleDelete = React.useCallback(

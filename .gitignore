@@ -61,3 +61,4 @@ src-tauri/Cargo.lock
 
 # local
 .local/
+\n# Local environment variables\nsrc-tauri/.env

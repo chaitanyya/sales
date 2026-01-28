@@ -266,5 +266,6 @@ pub struct JobLog {
 pub struct Settings {
     pub model: String,
     pub use_chrome: bool,
+    pub use_glm_gateway: bool,
     pub updated_at: i64,
 }

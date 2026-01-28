@@ -322,6 +322,7 @@ export async function recoverAllStuck(): Promise<number> {
 export interface Settings {
   model: string;
   useChrome: boolean;
+  useGlmGateway: boolean;
   updatedAt: number;
 }
 
@@ -329,6 +330,14 @@ export async function getSettings(): Promise<Settings> {
   return invoke("get_settings");
 }
 
-export async function updateSettings(model: string, useChrome: boolean): Promise<void> {
-  return invoke("update_settings", { model, use_chrome: useChrome });
+export async function updateSettings(
+  model: string,
+  useChrome: boolean,
+  useGlmGateway: boolean
+): Promise<void> {
+  return invoke("update_settings", {
+    model,
+    use_chrome: useChrome,
+    use_glm_gateway: useGlmGateway,
+  });
 }

@@ -8,6 +8,7 @@ import {
 } from "@tabler/icons-react";
 import { ModelSelector } from "./model-selector";
 import { ChromeToggle } from "./chrome-toggle";
+import { GlmToggle } from "./glm-toggle";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { useOnboardingStatus } from "@/lib/query";
 
@@ -80,6 +81,7 @@ export function Sidebar() {
         </div>
         <ModelSelector />
         <ChromeToggle />
+        <GlmToggle />
       </div>
 
       {onboardingStatus && <OnboardingChecklist status={onboardingStatus} />}

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { ClientLogEntry } from "@/lib/types/claude";
 
-export type StreamTabType = "company" | "person" | "conversation" | "scoring";
+export type StreamTabType = "company" | "person" | "conversation" | "scoring" | "company_profile";
 
 interface StreamPanelState {
   // UI state (persisted to localStorage)

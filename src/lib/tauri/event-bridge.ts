@@ -161,6 +161,13 @@ export async function initializeEventBridge(): Promise<void> {
   });
   unlisteners.push(personDeletedUnlisten);
 
+  // Company profile updated → invalidate company profile + onboarding status
+  const companyProfileUpdatedUnlisten = await listen("company-profile-updated", () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.companyProfile() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.onboardingStatus() });
+  });
+  unlisteners.push(companyProfileUpdatedUnlisten);
+
   // Job created → set active tab, open panel, invalidate jobs query
   const jobCreatedUnlisten = await listen<JobCreatedPayload>("job-created", (event) => {
     const { jobId } = event.payload;

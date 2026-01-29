@@ -55,7 +55,7 @@ function getFirstIncompleteStepId(status: OnboardingStatus): string | null {
 
 export function OnboardingChecklist({ status }: OnboardingChecklistProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [activeStepId, setActiveStepId] = useState<string | null>(() =>
+  const [activeStepId, setActiveStepId] = useState<string | number | null>(() =>
     getFirstIncompleteStepId(status)
   );
 

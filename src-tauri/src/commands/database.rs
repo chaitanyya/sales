@@ -1,5 +1,5 @@
 use tauri::{AppHandle, State};
-use crate::db::{self, DbState, Lead, LeadWithScore, NewLead, NewPerson, ParsedLeadScore, ParsedScoringConfig, Person, PersonWithCompany};
+use crate::db::{self, DbState, Lead, LeadWithScore, NewLead, NewPerson, ParsedLeadScore, ParsedScoringConfig, Person, PersonWithCompany, CompanyProfile};
 use crate::events;
 
 // ============================================================================
@@ -298,6 +298,7 @@ pub fn delete_lead_score(state: State<'_, DbState>, lead_id: i64) -> Result<(), 
 #[serde(rename_all = "camelCase")]
 pub struct OnboardingStatus {
     pub has_company_overview: bool,
+    pub has_company_profile: bool,
     pub has_lead: bool,
     pub has_researched_lead: bool,
     pub has_scored_lead: bool,
@@ -313,6 +314,15 @@ pub fn get_onboarding_status(state: State<'_, DbState>) -> Result<OnboardingStat
     let has_company_overview: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM prompts WHERE type = 'company_overview')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    // Check for company profile (new structured profile)
+    let has_company_profile: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM company_profile WHERE research_status = 'completed')",
             [],
             |row| row.get(0),
         )
@@ -361,6 +371,7 @@ pub fn get_onboarding_status(state: State<'_, DbState>) -> Result<OnboardingStat
 
     Ok(OnboardingStatus {
         has_company_overview,
+        has_company_profile,
         has_lead,
         has_researched_lead,
         has_scored_lead,
@@ -395,4 +406,64 @@ pub fn update_note(state: State<'_, DbState>, id: i64, content: String) -> Resul
 pub fn delete_note(state: State<'_, DbState>, id: i64) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::delete_note(&conn, id).map_err(|e| e.to_string())
+}
+
+// ============================================================================
+// Company Profile Commands (User's company for onboarding)
+// ============================================================================
+
+#[tauri::command]
+pub fn get_company_profile(state: State<'_, DbState>) -> Result<Option<CompanyProfile>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::get_company_profile(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn save_company_profile(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    company_name: String,
+    product_name: String,
+    website: String,
+    target_audience: Option<String>,
+    usps: Option<String>,
+    marketing_narrative: Option<String>,
+    sales_narrative: Option<String>,
+    competitors: Option<String>,
+    market_insights: Option<String>,
+    raw_analysis: Option<String>,
+    research_status: Option<String>,
+) -> Result<i64, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let id = db::save_company_profile(
+        &conn,
+        &company_name,
+        &product_name,
+        &website,
+        target_audience.as_deref(),
+        usps.as_deref(),
+        marketing_narrative.as_deref(),
+        sales_narrative.as_deref(),
+        competitors.as_deref(),
+        market_insights.as_deref(),
+        raw_analysis.as_deref(),
+        research_status.as_deref(),
+    ).map_err(|e| e.to_string())?;
+    drop(conn);
+    // Emit event to notify frontend of profile update
+    events::emit_company_profile_updated(&app);
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn update_company_profile_research_status(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    research_status: String,
+) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::update_company_profile_research_status(&conn, &research_status).map_err(|e| e.to_string())?;
+    drop(conn);
+    events::emit_company_profile_updated(&app);
+    Ok(())
 }

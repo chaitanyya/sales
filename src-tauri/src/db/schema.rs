@@ -352,3 +352,35 @@ pub struct NewNote {
     pub content: String,
 }
 
+// ============================================================================
+// Company Profile Table (User's company for onboarding)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanyProfile {
+    pub id: i64,
+    pub company_name: String,
+    pub product_name: String,
+    pub website: String,
+    pub target_audience: String,      // JSON: AudienceSegment[]
+    pub usps: String,                  // JSON: USP[]
+    pub marketing_narrative: String,   // Markdown
+    pub sales_narrative: String,       // JSON: SalesNarrative
+    pub competitors: String,           // JSON: Competitor[]
+    pub market_insights: String,       // JSON: MarketInsight[]
+    pub raw_analysis: String,          // Full AI output
+    pub research_status: String,       // "pending" | "in_progress" | "completed" | "failed"
+    pub researched_at: Option<i64>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewCompanyProfile {
+    pub company_name: String,
+    pub product_name: String,
+    pub website: String,
+}
+

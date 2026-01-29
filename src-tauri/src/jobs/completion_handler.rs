@@ -79,6 +79,7 @@ pub enum ParsedOutput {
     Conversation {
         topics: String,
     },
+    CompanyProfileResearch,
 }
 
 /// Handles job completion with atomic operations
@@ -266,6 +267,11 @@ impl CompletionHandler {
                     topics: outputs.primary_content.clone(),
                 })
             }
+            JobType::CompanyProfileResearch => {
+                // Company profile research is handled via a custom callback in research.rs
+                // so we don't need to parse anything here
+                Ok(ParsedOutput::CompanyProfileResearch)
+            }
         }
     }
 
@@ -440,6 +446,10 @@ impl CompletionHandler {
                     rusqlite::params![topics, now, person_id],
                 ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
             }
+            ParsedOutput::CompanyProfileResearch => {
+                // Company profile research is handled via custom callback
+                // No database updates needed here
+            }
         }
 
         Ok(())
@@ -449,8 +459,8 @@ impl CompletionHandler {
     fn cleanup_files(&self, metadata: &JobMetadata) -> Result<(), CompletionError> {
         let primary_path = &metadata.primary_output_path;
 
-        // For research jobs, delete the entire directory
-        if matches!(metadata.job_type, JobType::CompanyResearch | JobType::PersonResearch) {
+        // For research jobs and company profile research, delete the entire directory
+        if matches!(metadata.job_type, JobType::CompanyResearch | JobType::PersonResearch | JobType::CompanyProfileResearch) {
             if let Some(parent) = primary_path.parent() {
                 if parent.exists() {
                     if let Err(e) = fs::remove_dir_all(parent) {
@@ -495,6 +505,10 @@ impl CompletionHandler {
                     }
                 }
             }
+            JobType::CompanyProfileResearch => {
+                // Emit company profile updated event
+                events::emit_company_profile_updated(&self.app_handle);
+            }
         }
     }
 
@@ -514,8 +528,9 @@ impl CompletionHandler {
                         rusqlite::params![metadata.entity_id],
                     );
                 }
-                JobType::Scoring | JobType::Conversation => {
+                JobType::Scoring | JobType::Conversation | JobType::CompanyProfileResearch => {
                     // No status field to update for these types
+                    // For CompanyProfileResearch, the callback handles status update
                 }
             }
         }

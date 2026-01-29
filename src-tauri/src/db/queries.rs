@@ -1042,6 +1042,269 @@ pub fn insert_job_logs_batch_full(
     Ok(())
 }
 
+// ============================================================================
+// Job Logs Staging Table Queries (Phase 2)
+// ============================================================================
+
+/// Statistics for cleanup operations
+#[derive(Debug, Clone)]
+pub struct CleanupStats {
+    pub marked_deleted: usize,
+    pub old_records: usize,
+    pub total: usize,
+}
+
+/// Insert logs to staging table (no FK constraint, always succeeds)
+/// Returns count of inserted records
+pub fn insert_job_logs_to_staging(
+    conn: &Connection,
+    logs: &[BatchLogEntry],
+) -> SqliteResult<usize> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut stmt = conn.prepare(
+        "INSERT INTO job_logs_staging (job_id, log_type, content, tool_name, timestamp, sequence, source, staged_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+    )?;
+
+    let mut count = 0;
+    for log in logs {
+        stmt.execute(params![
+            log.job_id,
+            log.log_type,
+            log.content,
+            log.tool_name,
+            now,
+            log.sequence,
+            log.source,
+            now, // staged_at
+        ])?;
+        count += 1;
+    }
+
+    Ok(count)
+}
+
+/// Promote staged logs for a specific job to the main table
+/// Uses transaction to ensure atomicity
+/// - If job deleted: marks staged logs with staged_at = -1, returns Ok(0)
+/// - If job exists: moves records from staging to main table, deletes from staging
+/// Returns count of promoted records
+pub fn promote_staged_logs(
+    conn: &Connection,
+    job_id: &str,
+) -> SqliteResult<usize> {
+    let tx = conn.unchecked_transaction()?;
+
+    // Check if job exists
+    let job_exists: bool = tx.query_row(
+        "SELECT 1 FROM jobs WHERE id = ?1",
+        params![job_id],
+        |_| Ok(true)
+    ).unwrap_or(false);
+
+    if !job_exists {
+        // Job was deleted, mark staged logs for cleanup
+        tx.execute(
+            "UPDATE job_logs_staging SET staged_at = -1 WHERE job_id = ?1",
+            params![job_id],
+        )?;
+        tx.commit()?;
+        return Ok(0);
+    }
+
+    // Move records from staging to main table
+    let moved = tx.execute(
+        "INSERT INTO job_logs (job_id, log_type, content, tool_name, timestamp, sequence, source)
+         SELECT job_id, log_type, content, tool_name, timestamp, sequence, source
+         FROM job_logs_staging
+         WHERE job_id = ?1",
+        params![job_id],
+    )?;
+
+    // Delete promoted records from staging
+    tx.execute(
+        "DELETE FROM job_logs_staging WHERE job_id = ?1",
+        params![job_id],
+    )?;
+
+    tx.commit()?;
+    Ok(moved)
+}
+
+/// Promote all staged logs for all jobs
+/// Returns list of job_ids that had logs promoted
+pub fn promote_all_staged_logs(conn: &Connection) -> SqliteResult<Vec<String>> {
+    // Get all distinct job_ids from staging where staged_at >= 0 (not marked for cleanup)
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT job_id FROM job_logs_staging WHERE staged_at >= 0"
+    )?;
+
+    let job_ids: Vec<String> = stmt.query_map([], |row| row.get(0))?
+        .collect::<SqliteResult<Vec<_>>>()?;
+
+    let mut promoted = Vec::new();
+    for job_id in &job_ids {
+        match promote_staged_logs(conn, job_id) {
+            Ok(count) if count > 0 => {
+                promoted.push(job_id.clone());
+            }
+            Ok(_) => {
+                // Job was deleted or no logs to promote
+            }
+            Err(e) => {
+                eprintln!("[promote_all_staged_logs] Error promoting logs for job {}: {}", job_id, e);
+                // Continue with other jobs
+            }
+        }
+    }
+
+    Ok(promoted)
+}
+
+/// Cleanup the staging table by removing orphaned and marked records
+/// - Deletes records where staged_at = -1 (marked for cleanup)
+/// - Deletes old orphaned records (job not in jobs table, older than cutoff)
+/// Returns CleanupStats with counts
+pub fn cleanup_staging_table(
+    conn: &Connection,
+    older_than_ms: i64,
+) -> SqliteResult<CleanupStats> {
+    let cutoff = chrono::Utc::now().timestamp_millis() - older_than_ms;
+
+    // Delete records marked for cleanup (staged_at = -1)
+    let marked_deleted = conn.execute(
+        "DELETE FROM job_logs_staging WHERE staged_at = -1",
+        [],
+    )?;
+
+    // Delete old orphaned records (job not in jobs table AND staged_at older than cutoff)
+    let old_records = conn.execute(
+        "DELETE FROM job_logs_staging
+         WHERE staged_at >= 0
+         AND staged_at < ?1
+         AND job_id NOT IN (SELECT id FROM jobs)",
+        params![cutoff],
+    )?;
+
+    let total = marked_deleted + old_records;
+
+    Ok(CleanupStats {
+        marked_deleted,
+        old_records,
+        total,
+    })
+}
+
+/// Get job logs from both main and staging tables
+/// Merges results and sorts by sequence
+/// Returns unified view of all logs for a job
+pub fn get_job_logs_with_staging(
+    conn: &Connection,
+    job_id: &str,
+    after_sequence: Option<i64>,
+    limit: Option<i64>,
+) -> SqliteResult<Vec<JobLog>> {
+    let mut logs = Vec::new();
+
+    // Build query for main table
+    let mut main_query = String::from(
+        "SELECT id, job_id, log_type, content, tool_name, timestamp, sequence, source
+         FROM job_logs
+         WHERE job_id = ?1"
+    );
+
+    if after_sequence.is_some() {
+        main_query.push_str(" AND sequence > ?2");
+    }
+
+    let mut stmt = conn.prepare(&main_query)?;
+
+    // Query main table
+    let main_logs: Vec<JobLog> = if let Some(seq) = after_sequence {
+        stmt.query_map(params![job_id, seq], |row| {
+            Ok(JobLog {
+                id: row.get(0)?,
+                job_id: row.get(1)?,
+                log_type: row.get(2)?,
+                content: row.get(3)?,
+                tool_name: row.get(4)?,
+                timestamp: row.get(5)?,
+                sequence: row.get(6)?,
+                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+            })
+        })?.collect::<SqliteResult<Vec<_>>>()?
+    } else {
+        stmt.query_map(params![job_id], |row| {
+            Ok(JobLog {
+                id: row.get(0)?,
+                job_id: row.get(1)?,
+                log_type: row.get(2)?,
+                content: row.get(3)?,
+                tool_name: row.get(4)?,
+                timestamp: row.get(5)?,
+                sequence: row.get(6)?,
+                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+            })
+        })?.collect::<SqliteResult<Vec<_>>>()?
+    };
+
+    logs.extend(main_logs);
+
+    // Build query for staging table
+    let mut staging_query = String::from(
+        "SELECT id, job_id, log_type, content, tool_name, timestamp, sequence, source
+         FROM job_logs_staging
+         WHERE job_id = ?1"
+    );
+
+    if after_sequence.is_some() {
+        staging_query.push_str(" AND sequence > ?2");
+    }
+
+    let mut stmt = conn.prepare(&staging_query)?;
+
+    // Query staging table
+    let staged_logs: Vec<JobLog> = if let Some(seq) = after_sequence {
+        stmt.query_map(params![job_id, seq], |row| {
+            Ok(JobLog {
+                id: row.get(0)?,
+                job_id: row.get(1)?,
+                log_type: row.get(2)?,
+                content: row.get(3)?,
+                tool_name: row.get(4)?,
+                timestamp: row.get(5)?,
+                sequence: row.get(6)?,
+                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+            })
+        })?.collect::<SqliteResult<Vec<_>>>()?
+    } else {
+        stmt.query_map(params![job_id], |row| {
+            Ok(JobLog {
+                id: row.get(0)?,
+                job_id: row.get(1)?,
+                log_type: row.get(2)?,
+                content: row.get(3)?,
+                tool_name: row.get(4)?,
+                timestamp: row.get(5)?,
+                sequence: row.get(6)?,
+                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+            })
+        })?.collect::<SqliteResult<Vec<_>>>()?
+    };
+
+    logs.extend(staged_logs);
+
+    // Sort by sequence (stable sort to preserve insertion order for ties)
+    logs.sort_by(|a, b| a.sequence.cmp(&b.sequence));
+
+    // Apply limit if specified
+    if let Some(lim) = limit {
+        logs.truncate(lim as usize);
+    }
+
+    Ok(logs)
+}
+
 pub fn get_job_logs(
     conn: &Connection,
     job_id: &str,
@@ -1289,4 +1552,181 @@ pub fn delete_note(conn: &Connection, note_id: i64) -> SqliteResult<()> {
         params![note_id],
     )?;
     Ok(())
+}
+
+// ============================================================================
+// Company Profile Queries (User's company for onboarding)
+// ============================================================================
+
+pub fn get_company_profile(conn: &Connection) -> SqliteResult<Option<CompanyProfile>> {
+    let sql = "SELECT id, company_name, product_name, website, target_audience, usps,
+                    marketing_narrative, sales_narrative, competitors, market_insights,
+                    raw_analysis, research_status, researched_at, created_at, updated_at
+             FROM company_profile
+             ORDER BY id DESC LIMIT 1";
+
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query([])?;
+
+    if let Some(row) = rows.next()? {
+        Ok(Some(CompanyProfile {
+            id: row.get(0)?,
+            company_name: row.get(1)?,
+            product_name: row.get(2)?,
+            website: row.get(3)?,
+            target_audience: row.get(4)?,
+            usps: row.get(5)?,
+            marketing_narrative: row.get(6)?,
+            sales_narrative: row.get(7)?,
+            competitors: row.get(8)?,
+            market_insights: row.get(9)?,
+            raw_analysis: row.get(10)?,
+            research_status: row.get(11)?,
+            researched_at: row.get(12)?,
+            created_at: row.get(13)?,
+            updated_at: row.get(14)?,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn save_company_profile(
+    conn: &Connection,
+    company_name: &str,
+    product_name: &str,
+    website: &str,
+    target_audience: Option<&str>,
+    usps: Option<&str>,
+    marketing_narrative: Option<&str>,
+    sales_narrative: Option<&str>,
+    competitors: Option<&str>,
+    market_insights: Option<&str>,
+    raw_analysis: Option<&str>,
+    research_status: Option<&str>,
+) -> SqliteResult<i64> {
+    let now = chrono::Utc::now().timestamp_millis();
+
+    // Check if a profile already exists
+    let existing = conn.query_row(
+        "SELECT id FROM company_profile ORDER BY id DESC LIMIT 1",
+        [],
+        |row| row.get::<_, i64>(0),
+    );
+
+    match existing {
+        Ok(id) => {
+            // Update existing profile
+            conn.execute(
+                "UPDATE company_profile
+                 SET company_name = ?1, product_name = ?2, website = ?3,
+                     target_audience = ?4, usps = ?5, marketing_narrative = ?6,
+                     sales_narrative = ?7, competitors = ?8, market_insights = ?9,
+                     raw_analysis = ?10, research_status = ?11, updated_at = ?12
+                 WHERE id = ?13",
+                params![
+                    company_name,
+                    product_name,
+                    website,
+                    target_audience,
+                    usps,
+                    marketing_narrative,
+                    sales_narrative,
+                    competitors,
+                    market_insights,
+                    raw_analysis,
+                    research_status.unwrap_or("pending"),
+                    now,
+                    id,
+                ],
+            )?;
+            Ok(id)
+        }
+        Err(_) => {
+            // Insert new profile
+            conn.execute(
+                "INSERT INTO company_profile (company_name, product_name, website,
+                     target_audience, usps, marketing_narrative, sales_narrative,
+                     competitors, market_insights, raw_analysis, research_status,
+                     created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                params![
+                    company_name,
+                    product_name,
+                    website,
+                    target_audience,
+                    usps,
+                    marketing_narrative,
+                    sales_narrative,
+                    competitors,
+                    market_insights,
+                    raw_analysis,
+                    research_status.unwrap_or("pending"),
+                    now,
+                    now,
+                ],
+            )?;
+            Ok(conn.last_insert_rowid())
+        }
+    }
+}
+
+pub fn update_company_profile_research_status(
+    conn: &Connection,
+    research_status: &str,
+) -> SqliteResult<()> {
+    let now = chrono::Utc::now().timestamp_millis();
+    conn.execute(
+        "UPDATE company_profile SET research_status = ?1, researched_at = ?2, updated_at = ?3
+         WHERE id = (SELECT id FROM company_profile ORDER BY id DESC LIMIT 1)",
+        params![research_status, now, now],
+    )?;
+    Ok(())
+}
+
+// ============================================================================
+// Staging Health Monitoring
+// ============================================================================
+
+/// Health check statistics for the staging table
+///
+/// Returns metrics about staged logs including:
+/// - Total count of staged records
+/// - Age of the oldest staged record (for monitoring backlog)
+pub fn get_staging_health(conn: &Connection) -> SqliteResult<StagingHealth> {
+    // Count total staged records (only valid ones with staged_at >= 0)
+    let staging_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM job_logs_staging WHERE staged_at >= 0",
+        [],
+        |row| row.get(0),
+    )?;
+
+    // Get the oldest staged_at timestamp among valid records
+    let oldest_staged_at_ms: Option<i64> = conn.query_row(
+        "SELECT MIN(staged_at) FROM job_logs_staging WHERE staged_at >= 0",
+        [],
+        |row| row.get(0),
+    )?;
+
+    // Calculate age of oldest staged record
+    let now = chrono::Utc::now().timestamp_millis();
+    let oldest_staged_age_ms = match oldest_staged_at_ms {
+        Some(oldest) => now - oldest,
+        None => 0, // No staged records
+    };
+
+    Ok(StagingHealth {
+        staging_count: staging_count as usize,
+        oldest_staged_age_ms: oldest_staged_age_ms.max(0),
+    })
+}
+
+/// Health statistics for the staging table
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagingHealth {
+    /// Total number of records currently in staging table
+    pub staging_count: usize,
+    /// Age of the oldest staged record in milliseconds (0 if no staged records)
+    pub oldest_staged_age_ms: i64,
 }

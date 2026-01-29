@@ -262,13 +262,19 @@ impl JobQueue {
             super::result_parser::JobType::PersonResearch => "person_research",
             super::result_parser::JobType::Scoring => "scoring",
             super::result_parser::JobType::Conversation => "conversation",
+            super::result_parser::JobType::CompanyProfileResearch => "company_profile_research",
         };
 
         // Read settings and persist job to database
+        // Use explicit transaction to ensure job row is committed before spawning process
         let settings = {
             let db_state: tauri::State<'_, DbState> = app.state();
-            let conn = db_state.conn.lock().map_err(|e| e.to_string())?;
-            let settings = crate::db::get_settings(&conn).map_err(|e| e.to_string())?;
+            let mut conn = db_state.conn.lock().map_err(|e| e.to_string())?;
+
+            // Start explicit transaction
+            let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+
+            let settings = crate::db::get_settings(&tx).map_err(|e| e.to_string())?;
             let new_job = NewJob {
                 id: job_id.clone(),
                 job_type: job_type_str.to_string(),
@@ -279,7 +285,11 @@ impl JobQueue {
                 working_dir: working_dir.clone(),
                 output_path: Some(metadata.primary_output_path.to_string_lossy().to_string()),
             };
-            crate::db::insert_job(&conn, &new_job).map_err(|e| e.to_string())?;
+            crate::db::insert_job(&tx, &new_job).map_err(|e| e.to_string())?;
+
+            // Explicit commit before spawning subprocess - ensures job row is visible to stream processor
+            tx.commit().map_err(|e| format!("Failed to commit job insert: {}", e))?;
+
             settings
         };
 
@@ -521,7 +531,12 @@ impl JobQueue {
                 }
             });
 
-            // Wait for completion with timeout
+            // Wait for completion with timeout (job-specific)
+            let timeout_secs = match metadata.job_type {
+                super::result_parser::JobType::Scoring => 300,  // 5 min - less web activity
+                super::result_parser::JobType::CompanyProfileResearch => 600,  // 10 min - web browsing
+                _ => 600,  // 10 min default
+            };
             let result = tokio::select! {
                 status = child.wait() => {
                     match status {
@@ -540,8 +555,8 @@ impl JobQueue {
                         }
                     }
                 }
-                _ = tokio::time::sleep(Duration::from_secs(JOB_TIMEOUT_SECS)) => {
-                    eprintln!("[job_queue] job_id={} Job timeout after {} seconds", job_id_clone, JOB_TIMEOUT_SECS);
+                _ = tokio::time::sleep(Duration::from_secs(timeout_secs)) => {
+                    eprintln!("[job_queue] job_id={} Job timeout after {} seconds", job_id_clone, timeout_secs);
                     graceful_shutdown(child, &job_id_clone).await;
                     ("timeout".to_string(), None, false)
                 }
@@ -606,6 +621,10 @@ impl JobQueue {
                     }
                     super::result_parser::JobType::Scoring => {
                         events::emit_lead_updated(&app_clone, metadata.entity_id);
+                    }
+                    super::result_parser::JobType::CompanyProfileResearch => {
+                        // Emit company profile updated event
+                        events::emit_company_profile_updated(&app_clone);
                     }
                 }
             }

@@ -36,5 +36,15 @@ export {
 // Onboarding queries
 export { useOnboardingStatus } from "./use-onboarding-query";
 
+// Company Profile queries
+export {
+  useCompanyProfile,
+} from "./use-company-profile-query";
+
+export {
+  useSaveCompanyProfile,
+  useUpdateCompanyProfileResearchStatus,
+} from "./use-company-profile-mutations";
+
 // Job queries
 export { useActiveJobs, useRecentJobs, useJob } from "./use-job-query";

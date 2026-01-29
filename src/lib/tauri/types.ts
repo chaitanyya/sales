@@ -202,6 +202,7 @@ export interface AdjacentResult {
 
 export interface OnboardingStatus {
   hasCompanyOverview: boolean;
+  hasCompanyProfile: boolean;
   hasLead: boolean;
   hasResearchedLead: boolean;
   hasScoredLead: boolean;
@@ -213,7 +214,7 @@ export interface OnboardingStatus {
 // Job Types
 // ============================================================================
 
-export type JobType = "company_research" | "person_research" | "scoring" | "conversation";
+export type JobType = "company_research" | "person_research" | "scoring" | "conversation" | "company_profile_research";
 export type JobStatus = "queued" | "running" | "completed" | "error" | "timeout" | "cancelled";
 
 export interface Job {
@@ -315,4 +316,106 @@ export interface Note {
   entityId: number;
   content: string;
   createdAt: number;
+}
+
+// ============================================================================
+// Company Profile Types (User's company for onboarding)
+// ============================================================================
+
+export type AudienceSegmentType = "primary" | "secondary";
+
+export interface AudienceSegment {
+  id: string;
+  type: AudienceSegmentType;
+  segment: string;
+  description: string;
+  indicators: string[];
+}
+
+export interface USP {
+  id: string;
+  headline: string;
+  explanation: string;
+  evidence?: string[];
+  order: number;
+}
+
+export type TalkingPointCategory = "problem" | "solution" | "social-proof" | "cta" | "custom";
+
+export interface TalkingPoint {
+  id: string;
+  category: TalkingPointCategory;
+  content: string;
+  order: number;
+}
+
+export interface SalesNarrative {
+  elevatorPitch: string;
+  talkingPoints: TalkingPoint[];
+}
+
+export type CompetitorType = "direct" | "indirect" | "alternative";
+
+export interface Competitor {
+  id: string;
+  name: string;
+  type: CompetitorType;
+  website?: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  differentiation?: string;
+}
+
+export type InsightCategory = "trends" | "challenges" | "opportunities" | "timing" | "regulation" | "other";
+
+export interface MarketInsight {
+  id: string;
+  category: InsightCategory;
+  content: string;
+  relevance?: string;
+  order: number;
+}
+
+export type CompanyProfileResearchStatus = "pending" | "in_progress" | "completed" | "failed";
+
+export interface CompanyProfile {
+  id: number;
+  companyName: string;
+  productName: string;
+  website: string;
+  targetAudience: string; // JSON string of AudienceSegment[]
+  usps: string; // JSON string of USP[]
+  marketingNarrative: string; // Markdown
+  salesNarrative: string; // JSON string of SalesNarrative
+  competitors: string; // JSON string of Competitor[]
+  marketInsights: string; // JSON string of MarketInsight[]
+  rawAnalysis: string; // Full AI output
+  researchStatus: CompanyProfileResearchStatus;
+  researchedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NewCompanyProfile {
+  companyName: string;
+  productName: string;
+  website: string;
+}
+
+export interface ParsedCompanyProfile {
+  id: number;
+  companyName: string;
+  productName: string;
+  website: string;
+  targetAudience: AudienceSegment[];
+  usps: USP[];
+  marketingNarrative: string;
+  salesNarrative: SalesNarrative;
+  competitors: Competitor[];
+  marketInsights: MarketInsight[];
+  rawAnalysis: string;
+  researchStatus: CompanyProfileResearchStatus;
+  researchedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }

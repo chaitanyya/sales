@@ -116,3 +116,11 @@ pub fn emit_job_logs_appended(app: &AppHandle, job_id: String, count: i64, last_
 pub fn emit_job_created(app: &AppHandle, job_id: String, job_type: String, entity_id: i64, entity_label: String) {
     let _ = app.emit("job-created", JobCreatedPayload { job_id, job_type, entity_id, entity_label });
 }
+
+// ============================================================================
+// Company Profile Events
+// ============================================================================
+
+pub fn emit_company_profile_updated(app: &AppHandle) {
+    let _ = app.emit("company-profile-updated", ());
+}

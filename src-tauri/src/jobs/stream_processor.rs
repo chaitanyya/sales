@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::time::Instant;
 use tokio::sync::Mutex;
 use tauri::AppHandle;
 use tauri::ipc::Channel;
@@ -22,8 +23,11 @@ use super::StreamEvent;
 const MAX_ACCUMULATED_OUTPUT_SIZE: usize = 10 * 1024 * 1024;
 
 /// Number of logs to buffer before flushing to database
-/// Lower value = more frequent DB writes but faster hydration on reload
-const LOG_BUFFER_FLUSH_SIZE: usize = 3;
+/// Reduced from 100 to 20 for better balance of memory vs latency
+const LOG_BUFFER_FLUSH_SIZE: usize = 20;
+
+/// Time-based flush interval (milliseconds) - flush even if buffer not full
+const LOG_BUFFER_FLUSH_INTERVAL_MS: u64 = 500;
 
 /// Statistics for a single stream (stdout or stderr)
 #[derive(Debug, Clone, Default)]
@@ -94,6 +98,9 @@ pub struct StreamProcessor {
     // Truncation flags
     stdout_truncated: Arc<AtomicBool>,
     stderr_truncated: Arc<AtomicBool>,
+
+    // Last flush time for time-based flushing
+    last_flush: Arc<Mutex<Instant>>,
 }
 
 impl StreamProcessor {
@@ -114,10 +121,11 @@ impl StreamProcessor {
             stderr_stats: Arc::new(Mutex::new(StreamStats::default())),
             stdout_truncated: Arc::new(AtomicBool::new(false)),
             stderr_truncated: Arc::new(AtomicBool::new(false)),
+            last_flush: Arc::new(Mutex::new(Instant::now())),
         }
     }
 
-    /// Flush the log buffer to database
+    /// Flush the log buffer to staging table
     async fn flush_buffer(&self) {
         let logs_to_insert: Vec<BufferedLogEntry> = {
             let mut buffer = self.log_buffer.lock().await;
@@ -139,17 +147,39 @@ impl StreamProcessor {
         let last_seq = logs_to_insert.last().map(|l| l.sequence).unwrap_or(0);
         let count = logs_to_insert.len() as i64;
 
-        // Insert to database
-        if let Ok(conn) = self.db_conn.lock() {
-            if let Err(e) = crate::db::insert_job_logs_batch_full(&conn, &batch_entries) {
+        // Insert to staging table (no FK constraint, no retry needed)
+        let insert_result = match self.db_conn.lock() {
+            Ok(conn) => crate::db::insert_job_logs_to_staging(&conn, &batch_entries),
+            Err(_) => {
+                eprintln!("[stream_processor] job_id={} Failed to acquire DB lock", self.job_id);
+                // Note: logs remain in buffer and will be retried on next flush
+                // Emit event for frontend (even if insert failed, stream is progressing)
+                events::emit_job_logs_appended(&self.app_handle, self.job_id.clone(), count, last_seq);
+                return;
+            }
+        };
+
+        match insert_result {
+            Ok(inserted) => {
+                if inserted != batch_entries.len() {
+                    eprintln!(
+                        "[stream_processor] job_id={} Warning: inserted {} logs but expected {}",
+                        self.job_id, inserted, batch_entries.len()
+                    );
+                }
+                // Update last flush time on success (outside DB lock scope to avoid Send issues)
+                *self.last_flush.lock().await = Instant::now();
+            }
+            Err(e) => {
                 eprintln!(
-                    "[stream_processor] job_id={} Failed to insert logs batch: {}",
+                    "[stream_processor] job_id={} Failed to insert logs to staging: {}",
                     self.job_id, e
                 );
+                // Note: logs remain in buffer and will be retried on next flush
             }
         }
 
-        // Emit event for frontend
+        // Emit event for frontend (even if insert failed, stream is progressing)
         events::emit_job_logs_appended(&self.app_handle, self.job_id.clone(), count, last_seq);
     }
 
@@ -159,8 +189,33 @@ impl StreamProcessor {
         success: bool,
         exit_code: Option<i32>,
     ) -> CompletionContext {
-        // Flush any remaining logs
+        // Flush any remaining logs to staging
         self.flush_buffer().await;
+
+        // Promote staged logs to main table
+        match self.db_conn.lock() {
+            Ok(conn) => {
+                match crate::db::promote_staged_logs(&conn, &self.job_id) {
+                    Ok(promoted_count) => {
+                        if promoted_count > 0 {
+                            eprintln!(
+                                "[stream_processor] job_id={} Promoted {} staged logs to main table",
+                                self.job_id, promoted_count
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "[stream_processor] job_id={} Failed to promote staged logs: {} (logs remain in staging for later cleanup)",
+                            self.job_id, e
+                        );
+                    }
+                }
+            }
+            Err(_) => {
+                eprintln!("[stream_processor] job_id={} Failed to acquire DB lock for promotion", self.job_id);
+            }
+        }
 
         // Update stream stats in database
         let stdout_stats = self.stdout_stats.lock().await.clone();
@@ -203,6 +258,7 @@ impl StreamProcessor {
             stderr_stats: self.stderr_stats.clone(),
             stdout_truncated: self.stdout_truncated.clone(),
             stderr_truncated: self.stderr_truncated.clone(),
+            last_flush: self.last_flush.clone(),
         }
     }
 }
@@ -220,6 +276,7 @@ pub struct StreamProcessorHandle {
     stderr_stats: Arc<Mutex<StreamStats>>,
     stdout_truncated: Arc<AtomicBool>,
     stderr_truncated: Arc<AtomicBool>,
+    last_flush: Arc<Mutex<Instant>>,
 }
 
 impl StreamProcessorHandle {
@@ -282,6 +339,7 @@ impl StreamProcessorHandle {
                     let session_id = json.get("session_id").and_then(|s| s.as_str()).unwrap_or("");
                     let model = json.get("model").and_then(|s| s.as_str()).unwrap_or("");
                     if !session_id.is_empty() {
+                        // Acquire db_conn first (consistent lock ordering)
                         if let Ok(conn) = self.db_conn.lock() {
                             let _ = crate::db::update_job_claude_session(&conn, &self.job_id, session_id, model);
                         }
@@ -301,10 +359,16 @@ impl StreamProcessorHandle {
             sequence: seq,
         };
 
+        // Check both size AND time thresholds for flushing
         let should_flush = {
             let mut buffer = self.log_buffer.lock().await;
             buffer.push(entry);
-            buffer.len() >= LOG_BUFFER_FLUSH_SIZE
+
+            let size_threshold = buffer.len() >= LOG_BUFFER_FLUSH_SIZE;
+            let time_threshold = self.last_flush.lock().await.elapsed()
+                >= std::time::Duration::from_millis(LOG_BUFFER_FLUSH_INTERVAL_MS);
+
+            size_threshold || time_threshold
         };
 
         if should_flush {
@@ -345,15 +409,39 @@ impl StreamProcessorHandle {
         let last_seq = logs_to_insert.last().map(|l| l.sequence).unwrap_or(0);
         let count = logs_to_insert.len() as i64;
 
-        if let Ok(conn) = self.db_conn.lock() {
-            if let Err(e) = crate::db::insert_job_logs_batch_full(&conn, &batch_entries) {
+        // Insert to staging table (no FK constraint, no retry needed)
+        let insert_result = match self.db_conn.lock() {
+            Ok(conn) => crate::db::insert_job_logs_to_staging(&conn, &batch_entries),
+            Err(_) => {
+                eprintln!("[stream_processor] job_id={} Failed to acquire DB lock", self.job_id);
+                // Note: logs remain in buffer and will be retried on next flush
+                // Emit event for frontend (even if insert failed, stream is progressing)
+                events::emit_job_logs_appended(&self.app_handle, self.job_id.clone(), count, last_seq);
+                return;
+            }
+        };
+
+        match insert_result {
+            Ok(inserted) => {
+                if inserted != batch_entries.len() {
+                    eprintln!(
+                        "[stream_processor] job_id={} Warning: inserted {} logs but expected {}",
+                        self.job_id, inserted, batch_entries.len()
+                    );
+                }
+                // Update last flush time on success (outside DB lock scope to avoid Send issues)
+                *self.last_flush.lock().await = Instant::now();
+            }
+            Err(e) => {
                 eprintln!(
-                    "[stream_processor] job_id={} Failed to insert logs batch: {}",
+                    "[stream_processor] job_id={} Failed to insert logs to staging: {}",
                     self.job_id, e
                 );
+                // Note: logs remain in buffer and will be retried on next flush
             }
         }
 
+        // Emit event for frontend (even if insert failed, stream is progressing)
         events::emit_job_logs_appended(&self.app_handle, self.job_id.clone(), count, last_seq);
     }
 }

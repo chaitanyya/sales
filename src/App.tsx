@@ -9,9 +9,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthGuard, PublicRoute } from "@/components/auth/auth-guard";
 import { useEventBridge } from "@/lib/tauri/use-event-bridge";
 import { queryClient } from "@/lib/query/query-client";
-import { CompanyOverviewDialog } from "@/components/onboarding/company-overview-dialog";
+import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { OrgRegistrationDialog } from "@/components/org";
 import { useOnboardingStatus } from "@/lib/query";
+import { useCompanyProfile } from "@/lib/hooks/use-company-profile";
 import { useOrgBinding } from "@/lib/hooks/use-org-binding";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { IconLoader2 } from "@tabler/icons-react";
@@ -28,6 +29,7 @@ import PeopleListPage from "@/pages/people/list";
 import PersonDetailPage from "@/pages/people/detail";
 import PromptPage from "@/pages/prompt";
 import ScoringPage from "@/pages/scoring";
+import CompanyProfilePage from "@/pages/company-profile";
 import LoginPage from "@/pages/auth/login";
 import SignUpPage from "@/pages/auth/signup";
 
@@ -35,6 +37,7 @@ function AppContent() {
   const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
   const { user } = useAuthStore();
   const { data: onboardingStatus, isLoading } = useOnboardingStatus();
+  const { profile: companyProfile } = useCompanyProfile();
   const { orgBinding, isLoading: isLoadingOrg, refetch } = useOrgBinding();
   const [showRegistration, setShowRegistration] = useState(false);
 
@@ -60,15 +63,29 @@ function AppContent() {
     refetch();
   };
 
+  const handleOnboardingComplete = () => {
+    // Invalidate queries to refresh onboarding status
+    queryClient.invalidateQueries({ queryKey: ["onboarding-status"] });
+  };
+
+  const showOnboardingWizard = onboardingStatus && !onboardingStatus.hasCompanyProfile;
+
   return (
     <>
       <OrgRegistrationDialog
         open={showRegistration}
         onComplete={handleOrgRegistrationComplete}
       />
-      {isAuthLoaded && isSignedIn && user && (
-        <CompanyOverviewDialog hasCompanyOverview={onboardingStatus?.hasCompanyOverview ?? false} />
+
+      {/* Show onboarding wizard for users without a company profile */}
+      {isAuthLoaded && isSignedIn && user && showOnboardingWizard && (
+        <OnboardingWizard
+          open={true}
+          onComplete={handleOnboardingComplete}
+          existingProfile={companyProfile}
+        />
       )}
+
       <Routes>
         {/* Public routes - redirect to app if authenticated */}
         <Route
@@ -104,6 +121,7 @@ function AppContent() {
                     <Route path="/people/:id" element={<PersonDetailPage />} />
                     <Route path="/prompt" element={<PromptPage />} />
                     <Route path="/scoring" element={<ScoringPage />} />
+                    <Route path="/company-profile" element={<CompanyProfilePage />} />
                     {/* Catch all - redirect to leads */}
                     <Route path="*" element={<Navigate to="/lead" replace />} />
                   </Routes>

@@ -18,6 +18,8 @@ import type {
   JobLog,
   BulkUploadResult,
   Note,
+  CompanyProfile,
+  ParsedCompanyProfile,
 } from "./types";
 
 // ============================================================================
@@ -123,6 +125,50 @@ export async function saveCompanyOverview(content: string): Promise<number> {
 
 export async function getOnboardingStatus(): Promise<OnboardingStatus> {
   return invoke("get_onboarding_status");
+}
+
+// ============================================================================
+// Company Profile Commands (User's company for onboarding)
+// ============================================================================
+
+export async function getCompanyProfile(): Promise<CompanyProfile | null> {
+  return invoke("get_company_profile");
+}
+
+export async function saveCompanyProfile(params: {
+  companyName: string;
+  productName: string;
+  website: string;
+  targetAudience?: string;
+  usps?: string;
+  marketingNarrative?: string;
+  salesNarrative?: string;
+  competitors?: string;
+  marketInsights?: string;
+  rawAnalysis?: string;
+  researchStatus?: string;
+}): Promise<number> {
+  return invoke("save_company_profile", { ...params });
+}
+
+export async function updateCompanyProfileResearchStatus(researchStatus: string): Promise<void> {
+  return invoke("update_company_profile_research_status", { researchStatus });
+}
+
+export async function startCompanyProfileResearch(
+  companyName: string,
+  productName: string,
+  website: string,
+  onEvent: (event: StreamEvent) => void
+): Promise<ResearchResult> {
+  const channel = new Channel<StreamEvent>();
+  channel.onmessage = onEvent;
+  return invoke("start_company_profile_research", {
+    companyName,
+    productName,
+    website,
+    onEvent: channel,
+  });
 }
 
 // ============================================================================

@@ -8,7 +8,7 @@ mod prompts;
 mod subscription;
 
 use db::{DbState, get_db_path};
-use jobs::JobQueue;
+use jobs::{JobQueue, StagingWorker};
 use tauri::{
     Manager,
     image::Image,
@@ -32,14 +32,24 @@ pub fn run() {
             let db_state = DbState::new(db_path)
                 .expect("Failed to initialize database");
 
-            // Clone the connection Arc for recovery before moving db_state
+            // Clone the connection Arc for recovery and staging worker before moving db_state
             let conn_for_recovery = db_state.conn.clone();
+            let conn_for_staging = db_state.conn.clone();
 
             app.manage(db_state);
 
             // Initialize job queue
             let job_queue = JobQueue::new();
             app.manage(job_queue);
+
+            // Initialize staging worker for background log promotion
+            let staging_worker = StagingWorker::new(conn_for_staging, app.handle().clone());
+
+            // Run startup recovery for staging logs (promotes any leftover staged logs)
+            staging_worker.startup_recovery();
+
+            // Start the background worker (runs for app lifetime)
+            staging_worker.start();
 
             // Run startup recovery for stale jobs and stuck entities
             jobs::recovery::recover_on_startup(&conn_for_recovery, app.handle());
@@ -129,6 +139,7 @@ pub fn run() {
             // Research commands
             commands::start_research,
             commands::start_person_research,
+            commands::start_company_profile_research,
             commands::kill_job,
             commands::get_active_jobs,
             // Scoring commands
@@ -137,6 +148,9 @@ pub fn run() {
             commands::start_conversation_generation,
             // Onboarding commands
             commands::get_onboarding_status,
+            commands::get_company_profile,
+            commands::save_company_profile,
+            commands::update_company_profile_research_status,
             // Job commands
             commands::get_jobs_active,
             commands::get_jobs_recent,
@@ -144,6 +158,7 @@ pub fn run() {
             commands::get_job_logs_cmd,
             commands::cleanup_old_jobs_cmd,
             commands::delete_job_cmd,
+            commands::get_staging_health,
             // Recovery commands
             commands::get_stuck_entities,
             commands::reset_entity_status,

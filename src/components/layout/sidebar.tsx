@@ -8,19 +8,24 @@ import {
   IconTargetArrow,
   IconLogout,
   IconSettings,
+  IconBuildingFactory,
 } from "@tabler/icons-react";
 import { ModelSelector } from "./model-selector";
 import { ChromeToggle } from "./chrome-toggle";
 import { GlmToggle } from "./glm-toggle";
 import { ThemeToggle } from "./theme-toggle";
 import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
-import { useOnboardingStatus } from "@/lib/query";
+import { useOnboardingStatus, useCompanyProfile } from "@/lib/query";
 import { useAuth } from "@clerk/clerk-react";
 
 export function Sidebar() {
   const { data: onboardingStatus } = useOnboardingStatus();
+  const { data: companyProfile } = useCompanyProfile();
   const { signOut } = useAuth();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Check if company profile exists
+  const hasCompanyProfile = !!companyProfile;
 
   const handleLogout = async () => {
     await signOut();
@@ -89,6 +94,16 @@ export function Sidebar() {
           >
             <IconTargetArrow className="w-4 h-4" />
             <span className="flex-1 text-left">Scoring</span>
+          </Link>
+          <Link
+            to="/company-profile"
+            className="flex items-center rounded gap-2 w-full px-2 py-1 text-muted-foreground hover:bg-[var(--hover-overlay)]"
+          >
+            <IconBuildingFactory className="w-4 h-4" />
+            <span className="flex-1 text-left">Company Profile</span>
+            {hasCompanyProfile && (
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+            )}
           </Link>
 
           {/* Settings toggles */}

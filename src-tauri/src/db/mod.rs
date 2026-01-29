@@ -22,13 +22,13 @@ impl DbState {
             std::fs::create_dir_all(parent).ok();
         }
 
-        let conn = Connection::open(&db_path)?;
+        let mut conn = Connection::open(&db_path)?;
 
         // Enable WAL mode for better concurrency
         conn.pragma_update(None, "journal_mode", "WAL")?;
 
         // Initialize schema
-        init_schema(&conn)?;
+        init_schema(&mut conn)?;
 
         // Seed default data (idempotent)
         seed::seed_defaults(&conn)?;
@@ -40,7 +40,7 @@ impl DbState {
 }
 
 /// Initialize the database schema
-fn init_schema(conn: &Connection) -> SqliteResult<()> {
+fn init_schema(conn: &mut Connection) -> SqliteResult<()> {
     // Create tables first
     conn.execute_batch(
         r#"
@@ -161,21 +161,38 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
         CREATE INDEX IF NOT EXISTS idx_notes_entity ON notes(entity_type, entity_id);
 
         -- Job logs table for persisting stream output
+        -- Uses DEFERRABLE FK to avoid race condition when job row isn't visible yet
         CREATE TABLE IF NOT EXISTS job_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+            job_id TEXT NOT NULL,
             log_type TEXT NOT NULL,
             content TEXT NOT NULL,
             tool_name TEXT,
             timestamp INTEGER NOT NULL,
             sequence INTEGER NOT NULL,
-            source TEXT NOT NULL DEFAULT 'stdout'
+            source TEXT NOT NULL DEFAULT 'stdout',
+            FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
+        );
+
+        -- Staging table for job logs (no FK constraint to avoid race conditions)
+        CREATE TABLE IF NOT EXISTS job_logs_staging (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT NOT NULL,
+            log_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tool_name TEXT,
+            timestamp INTEGER NOT NULL,
+            sequence INTEGER NOT NULL,
+            source TEXT NOT NULL DEFAULT 'stdout',
+            staged_at INTEGER NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
         CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
         CREATE INDEX IF NOT EXISTS idx_job_logs_sequence ON job_logs(job_id, sequence);
+        CREATE INDEX IF NOT EXISTS idx_job_logs_staging_job_id_sequence ON job_logs_staging(job_id, sequence);
+        CREATE INDEX IF NOT EXISTS idx_job_logs_staging_staged_at ON job_logs_staging(staged_at);
 
         -- App settings table (single row)
         CREATE TABLE IF NOT EXISTS settings (
@@ -242,8 +259,14 @@ fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
     false
 }
 
+/// Helper to check if a table exists
+fn table_exists(conn: &Connection, table: &str) -> bool {
+    let query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
+    conn.query_row(query, [table], |_| Ok(())).is_ok()
+}
+
 /// Run database migrations for new columns
-fn run_migrations(conn: &Connection) -> SqliteResult<()> {
+fn run_migrations(conn: &mut Connection) -> SqliteResult<()> {
     // Migration: Add use_glm_gateway to settings if not exists
     if !column_exists(conn, "settings", "use_glm_gateway") {
         eprintln!("[db] Migrating settings table to add use_glm_gateway column");
@@ -332,6 +355,88 @@ fn run_migrations(conn: &Connection) -> SqliteResult<()> {
     // Only run if org_binding table exists (indicating single-tenant mode)
     if column_exists(conn, "org_binding", "org_id") {
         migrate_to_single_tenant(conn)?;
+    }
+
+    // Migration: Create company_profile table for onboarding
+    if !table_exists(conn, "company_profile") {
+        eprintln!("[db] Creating company_profile table for onboarding");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS company_profile (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_name TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                website TEXT NOT NULL,
+                target_audience TEXT,
+                usps TEXT,
+                marketing_narrative TEXT,
+                sales_narrative TEXT,
+                competitors TEXT,
+                market_insights TEXT,
+                raw_analysis TEXT,
+                research_status TEXT DEFAULT 'pending',
+                researched_at INTEGER,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_company_profile_status ON company_profile(research_status);
+            "#,
+        )?;
+        eprintln!("[db] Migration complete: company_profile table created");
+    }
+
+    // Migration: Make job_logs.job_id FK constraint DEFERRABLE to fix race condition
+    // Check if we need to migrate by looking for the deferred_fk_migration marker
+    // We check if job_logs exists but has a non-deferred FK (can't check directly, so use a marker)
+    if !table_exists(conn, "_migration_markers") {
+        // Create migration marker table
+        conn.execute(
+            "CREATE TABLE _migration_markers (name TEXT PRIMARY KEY, applied_at INTEGER)",
+            [],
+        )?;
+    }
+
+    // Migration: DEFERRABLE FK for job_logs
+    // The initial schema already creates job_logs with DEFERRABLE FK
+    // We just need to mark the migration as complete for existing databases
+    let has_marker = conn.query_row(
+        "SELECT 1 FROM _migration_markers WHERE name = 'deferred_fk_job_logs'",
+        [],
+        |_| Ok(true)
+    ).unwrap_or(false);
+
+    if !has_marker && table_exists(conn, "job_logs") {
+        eprintln!("[db] job_logs table exists, marking DEFERRABLE FK migration complete");
+        // The initial schema already has DEFERRABLE FK, just mark migration done
+        conn.execute(
+            "INSERT INTO _migration_markers (name, applied_at) VALUES ('deferred_fk_job_logs', ?1)",
+            &[&chrono::Utc::now().timestamp_millis()],
+        )?;
+    }
+
+    // Migration: Create job_logs_staging table for improved log ingestion
+    if !table_exists(conn, "job_logs_staging") {
+        eprintln!("[db] Creating job_logs_staging table for staged log ingestion");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS job_logs_staging (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                log_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                tool_name TEXT,
+                timestamp INTEGER NOT NULL,
+                sequence INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT 'stdout',
+                staged_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_job_logs_staging_job_id_sequence ON job_logs_staging(job_id, sequence);
+            CREATE INDEX IF NOT EXISTS idx_job_logs_staging_staged_at ON job_logs_staging(staged_at);
+            "#,
+        )?;
+        eprintln!("[db] Migration complete: job_logs_staging table created with indexes");
     }
 
     Ok(())

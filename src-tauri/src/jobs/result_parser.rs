@@ -9,6 +9,7 @@ pub enum JobType {
     PersonResearch,
     Scoring,
     Conversation,
+    CompanyProfileResearch,
 }
 
 /// Metadata about a job for tracking, including output file paths
@@ -20,10 +21,12 @@ pub struct JobMetadata {
     /// For PersonResearch: person_profile.md path
     /// For Scoring: score.json path
     /// For Conversation: conversation.md path
+    /// For CompanyProfileResearch: profile.json path
     pub primary_output_path: PathBuf,
     /// For CompanyResearch: people.json path (optional for other types)
     pub secondary_output_path: Option<PathBuf>,
     /// For CompanyResearch/PersonResearch: enrichment.json path for structured data
+    /// For CompanyProfileResearch: enrichment.json path
     pub enrichment_output_path: Option<PathBuf>,
 }
 

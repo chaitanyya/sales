@@ -35,6 +35,7 @@ thiserror = "2"
 dirs = "5"
 which = "7"
 dotenvy = "0.15.7"
+rand = "0.8"
 
 # Subscription token encryption
 aes-gcm = "0.10"

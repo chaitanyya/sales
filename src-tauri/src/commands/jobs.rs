@@ -1,5 +1,5 @@
 use tauri::State;
-use crate::db::{self, DbState, Job, JobLog};
+use crate::db::{self, DbState, Job, JobLog, StagingHealth};
 
 // ============================================================================
 // Job Commands
@@ -39,7 +39,7 @@ pub async fn get_job_logs_cmd(
     limit: Option<i64>,
 ) -> Result<Vec<JobLog>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    db::get_job_logs(&conn, &job_id, after_sequence, limit).map_err(|e| e.to_string())
+    db::get_job_logs_with_staging(&conn, &job_id, after_sequence, limit).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -58,4 +58,12 @@ pub async fn delete_job_cmd(
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::delete_job(&conn, &job_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_staging_health(
+    state: State<'_, DbState>,
+) -> Result<StagingHealth, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::get_staging_health(&conn).map_err(|e| e.to_string())
 }

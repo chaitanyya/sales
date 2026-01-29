@@ -10,11 +10,81 @@ use crate::prompts::get_default_prompt;
 // Research Commands
 // ============================================================================
 
+// ============================================================================
+// Research Commands
+// ============================================================================
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResearchResult {
     pub job_id: String,
     pub status: String,
+}
+
+/// Extract JSON object from stdout output.
+/// This handles cases where the AI outputs JSON directly to stdout
+/// instead of writing to files.
+fn extract_json_from_stdout(output: &str) -> Option<serde_json::Value> {
+    // Try to parse the entire output as JSON first
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(output) {
+        if json.is_object() {
+            return Some(json);
+        }
+    }
+
+    // Look for JSON object boundaries in the output
+    // Find the first '{' and matching last '}'
+    let start = output.find('{')?;
+    let mut brace_count = 0usize;
+    let mut end = None;
+
+    for (i, c) in output[start..].char_indices() {
+        match c {
+            '{' => brace_count += 1,
+            '}' => {
+                brace_count -= 1;
+                if brace_count == 0 {
+                    end = Some(start + i + 1);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(end_idx) = end {
+        let json_str = &output[start..end_idx];
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+            return Some(json);
+        }
+    }
+
+    // Look for a markdown code block with JSON
+    if let Some(code_start) = output.find("```json") {
+        let after_code = &output[code_start + 7..];
+        if let Some(code_end) = after_code.find("```") {
+            let json_str = after_code[..code_end].trim();
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                return Some(json);
+            }
+        }
+    }
+
+    // Try looking for any code block
+    if let Some(code_start) = output.find("```") {
+        let after_code = &output[code_start + 3..];
+        if let Some(newline) = after_code.find('\n') {
+            let after_newline = &after_code[newline + 1..];
+            if let Some(code_end) = after_newline.find("```") {
+                let json_str = after_newline[..code_end].trim();
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(json_str) {
+                    return Some(json);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 #[tauri::command]
@@ -58,16 +128,17 @@ pub async fn start_research(
     // Emit event so frontend updates immediately
     emit_lead_updated(&app, lead_id);
 
-    // Get prompts (with fallback to defaults)
-    let (company_prompt_content, company_overview) = {
+    // Get prompts (with fallback to defaults) and company profile context
+    let (company_prompt_content, company_overview, company_profile_context) = {
         let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         let cp = db::get_prompt_by_type(&conn, "company").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
+        let profile_ctx = get_company_profile_context(&conn);
 
         // Use DB prompt or fall back to default
         let content = cp.map(|p| p.content)
             .or_else(|| get_default_prompt("company").map(String::from));
-        (content, co)
+        (content, co, profile_ctx)
     };
 
     let prompt_content = custom_prompt
@@ -99,6 +170,7 @@ pub async fn start_research(
         &people_path,
         &enrichment_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
+        company_profile_context.as_deref(),
     );
 
     // Send initial event (job_id is "pending" as actual job hasn't been created yet)
@@ -200,16 +272,17 @@ pub async fn start_person_research(
     // Emit event so frontend updates immediately
     emit_person_updated(&app, person_id, person.lead_id);
 
-    // Get prompts (with fallback to defaults)
-    let (person_prompt_content, company_overview) = {
+    // Get prompts (with fallback to defaults) and company profile context
+    let (person_prompt_content, company_overview, company_profile_context) = {
         let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         let pp = db::get_prompt_by_type(&conn, "person").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
+        let profile_ctx = get_company_profile_context(&conn);
 
         // Use DB prompt or fall back to default
         let content = pp.map(|p| p.content)
             .or_else(|| get_default_prompt("person").map(String::from));
-        (content, co)
+        (content, co, profile_ctx)
     };
 
     let prompt_content = custom_prompt
@@ -240,6 +313,7 @@ pub async fn start_person_research(
         &profile_path,
         &enrichment_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
+        company_profile_context.as_deref(),
     );
 
     let full_name = format!("{} {}", person.first_name, person.last_name);
@@ -313,6 +387,126 @@ pub async fn get_active_jobs(
 // Prompt Builders
 // ============================================================================
 
+/// Formats the company profile into a useful context string for AI prompts.
+/// This provides the AI with information about the user's company (the seller)
+/// to better tailor research and scoring to their specific context.
+fn format_company_profile_context(profile: &db::CompanyProfile) -> String {
+    let mut context = String::from("## Our Company Profile\n\n");
+    context.push_str(&format!("**Company:** {}\n", profile.company_name));
+    context.push_str(&format!("**Product:** {}\n", profile.product_name));
+    context.push_str(&format!("**Website:** {}\n\n", profile.website));
+
+    // Add target audience if available
+    if let Ok(audience_json) = serde_json::from_str::<serde_json::Value>(&profile.target_audience) {
+        if let Some(audience_array) = audience_json.as_array() {
+            if !audience_array.is_empty() {
+                context.push_str("**Target Audience:**\n");
+                for item in audience_array {
+                    if let Some(segment) = item.get("segment").and_then(|v| v.as_str()) {
+                        context.push_str(&format!("- {}\n", segment));
+                        if let Some(description) = item.get("description").and_then(|v| v.as_str()) {
+                            context.push_str(&format!("  {}\n", description));
+                        }
+                    }
+                }
+                context.push('\n');
+            }
+        }
+    }
+
+    // Add USPs if available
+    if let Ok(usps_json) = serde_json::from_str::<serde_json::Value>(&profile.usps) {
+        if let Some(usps_array) = usps_json.as_array() {
+            if !usps_array.is_empty() {
+                context.push_str("**Unique Selling Propositions:**\n");
+                for item in usps_array {
+                    if let Some(headline) = item.get("headline").and_then(|v| v.as_str()) {
+                        context.push_str(&format!("- {}\n", headline));
+                        if let Some(explanation) = item.get("explanation").and_then(|v| v.as_str()) {
+                            context.push_str(&format!("  {}\n", explanation));
+                        }
+                    }
+                }
+                context.push('\n');
+            }
+        }
+    }
+
+    // Add marketing narrative if available
+    if !profile.marketing_narrative.is_empty() {
+        context.push_str("**Marketing Narrative:**\n");
+        context.push_str(&profile.marketing_narrative);
+        context.push('\n');
+        context.push('\n');
+    }
+
+    // Add sales narrative if available
+    if let Ok(sales_json) = serde_json::from_str::<serde_json::Value>(&profile.sales_narrative) {
+        if let Some(elevator_pitch) = sales_json.get("elevatorPitch").and_then(|v| v.as_str()) {
+            if !elevator_pitch.is_empty() {
+                context.push_str("**Sales Narrative - Elevator Pitch:**\n");
+                context.push_str(elevator_pitch);
+                context.push('\n');
+                context.push('\n');
+            }
+        }
+        if let Some(talking_points) = sales_json.get("talkingPoints").and_then(|v| v.as_array()) {
+            if !talking_points.is_empty() {
+                context.push_str("**Sales Talking Points:**\n");
+                for item in talking_points {
+                    if let Some(content) = item.get("content").and_then(|v| v.as_str()) {
+                        context.push_str(&format!("- {}\n", content));
+                    }
+                }
+                context.push('\n');
+            }
+        }
+    }
+
+    // Add competitors if available
+    if let Ok(competitors_json) = serde_json::from_str::<serde_json::Value>(&profile.competitors) {
+        if let Some(competitors_array) = competitors_json.as_array() {
+            if !competitors_array.is_empty() {
+                context.push_str("**Competitors:**\n");
+                for item in competitors_array {
+                    if let Some(name) = item.get("name").and_then(|v| v.as_str()) {
+                        context.push_str(&format!("- {}\n", name));
+                    }
+                }
+                context.push('\n');
+            }
+        }
+    }
+
+    // Add market insights if available
+    if let Ok(insights_json) = serde_json::from_str::<serde_json::Value>(&profile.market_insights) {
+        if let Some(insights_array) = insights_json.as_array() {
+            if !insights_array.is_empty() {
+                context.push_str("**Market Insights:**\n");
+                for item in insights_array {
+                    let category = item.get("category").and_then(|v| v.as_str()).unwrap_or("General");
+                    if let Some(content) = item.get("content").and_then(|v| v.as_str()) {
+                        context.push_str(&format!("- [{}] {}\n", category, content));
+                    }
+                }
+                context.push('\n');
+            }
+        }
+    }
+
+    context
+}
+
+/// Fetches and formats the company profile for use in prompts.
+/// Returns None if no profile exists or research wasn't completed.
+fn get_company_profile_context(conn: &rusqlite::Connection) -> Option<String> {
+    let profile = db::get_company_profile(conn).ok().flatten()?;
+    if profile.research_status != "completed" {
+        return None;
+    }
+    Some(format_company_profile_context(&profile))
+}
+
 const PEOPLE_JSON_SCHEMA: &str = r#"
 The people JSON should be an array of objects with these fields:
 - firstName (string)
@@ -363,12 +557,19 @@ fn build_research_prompt(
     people_path: &std::path::Path,
     enrichment_path: &std::path::Path,
     company_overview: Option<&str>,
+    company_profile_context: Option<&str>,
 ) -> String {
     let mut full_prompt = String::new();
 
-    // Add company overview context if available
+    // Add company overview context if available (legacy, for backward compatibility)
     if let Some(overview) = company_overview {
         full_prompt.push_str(&format!("# Company Overview\n\n{}\n\n---\n\n", overview));
+    }
+
+    // Add company profile context if available (new structured data)
+    if let Some(profile_ctx) = company_profile_context {
+        full_prompt.push_str(profile_ctx);
+        full_prompt.push_str("---\n\n");
     }
 
     full_prompt.push_str(prompt);
@@ -416,12 +617,19 @@ fn build_person_research_prompt(
     profile_path: &std::path::Path,
     enrichment_path: &std::path::Path,
     company_overview: Option<&str>,
+    company_profile_context: Option<&str>,
 ) -> String {
     let mut full_prompt = String::new();
 
-    // Add company overview context if available
+    // Add company overview context if available (legacy, for backward compatibility)
     if let Some(overview) = company_overview {
         full_prompt.push_str(&format!("# Company Overview\n\n{}\n\n---\n\n", overview));
+    }
+
+    // Add company profile context if available (new structured data)
+    if let Some(profile_ctx) = company_profile_context {
+        full_prompt.push_str(profile_ctx);
+        full_prompt.push_str("---\n\n");
     }
 
     full_prompt.push_str(prompt);
@@ -493,12 +701,14 @@ pub async fn start_scoring(
         (l, p)
     };
 
-    // Get active scoring config
-    let config = {
+    // Get active scoring config and company profile context
+    let (config, company_profile_context) = {
         let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        db::get_active_scoring_config(&conn)
+        let c = db::get_active_scoring_config(&conn)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| "No active scoring configuration found".to_string())?
+            .ok_or_else(|| "No active scoring configuration found".to_string())?;
+        let profile_ctx = get_company_profile_context(&conn);
+        (c, profile_ctx)
     };
 
     // Set up output directory
@@ -514,7 +724,7 @@ pub async fn start_scoring(
     let score_path = output_dir.join(format!("score_{}_{}.json", lead_id, company_slug));
 
     // Build scoring prompt
-    let full_prompt = build_scoring_prompt(&lead, &people, &config, &score_path);
+    let full_prompt = build_scoring_prompt(&lead, &people, &config, &score_path, company_profile_context.as_deref());
 
     // Send initial event (job_id is "pending" as actual job hasn't been created yet)
     let _ = on_event.send(StreamEvent {
@@ -598,16 +808,17 @@ pub async fn start_conversation_generation(
         (p, l)
     };
 
-    // Get prompts (with fallback to defaults)
-    let (conversation_prompt_content, company_overview) = {
+    // Get prompts (with fallback to defaults) and company profile context
+    let (conversation_prompt_content, company_overview, company_profile_context) = {
         let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         let cp = db::get_prompt_by_type(&conn, "conversation_topics").map_err(|e| e.to_string())?;
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
+        let profile_ctx = get_company_profile_context(&conn);
 
         // Use DB prompt or fall back to default
         let content = cp.map(|p| p.content)
             .or_else(|| get_default_prompt("conversation_topics").map(String::from));
-        (content, co)
+        (content, co, profile_ctx)
     };
 
     let prompt_content = conversation_prompt_content
@@ -632,6 +843,7 @@ pub async fn start_conversation_generation(
         lead.as_ref(),
         &conversation_path,
         company_overview.as_ref().map(|p| p.content.as_str()),
+        company_profile_context.as_deref(),
     );
 
     let full_name = format!("{} {}", person.first_name, person.last_name);
@@ -689,6 +901,7 @@ fn build_scoring_prompt(
     people: &[db::Person],
     config: &db::ParsedScoringConfig,
     output_path: &std::path::Path,
+    company_profile_context: Option<&str>,
 ) -> String {
     // Parse required characteristics and demand signifiers from JSON
     let required_chars: Vec<serde_json::Value> = config.required_characteristics
@@ -780,9 +993,16 @@ fn build_scoring_prompt(
         0
     };
 
+    // Build company profile section for scoring
+    let company_profile_section = if let Some(profile_ctx) = company_profile_context {
+        format!("{}\n", profile_ctx)
+    } else {
+        String::new()
+    };
+
     format!(r#"You are a lead scoring analyst. Your task is to evaluate the following company as a sales lead and provide a detailed scoring assessment.
 
-COMPANY INFORMATION:
+{company_profile_section}COMPANY INFORMATION:
 {lead_context}
 
 SCORING CRITERIA:
@@ -886,9 +1106,12 @@ fn build_conversation_prompt(
     lead: Option<&db::Lead>,
     output_path: &std::path::Path,
     company_overview: Option<&str>,
+    company_profile_context: Option<&str>,
 ) -> String {
-    // Format what we do section
-    let what_we_do = if let Some(overview) = company_overview {
+    // Format what we do section - prefer company profile over old company_overview
+    let what_we_do = if let Some(profile_ctx) = company_profile_context {
+        format!("<WhatWeDo>\n{}\n</WhatWeDo>\n\n", profile_ctx)
+    } else if let Some(overview) = company_overview {
         format!("<WhatWeDo>\n{}\n</WhatWeDo>\n\n", overview)
     } else {
         String::new()
@@ -1014,4 +1237,225 @@ fn format_lead_context(lead: &db::Lead, people: &[db::Person]) -> String {
     }
 
     parts.join("\n")
+}
+
+// ============================================================================
+// Company Profile Research (User's company for onboarding)
+// ============================================================================
+
+const COMPANY_PROFILE_ENTITY_ID: i64 = -1; // Sentinel value for user's company profile
+
+#[tauri::command]
+pub async fn start_company_profile_research(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    queue: State<'_, JobQueue>,
+    company_name: String,
+    product_name: String,
+    website: String,
+    on_event: Channel<StreamEvent>,
+) -> Result<ResearchResult, String> {
+    // Check for existing active job and cancel it if found
+    let existing_job_id = {
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        db::get_active_job_for_entity(&conn, COMPANY_PROFILE_ENTITY_ID, "company_profile_research")
+            .map_err(|e| e.to_string())?
+            .map(|job| job.id)
+    };
+    if let Some(job_id) = existing_job_id {
+        eprintln!("[company_profile] Cancelling existing job {}", job_id);
+        let _ = queue.kill_job(&job_id).await;
+    }
+
+    // Create/update company profile record with in_progress status
+    {
+        let conn = state.conn.lock().map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let _ = db::save_company_profile(
+            &conn,
+            &company_name,
+            &product_name,
+            &website,
+            None, None, None, None, None, None,  // target_audience, usps, marketing_narrative, sales_narrative, competitors, market_insights
+            None,                                 // raw_analysis
+            Some("in_progress"),                   // research_status
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // Emit event so frontend updates immediately
+    crate::events::emit_company_profile_updated(&app);
+
+    // Get the company profile research prompt
+    let prompt_content = get_default_prompt("company_profile_research")
+        .map(String::from)
+        .ok_or_else(|| "No company profile research prompt found".to_string())?;
+
+    // Replace template variables
+    let prompt_content = prompt_content
+        .replace("{{company_name}}", &company_name)
+        .replace("{{product_name}}", &product_name)
+        .replace("{{website}}", &website);
+
+    // Set up output directory
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let output_dir = data_dir.join("company_profile");
+    fs::create_dir_all(&output_dir).ok();
+
+    let profile_path = output_dir.join("profile_analysis.json");
+    let enrichment_path = output_dir.join("enrichment.json");
+
+    // Build full prompt
+    let full_prompt = format!(
+        "{}\n\n## Output File Paths\n\n- Profile analysis: {}\n- Enrichment data: {}",
+        prompt_content,
+        profile_path.display(),
+        enrichment_path.display()
+    );
+
+    // Send initial event
+    let _ = on_event.send(StreamEvent {
+        job_id: "pending".to_string(),
+        event_type: "info".to_string(),
+        content: format!("Starting company profile research for {}...", company_name),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+    });
+
+    // Start job
+    let working_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string());
+
+    let metadata = JobMetadata {
+        job_type: JobType::CompanyProfileResearch,
+        entity_id: COMPANY_PROFILE_ENTITY_ID,
+        primary_output_path: profile_path,
+        secondary_output_path: None,
+        enrichment_output_path: Some(enrichment_path),
+    };
+
+    let entity_label = company_name.clone();
+
+    // Clone values for use in callback (required for 'static lifetime)
+    let company_name_clone = company_name.clone();
+    let product_name_clone = product_name.clone();
+    let website_clone = website.clone();
+
+    // Clone app handle for callback
+    let app_handle_for_callback = app.app_handle().clone();
+
+    // Note: We don't need EntityContext for company profile research
+    // since there's no entity status to rollback
+
+    let job_id = queue.start_job_with_callback(
+        app.app_handle().clone(),
+        full_prompt,
+        working_dir,
+        on_event,
+        metadata,
+        entity_label,
+        None, // No entity context needed for company profile
+        move |meta, output, success| {
+            // Handle completion - parse and save results
+            if success {
+                // Get DbState from app handle (like queue.rs does)
+                let result: Result<(), Box<dyn std::error::Error>> = (|| {
+                    let db_state: tauri::State<'_, crate::db::DbState> = app_handle_for_callback.state();
+                    let conn_guard = db_state.conn.lock().map_err(|e| format!("Lock error: {}", e))?;
+                    let conn = &*conn_guard;
+
+                    // Try multiple sources for the JSON data:
+                    // 1. First, try the enrichment file (if AI wrote to files)
+                    // 2. Then, try parsing JSON from the accumulated stdout
+                    let json_value = if let Some(ref enrichment_path) = meta.enrichment_output_path {
+                        match fs::read_to_string(enrichment_path) {
+                            Ok(content) => {
+                                eprintln!("[company_profile] Reading from enrichment file");
+                                serde_json::from_str::<serde_json::Value>(&content).ok()
+                            }
+                            Err(_) => {
+                                eprintln!("[company_profile] Enrichment file not found, trying to parse from stdout");
+                                // Try to extract JSON from stdout output
+                                extract_json_from_stdout(&output)
+                            }
+                        }
+                    } else {
+                        eprintln!("[company_profile] No enrichment path, trying to parse from stdout");
+                        extract_json_from_stdout(&output)
+                    };
+
+                    if let Some(json_value) = json_value {
+                        // Extract structured data and save to database
+                        let target_audience = json_value.get("targetAudience")
+                            .and_then(|v| serde_json::to_string(v).ok());
+                        let usps = json_value.get("usps")
+                            .and_then(|v| serde_json::to_string(v).ok());
+                        let sales_narrative = json_value.get("salesNarrative")
+                            .and_then(|v| serde_json::to_string(v).ok());
+                        let competitors = json_value.get("competitors")
+                            .and_then(|v| serde_json::to_string(v).ok());
+                        let market_insights = json_value.get("marketInsights")
+                            .and_then(|v| serde_json::to_string(v).ok());
+
+                        // Use the raw JSON string for raw_analysis
+                        let raw_analysis = serde_json::to_string(&json_value).unwrap_or_else(|_| output.clone());
+
+                        // Generate a basic marketing narrative if not present in the output
+                        let marketing_narrative = json_value.get("marketingNarrative")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| format!("# Marketing Narrative\n\nAI-generated analysis for {}\n\nBased on the research of {}, we've identified key insights about your target audience, unique selling propositions, and market position.", company_name_clone, website_clone));
+
+                        // Save the structured data
+                        match db::save_company_profile(
+                            conn,
+                            &company_name_clone,
+                            &product_name_clone,
+                            &website_clone,
+                            target_audience.as_deref(),
+                            usps.as_deref(),
+                            Some(&marketing_narrative),
+                            sales_narrative.as_deref(),
+                            competitors.as_deref(),
+                            market_insights.as_deref(),
+                            Some(&raw_analysis),
+                            Some("completed"),
+                        ) {
+                            Ok(_) => eprintln!("[company_profile] Profile saved successfully"),
+                            Err(e) => eprintln!("[company_profile] Error saving profile: {}", e),
+                        }
+
+                        // Clean up output files
+                        if let Some(ref enrichment_path) = meta.enrichment_output_path {
+                            let _ = std::fs::remove_file(enrichment_path);
+                        }
+                        let _ = std::fs::remove_file(&meta.primary_output_path);
+                    } else {
+                        eprintln!("[company_profile] Failed to extract JSON from any source");
+                        // Mark as failed since we couldn't parse the output
+                        let _ = db::update_company_profile_research_status(conn, "failed");
+                    }
+                    Ok(())
+                })();
+
+                if let Err(e) = result {
+                    eprintln!("[company_profile] Error in completion callback: {:?}", e);
+                }
+            } else {
+                // Mark as failed - use block to ensure lock is dropped
+                let _ = (|| -> Result<(), String> {
+                    let db_state: tauri::State<'_, crate::db::DbState> = app_handle_for_callback.state();
+                    let conn_guard = db_state.conn.lock().map_err(|e| e.to_string())?;
+                    db::update_company_profile_research_status(&*conn_guard, "failed").map_err(|e| e.to_string())?;
+                    Ok(())
+                })();
+            }
+
+            // Emit completion event
+            crate::events::emit_company_profile_updated(&app_handle_for_callback);
+        },
+    ).await?;
+
+    Ok(ResearchResult {
+        job_id,
+        status: "started".to_string(),
+    })
 }

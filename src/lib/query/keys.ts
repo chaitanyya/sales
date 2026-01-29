@@ -23,6 +23,9 @@ export const queryKeys = {
   onboarding: () => ["onboarding"] as const,
   onboardingStatus: () => [...queryKeys.onboarding(), "status"] as const,
 
+  // Company Profile
+  companyProfile: () => ["company-profile"] as const,
+
   // Leads for select (used in dropdowns)
   leadsForSelect: () => [...queryKeys.leads(), "for-select"] as const,
 

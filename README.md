@@ -12,6 +12,13 @@
 
 </div>
 
+## Quick Start
+
+1. Download the latest `.dmg` from the [Releases page](https://github.com/chaitanyya/sales/releases/latest)
+2. Open the `.dmg` and drag **Qualify** to Applications
+3. Right-click the app and select **Open** (required on first launch since the app is not yet notarized)
+4. Make sure [Claude CLI](https://claude.ai/code) is installed and available in your `PATH`
+
 ## Claude Code for Sales
 
 Lead research and qualification tool. Uses Claude Code to automatically research companies, score leads, and help you focus on the opportunities that matter.

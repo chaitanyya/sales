@@ -213,7 +213,7 @@ export interface OnboardingStatus {
 // Job Types
 // ============================================================================
 
-export type JobType = "company_research" | "person_research" | "scoring" | "conversation";
+export type JobType = "company_research" | "person_research" | "scoring" | "conversation" | "lead_finder";
 export type JobStatus = "queued" | "running" | "completed" | "error" | "timeout" | "cancelled";
 
 export interface Job {

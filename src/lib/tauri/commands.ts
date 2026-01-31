@@ -219,6 +219,19 @@ export async function startPersonResearch(
   });
 }
 
+export async function startFindLeads(
+  icpDescription: string,
+  onEvent: (event: StreamEvent) => void
+): Promise<ResearchResult> {
+  const channel = new Channel<StreamEvent>();
+  channel.onmessage = onEvent;
+
+  return invoke("start_find_leads", {
+    icpDescription,
+    onEvent: channel,
+  });
+}
+
 export async function killJob(jobId: string): Promise<void> {
   return invoke("kill_job", { jobId });
 }

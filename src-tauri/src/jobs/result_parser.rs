@@ -9,6 +9,7 @@ pub enum JobType {
     PersonResearch,
     Scoring,
     Conversation,
+    LeadFinder,
 }
 
 /// Metadata about a job for tracking, including output file paths

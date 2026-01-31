@@ -79,6 +79,9 @@ pub enum ParsedOutput {
     Conversation {
         topics: String,
     },
+    LeadFinder {
+        leads: Vec<serde_json::Value>,
+    },
 }
 
 /// Handles job completion with atomic operations
@@ -266,6 +269,11 @@ impl CompletionHandler {
                     topics: outputs.primary_content.clone(),
                 })
             }
+            JobType::LeadFinder => {
+                let leads: Vec<serde_json::Value> = serde_json::from_str(&outputs.primary_content)
+                    .map_err(|e| CompletionError::ParseError(format!("Invalid leads JSON: {}", e)))?;
+                Ok(ParsedOutput::LeadFinder { leads })
+            }
         }
     }
 
@@ -440,6 +448,29 @@ impl CompletionHandler {
                     rusqlite::params![topics, now, person_id],
                 ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
             }
+            ParsedOutput::LeadFinder { leads } => {
+                let now = chrono::Utc::now().timestamp();
+                for lead_data in leads {
+                    let company_name = lead_data.get("companyName")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown");
+                    let website = lead_data.get("website").and_then(|v| v.as_str());
+                    let city = lead_data.get("city").and_then(|v| v.as_str());
+                    let state = lead_data.get("state").and_then(|v| v.as_str());
+                    let country = lead_data.get("country").and_then(|v| v.as_str());
+                    let industry = lead_data.get("industry").and_then(|v| v.as_str());
+
+                    tx.execute(
+                        "INSERT INTO leads (company_name, website, city, state, country, industry, research_status, user_status, created_at)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', 'new', ?7)",
+                        rusqlite::params![company_name, website, city, state, country, industry, now],
+                    ).map_err(|e| CompletionError::DatabaseError(e.to_string()))?;
+
+                    let lead_id = tx.last_insert_rowid();
+                    // Emit lead-created event so frontend updates incrementally
+                    events::emit_lead_created(&self.app_handle, lead_id);
+                }
+            }
         }
 
         Ok(())
@@ -495,6 +526,9 @@ impl CompletionHandler {
                     }
                 }
             }
+            JobType::LeadFinder => {
+                // Events already emitted per-lead during insert in update_database_in_tx
+            }
         }
     }
 
@@ -514,7 +548,7 @@ impl CompletionHandler {
                         rusqlite::params![metadata.entity_id],
                     );
                 }
-                JobType::Scoring | JobType::Conversation => {
+                JobType::Scoring | JobType::Conversation | JobType::LeadFinder => {
                     // No status field to update for these types
                 }
             }

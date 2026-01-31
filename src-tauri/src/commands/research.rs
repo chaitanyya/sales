@@ -459,6 +459,142 @@ fn build_person_research_prompt(
 }
 
 // ============================================================================
+// Find Leads Commands
+// ============================================================================
+
+#[tauri::command]
+pub async fn start_find_leads(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    queue: State<'_, JobQueue>,
+    icp_description: String,
+    on_event: Channel<StreamEvent>,
+) -> Result<ResearchResult, String> {
+    // Get company overview for context
+    let company_overview = {
+        let conn = state.conn.lock().map_err(|e| e.to_string())?;
+        db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?
+    };
+
+    // Set up output directory
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let output_dir = data_dir.join("lead_finder");
+    fs::create_dir_all(&output_dir).ok();
+
+    let timestamp = chrono::Utc::now().timestamp();
+    let leads_path = output_dir.join(format!("leads_{}.json", timestamp));
+
+    // Build prompt
+    let full_prompt = build_find_leads_prompt(
+        &icp_description,
+        &leads_path,
+        company_overview.as_ref().map(|p| p.content.as_str()),
+    );
+
+    // Send initial event
+    let _ = on_event.send(StreamEvent {
+        job_id: "pending".to_string(),
+        event_type: "info".to_string(),
+        content: format!("Finding leads matching: {}...", icp_description),
+        timestamp: chrono::Utc::now().timestamp_millis(),
+    });
+
+    // Start job
+    let working_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string());
+
+    let metadata = JobMetadata {
+        job_type: JobType::LeadFinder,
+        entity_id: 0,
+        primary_output_path: leads_path,
+        secondary_output_path: None,
+        enrichment_output_path: None,
+    };
+
+    let entity_label = format!("Find Leads: {}", if icp_description.len() > 50 {
+        format!("{}...", &icp_description[..50])
+    } else {
+        icp_description.clone()
+    });
+
+    let job_id = queue.start_job_with_callback(
+        app.app_handle().clone(),
+        full_prompt,
+        working_dir,
+        on_event.clone(),
+        metadata,
+        entity_label,
+        None, // No entity status to rollback
+        move |_meta, _output, _success| {
+            // CompletionHandler handles all completion logic
+        },
+    ).await?;
+
+    Ok(ResearchResult {
+        job_id,
+        status: "started".to_string(),
+    })
+}
+
+fn build_find_leads_prompt(
+    icp_description: &str,
+    output_path: &std::path::Path,
+    company_overview: Option<&str>,
+) -> String {
+    let mut prompt = String::new();
+
+    if let Some(overview) = company_overview {
+        prompt.push_str(&format!(
+            "# About Our Company\n\n{}\n\n---\n\n",
+            overview
+        ));
+    }
+
+    prompt.push_str(&format!(
+        r#"# Task: Find Companies Matching an Ideal Customer Profile
+
+## ICP Description
+{icp_description}
+
+## Instructions
+1. Search the web to find 10-20 real companies that match the ICP description above.
+2. For each company, gather: company name, website, city, state, country, and industry.
+3. Only include real companies that you can verify exist.
+4. Write the results as a JSON array to: {output_path}
+
+## Output Format
+Write ONLY a valid JSON array to the output file, with no additional text. Each element should have this structure:
+```json
+[
+  {{
+    "companyName": "Acme Corp",
+    "website": "https://acme.com",
+    "city": "San Francisco",
+    "state": "California",
+    "country": "United States",
+    "industry": "Enterprise Software"
+  }}
+]
+```
+
+Fields:
+- companyName (required): The company's name
+- website (optional): The company's website URL
+- city (optional): City where the company is headquartered
+- state (optional): State/province
+- country (optional): Country
+- industry (optional): The company's primary industry
+
+IMPORTANT: Write ONLY valid JSON to the output file. No markdown, no explanation, just the JSON array."#,
+        icp_description = icp_description,
+        output_path = output_path.display(),
+    ));
+
+    prompt
+}
+
+// ============================================================================
 // Scoring Commands
 // ============================================================================
 

@@ -53,7 +53,20 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'Qualify v__VERSION__'
-          releaseBody: 'See the assets below to download and install Qualify for your platform.'
+          releaseBody: |
+            See the assets below to download and install Qualify for your platform.
+
+            ### Installation
+
+            1. Download the `.dmg` file for your architecture
+            2. Open the `.dmg` and drag Qualify to Applications
+            3. **Before opening**, run this command in Terminal to remove the quarantine flag:
+               ```
+               xattr -cr /Applications/Qualify.app
+               ```
+            4. Open Qualify from Applications
+
+            > **Note:** Qualify is not yet code-signed with an Apple Developer certificate, so macOS Gatekeeper will block it. The `xattr` command above removes the quarantine flag and allows it to run.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

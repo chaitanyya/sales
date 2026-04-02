@@ -49,15 +49,6 @@ pub struct StreamEvent {
     pub timestamp: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct JobResult {
-    pub job_id: String,
-    pub status: String,
-    pub exit_code: Option<i32>,
-    pub reason: String,
-}
-
 struct ActiveJob {
     cancel_tx: mpsc::Sender<()>,
     status: String,
@@ -105,26 +96,6 @@ impl JobGuard {
         self.defused = true;
     }
 
-    /// Manually trigger cleanup (useful for early returns).
-    /// This also defuses the guard to prevent double cleanup.
-    async fn cleanup(&mut self) {
-        if self.defused {
-            return;
-        }
-        self.defused = true;
-
-        // Remove from active jobs
-        self.active_jobs.lock().await.remove(&self.job_id);
-
-        // Reset entity status if context provided
-        if let Some(ref ctx) = self.entity_context {
-            db_reset_entity_status(&self.db_conn, ctx, &self.app_handle);
-        }
-
-        // Update job status to error
-        db_update_job_status(&self.db_conn, &self.job_id, "error", None, Some("Job aborted unexpectedly"));
-        events::emit_job_status_changed(&self.app_handle, self.job_id.clone(), "error".to_string(), None);
-    }
 }
 
 impl Drop for JobGuard {
@@ -290,6 +261,7 @@ impl JobQueue {
             let db_state: tauri::State<'_, DbState> = app.state();
             let conn = db_state.conn.lock().map_err(|e| e.to_string())?;
             let settings = crate::db::get_settings(&conn).map_err(|e| e.to_string())?;
+            eprintln!("[job_queue] job_id={} Using settings: model='{}', use_chrome={}", job_id, settings.model, settings.use_chrome);
             let new_job = NewJob {
                 id: job_id.clone(),
                 job_type: job_type_str.to_string(),

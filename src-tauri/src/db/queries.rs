@@ -100,20 +100,6 @@ pub fn insert_lead(conn: &Connection, data: &NewLead) -> SqliteResult<i64> {
     Ok(conn.last_insert_rowid())
 }
 
-pub fn update_lead_research(
-    conn: &Connection,
-    lead_id: i64,
-    status: &str,
-    profile: Option<&str>,
-) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE leads SET research_status = ?1, company_profile = ?2, researched_at = ?3 WHERE id = ?4",
-        params![status, profile, now, lead_id],
-    )?;
-    Ok(())
-}
-
 pub fn update_lead_user_status(conn: &Connection, lead_id: i64, status: &str) -> SqliteResult<()> {
     conn.execute(
         "UPDATE leads SET user_status = ?1 WHERE id = ?2",
@@ -322,11 +308,6 @@ pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
     Ok(conn.last_insert_rowid())
 }
 
-pub fn delete_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
-    conn.execute("DELETE FROM people WHERE lead_id = ?1", params![lead_id])?;
-    Ok(())
-}
-
 #[allow(dead_code)] // API function for batch people insertion
 pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPerson]) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
@@ -337,33 +318,6 @@ pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPers
             params![p.first_name, p.last_name, p.email, p.title, None::<String>, None::<i64>, lead_id, now],
         )?;
     }
-    Ok(())
-}
-
-pub fn update_person_research(
-    conn: &Connection,
-    person_id: i64,
-    status: &str,
-    profile: Option<&str>,
-) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE people SET research_status = ?1, person_profile = ?2, researched_at = ?3 WHERE id = ?4",
-        params![status, profile, now, person_id],
-    )?;
-    Ok(())
-}
-
-pub fn update_person_conversation(
-    conn: &Connection,
-    person_id: i64,
-    topics: Option<&str>,
-) -> SqliteResult<()> {
-    let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE people SET conversation_topics = ?1, conversation_generated_at = ?2 WHERE id = ?3",
-        params![topics, now, person_id],
-    )?;
     Ok(())
 }
 
@@ -1117,11 +1071,13 @@ pub fn update_settings(
     use_chrome: bool,
 ) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp_millis();
-    conn.execute(
+    eprintln!("[db] Executing UPDATE settings: model='{}', use_chrome={}", model, use_chrome);
+    let rows_affected = conn.execute(
         "INSERT OR REPLACE INTO settings (id, model, use_chrome, updated_at)
          VALUES (1, ?1, ?2, ?3)",
         params![model, use_chrome as i64, now],
     )?;
+    eprintln!("[db] UPDATE settings completed: {} rows affected", rows_affected);
     Ok(())
 }
 

@@ -19,7 +19,7 @@ export function StreamPanelWrapper({ children }: { children: React.ReactNode }) 
 
   // Always render same structure to prevent remounting children
   return (
-    <ResizablePanelGroup direction="vertical" className="flex-1">
+    <ResizablePanelGroup orientation="vertical" className="flex-1">
       <ResizablePanel defaultSize={65}>
         <main className="h-full flex flex-col overflow-hidden">{children}</main>
       </ResizablePanel>

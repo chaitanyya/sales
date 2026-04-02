@@ -343,5 +343,5 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function updateSettings(model: string, useChrome: boolean): Promise<void> {
-  return invoke("update_settings", { model, use_chrome: useChrome });
+  return invoke("update_settings", { model, useChrome });
 }

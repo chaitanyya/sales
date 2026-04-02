@@ -1,6 +1,7 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { LazyMotion, domAnimation } from "motion/react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { StreamPanelWrapper } from "@/components/stream-panel/stream-panel-wrapper";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,13 +11,13 @@ import { CompanyOverviewDialog } from "@/components/onboarding/company-overview-
 import { useOnboardingStatus } from "@/lib/query";
 import { IconLoader2 } from "@tabler/icons-react";
 
-// Pages
-import LeadListPage from "@/pages/lead/list";
-import LeadDetailPage from "@/pages/lead/detail";
-import PeopleListPage from "@/pages/people/list";
-import PersonDetailPage from "@/pages/people/detail";
-import PromptPage from "@/pages/prompt";
-import ScoringPage from "@/pages/scoring";
+// Pages (lazy loaded)
+const LeadListPage = lazy(() => import("@/pages/lead/list"));
+const LeadDetailPage = lazy(() => import("@/pages/lead/detail"));
+const PeopleListPage = lazy(() => import("@/pages/people/list"));
+const PersonDetailPage = lazy(() => import("@/pages/people/detail"));
+const PromptPage = lazy(() => import("@/pages/prompt"));
+const ScoringPage = lazy(() => import("@/pages/scoring"));
 
 function AppContent() {
   const { data: onboardingStatus, isLoading } = useOnboardingStatus();
@@ -35,15 +36,17 @@ function AppContent() {
       <div className="flex h-screen bg-background bg-terminal-pattern font-sans antialiased">
         <Sidebar />
         <StreamPanelWrapper>
-          <Routes>
-            <Route path="/" element={<Navigate to="/lead" replace />} />
-            <Route path="/lead" element={<LeadListPage />} />
-            <Route path="/lead/:id" element={<LeadDetailPage />} />
-            <Route path="/people" element={<PeopleListPage />} />
-            <Route path="/people/:id" element={<PersonDetailPage />} />
-            <Route path="/prompt" element={<PromptPage />} />
-            <Route path="/scoring" element={<ScoringPage />} />
-          </Routes>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center"><IconLoader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/lead" replace />} />
+              <Route path="/lead" element={<LeadListPage />} />
+              <Route path="/lead/:id" element={<LeadDetailPage />} />
+              <Route path="/people" element={<PeopleListPage />} />
+              <Route path="/people/:id" element={<PersonDetailPage />} />
+              <Route path="/prompt" element={<PromptPage />} />
+              <Route path="/scoring" element={<ScoringPage />} />
+            </Routes>
+          </Suspense>
         </StreamPanelWrapper>
         <Toaster />
       </div>
@@ -57,7 +60,9 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <LazyMotion features={domAnimation}>
+        <AppContent />
+      </LazyMotion>
     </QueryClientProvider>
   );
 }

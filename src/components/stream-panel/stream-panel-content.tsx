@@ -12,6 +12,7 @@ import {
   IconWorld,
   IconClock,
   IconMessage,
+  IconBulb,
   IconExternalLink,
 } from "@tabler/icons-react";
 import ReactMarkdown from "react-markdown";
@@ -57,7 +58,7 @@ const ActivityEntry = memo(function ActivityEntry({ entry }: { entry: ClientLogE
   if (entry.content === "") return null;
 
   const color = getLogColor(entry.type);
-  const isAssistant = entry.type === "assistant";
+  const isRichContent = entry.type === "assistant" || entry.type === "thinking";
 
   return (
     <div className="flex items-start gap-2 py-2 px-3 border-b border-dashed border-muted hover:bg-muted/50 transition-colors">
@@ -71,8 +72,8 @@ const ActivityEntry = memo(function ActivityEntry({ entry }: { entry: ClientLogE
       </div>
 
       <div className="flex-1 min-w-0 text-sm">
-        {isAssistant ? (
-          <div className="prose-terminal-compact max-w-none">
+        {isRichContent ? (
+          <div className={cn("prose-terminal-compact max-w-none", entry.type === "thinking" && "italic opacity-60")}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.content}</ReactMarkdown>
           </div>
         ) : (
@@ -99,6 +100,8 @@ function getLogIcon(type: LogEntryType) {
       return <IconSettings className={cls} />;
     case "assistant":
       return <IconMessage className={cls} />;
+    case "thinking":
+      return <IconBulb className={cls} />;
     case "tool_use":
       return <IconArrowRight className={cls} />;
     case "error":
@@ -120,6 +123,8 @@ function getLogColor(type: LogEntryType) {
       return "text-yellow-500/70";
     case "assistant":
       return "text-foreground";
+    case "thinking":
+      return "text-purple-400/70";
     case "tool_use":
       return "text-blue-500";
     case "tool_result":

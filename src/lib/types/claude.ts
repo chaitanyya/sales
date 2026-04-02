@@ -2,6 +2,7 @@
 export type LogEntryType =
   | "system"
   | "assistant"
+  | "thinking"
   | "tool_use"
   | "tool_result"
   | "error"
@@ -99,6 +100,11 @@ export interface ClaudeToolUseBlock {
   input: Record<string, unknown>;
 }
 
+export interface ClaudeThinkingBlock {
+  type: "thinking";
+  thinking: string;
+}
+
 export interface ClaudeToolResultBlock {
   type: "tool_result";
   tool_use_id: string;
@@ -106,7 +112,7 @@ export interface ClaudeToolResultBlock {
   is_error?: boolean;
 }
 
-export type ClaudeContentBlock = ClaudeTextBlock | ClaudeToolUseBlock | ClaudeToolResultBlock;
+export type ClaudeContentBlock = ClaudeTextBlock | ClaudeToolUseBlock | ClaudeThinkingBlock | ClaudeToolResultBlock;
 
 // System init event
 export interface ClaudeSystemInitEvent {

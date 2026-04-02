@@ -3,6 +3,8 @@ import { parseStreamJsonEvent } from "@/lib/stream/stream-parser";
 import type { StreamEvent } from "@/lib/tauri/types";
 import type { ClientLogEntry } from "@/lib/types/claude";
 
+let eventCounter = 0;
+
 /**
  * Handle a stream event from the Tauri Channel.
  * Inserts ALL events into Zustand. Parse what we can, show raw for the rest.
@@ -16,15 +18,16 @@ export function handleStreamEvent(event: StreamEvent): void {
 
   // Try to parse, fallback to raw
   const parsed = parseStreamJsonEvent(content);
+  const seq = eventCounter++;
 
   const entries: ClientLogEntry[] = parsed.length > 0
     ? parsed.map((entry, idx) => ({
         ...entry,
-        id: `${jobId}-${timestamp}-${idx}`,
+        id: `${jobId}-${seq}-${idx}`,
         timestamp: new Date(entry.timestamp ?? timestamp),
       }))
     : [{
-        id: `${jobId}-${timestamp}-raw`,
+        id: `${jobId}-${seq}-raw`,
         type: "info" as const,
         content: content,
         timestamp: new Date(timestamp),

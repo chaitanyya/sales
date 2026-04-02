@@ -297,9 +297,57 @@ pub async fn start_person_research(
 #[tauri::command]
 pub async fn kill_job(
     queue: State<'_, JobQueue>,
+    db_state: State<'_, crate::db::DbState>,
+    app: AppHandle,
     job_id: String,
 ) -> Result<(), String> {
-    queue.kill_job(&job_id).await
+    // Try in-memory cancellation first
+    match queue.kill_job(&job_id).await {
+        Ok(()) => return Ok(()),
+        Err(_) => {
+            // Job not in active_jobs — it may be a stuck/orphaned job.
+            // Try to kill the process by PID from the database, then mark it cancelled.
+            eprintln!("[kill_job] job_id={} not in active_jobs, attempting DB cleanup", job_id);
+            let conn = db_state.conn.lock().map_err(|e| e.to_string())?;
+            if let Ok(Some(job)) = crate::db::get_job(&conn, &job_id) {
+                // Kill the process if we have a PID and it's still "running"
+                if let Some(pid) = job.pid {
+                    #[cfg(unix)]
+                    {
+                        use nix::sys::signal::{kill, Signal};
+                        use nix::unistd::Pid;
+                        let _ = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
+                    }
+                }
+                // Update DB status to cancelled
+                let _ = crate::db::update_job_status(&conn, &job_id, "cancelled", None, Some("Force-cancelled stuck job"));
+                // Reset entity status based on job type
+                let rollback_status = "pending";
+                match job.job_type.as_str() {
+                    "company_research" | "scoring" | "lead_finder" => {
+                        let _ = conn.execute(
+                            "UPDATE leads SET research_status = ?1 WHERE id = ?2",
+                            rusqlite::params![rollback_status, job.entity_id],
+                        );
+                        crate::events::emit_lead_updated(&app, job.entity_id);
+                    }
+                    "person_research" | "conversation" => {
+                        let _ = conn.execute(
+                            "UPDATE people SET research_status = ?1 WHERE id = ?2",
+                            rusqlite::params![rollback_status, job.entity_id],
+                        );
+                        if let Ok(Some(person)) = crate::db::get_person_raw(&conn, job.entity_id) {
+                            crate::events::emit_person_updated(&app, job.entity_id, person.lead_id);
+                        }
+                    }
+                    _ => {}
+                }
+                crate::events::emit_job_status_changed(&app, job_id, "cancelled".to_string(), None);
+                return Ok(());
+            }
+            Err("Job not found".to_string())
+        }
+    }
 }
 
 #[tauri::command]

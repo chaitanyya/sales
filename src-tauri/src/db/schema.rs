@@ -118,21 +118,6 @@ pub struct Prompt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScoringConfig {
-    pub id: i64,
-    pub name: String,
-    pub is_active: bool,
-    pub required_characteristics: String, // JSON
-    pub demand_signifiers: String,        // JSON
-    pub tier_hot_min: i64,
-    pub tier_warm_min: i64,
-    pub tier_nurture_min: i64,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ParsedScoringConfig {
     pub id: i64,
     pub name: String,
@@ -149,22 +134,6 @@ pub struct ParsedScoringConfig {
 // ============================================================================
 // Lead Scores Table
 // ============================================================================
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LeadScore {
-    pub id: i64,
-    pub lead_id: i64,
-    pub config_id: i64,
-    pub passes_requirements: bool,
-    pub requirement_results: String, // JSON
-    pub total_score: i64,
-    pub score_breakdown: String, // JSON
-    pub tier: String,
-    pub scoring_notes: Option<String>,
-    pub scored_at: Option<i64>,
-    pub created_at: i64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -120,20 +120,37 @@ function truncateContent(content: string, maxLength: number = MAX_TOOL_RESULT_LE
   return content.slice(0, maxLength) + `... [truncated ${content.length - maxLength} chars]`;
 }
 
-function parseSystemEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry {
-  if (event.type === "system" && "subtype" in event && event.subtype === "init") {
-    const initEvent = event as { model?: string };
-    return {
-      type: "system",
-      content: `Initialized session with model: ${initEvent.model || "unknown"}`,
-      timestamp,
-    };
+function parseSystemEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry | null {
+  if (event.type !== "system" || !("subtype" in event)) {
+    return { type: "system", content: JSON.stringify(event), timestamp };
   }
-  return {
-    type: "system",
-    content: JSON.stringify(event),
-    timestamp,
-  };
+
+  const sys = event as unknown as Record<string, unknown>;
+
+  switch (sys.subtype) {
+    case "init":
+      return {
+        type: "system",
+        content: `Initialized session with model: ${sys.model || "unknown"}`,
+        timestamp,
+      };
+    case "task_progress": {
+      const desc = sys.description ? String(sys.description) : "";
+      const toolName = sys.last_tool_name ? String(sys.last_tool_name) : undefined;
+      return {
+        type: "progress",
+        content: desc,
+        toolName: toolName ? formatToolName(toolName) : undefined,
+        timestamp,
+      };
+    }
+    // Informational subtypes that don't need display
+    case "tool_status":
+    case "heartbeat":
+      return null;
+    default:
+      return null;
+  }
 }
 
 function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry[] {
@@ -145,6 +162,12 @@ function parseAssistantEvent(event: ClaudeStreamEvent, timestamp: number): LogEn
         entries.push({
           type: "assistant",
           content: block.text,
+          timestamp,
+        });
+      } else if (block.type === "thinking") {
+        entries.push({
+          type: "thinking",
+          content: block.thinking,
           timestamp,
         });
       } else if (block.type === "tool_use") {
@@ -181,6 +204,12 @@ function parseContentBlockStart(block: ClaudeContentBlock, timestamp: number): L
     return {
       type: "assistant",
       content: block.text,
+      timestamp,
+    };
+  } else if (block.type === "thinking") {
+    return {
+      type: "thinking",
+      content: block.thinking,
       timestamp,
     };
   }
@@ -295,9 +324,11 @@ export function parseStreamJsonEvent(line: string): LogEntry[] {
     const entries: LogEntry[] = [];
 
     switch (event.type) {
-      case "system":
-        entries.push(parseSystemEvent(event, timestamp));
+      case "system": {
+        const sysEntry = parseSystemEvent(event, timestamp);
+        if (sysEntry) entries.push(sysEntry);
         break;
+      }
 
       case "assistant":
         entries.push(...parseAssistantEvent(event, timestamp));
@@ -311,12 +342,21 @@ export function parseStreamJsonEvent(line: string): LogEntry[] {
         break;
 
       case "content_block_delta":
-        if ("delta" in event && event.delta?.text) {
-          entries.push({
-            type: "assistant",
-            content: event.delta.text,
-            timestamp,
-          });
+        if ("delta" in event && event.delta) {
+          const delta = event.delta as { text?: string; thinking?: string };
+          if (delta.text) {
+            entries.push({
+              type: "assistant",
+              content: delta.text,
+              timestamp,
+            });
+          } else if (delta.thinking) {
+            entries.push({
+              type: "thinking",
+              content: delta.thinking,
+              timestamp,
+            });
+          }
         }
         break;
 

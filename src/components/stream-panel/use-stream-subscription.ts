@@ -16,8 +16,11 @@ export function useStreamSubscription() {
   const killJob = async (jobId: string) => {
     try {
       await tauriKillJob(jobId);
-      // Invalidate jobs query to reflect status change
+      toast.success("Job stopped");
+      // Invalidate queries to reflect status change
       queryClient.invalidateQueries({ queryKey: queryKeys.jobsRecent(50) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.leads });
+      queryClient.invalidateQueries({ queryKey: queryKeys.people });
     } catch {
       toast.error("Failed to stop job");
     }

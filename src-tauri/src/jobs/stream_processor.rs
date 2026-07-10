@@ -8,13 +8,13 @@
 //! - Accumulation for callback processing
 //! - Event emission for real-time frontend updates
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
-use tokio::sync::Mutex;
-use tauri::AppHandle;
-use tauri::ipc::Channel;
 use crate::db::BatchLogEntry;
 use crate::events;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::Arc;
+use tauri::ipc::Channel;
+use tauri::AppHandle;
+use tokio::sync::Mutex;
 
 use super::StreamEvent;
 
@@ -37,7 +37,7 @@ pub struct StreamStats {
 #[derive(Debug, Clone)]
 pub struct BufferedLogEntry {
     pub job_id: String,
-    pub source: String,      // "stdout" | "stderr"
+    pub source: String, // "stdout" | "stderr"
     pub log_type: String,
     pub content: String,
     pub tool_name: Option<String>,
@@ -131,10 +131,8 @@ impl StreamProcessor {
             return;
         }
 
-        let batch_entries: Vec<BatchLogEntry> = logs_to_insert
-            .iter()
-            .map(|e| e.to_batch_entry())
-            .collect();
+        let batch_entries: Vec<BatchLogEntry> =
+            logs_to_insert.iter().map(|e| e.to_batch_entry()).collect();
 
         let last_seq = logs_to_insert.last().map(|l| l.sequence).unwrap_or(0);
         let count = logs_to_insert.len() as i64;
@@ -154,11 +152,7 @@ impl StreamProcessor {
     }
 
     /// Finalize streams and return completion context
-    pub async fn finalize(
-        &self,
-        success: bool,
-        exit_code: Option<i32>,
-    ) -> CompletionContext {
+    pub async fn finalize(&self, success: bool, exit_code: Option<i32>) -> CompletionContext {
         // Flush any remaining logs
         self.flush_buffer().await;
 
@@ -235,9 +229,17 @@ impl StreamProcessorHandle {
         let line_len = line.len();
 
         let (accumulated, truncated_flag, stats) = if source == "stdout" {
-            (&self.accumulated_stdout, &self.stdout_truncated, &self.stdout_stats)
+            (
+                &self.accumulated_stdout,
+                &self.stdout_truncated,
+                &self.stdout_stats,
+            )
         } else {
-            (&self.accumulated_stderr, &self.stderr_truncated, &self.stderr_stats)
+            (
+                &self.accumulated_stderr,
+                &self.stderr_truncated,
+                &self.stderr_stats,
+            )
         };
 
         // Update stats
@@ -279,11 +281,19 @@ impl StreamProcessorHandle {
                 if json.get("type").and_then(|t| t.as_str()) == Some("system")
                     && json.get("subtype").and_then(|t| t.as_str()) == Some("init")
                 {
-                    let session_id = json.get("session_id").and_then(|s| s.as_str()).unwrap_or("");
+                    let session_id = json
+                        .get("session_id")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("");
                     let model = json.get("model").and_then(|s| s.as_str()).unwrap_or("");
                     if !session_id.is_empty() {
                         if let Ok(conn) = self.db_conn.lock() {
-                            let _ = crate::db::update_job_claude_session(&conn, &self.job_id, session_id, model);
+                            let _ = crate::db::update_job_claude_session(
+                                &conn,
+                                &self.job_id,
+                                session_id,
+                                model,
+                            );
                         }
                     }
                 }
@@ -337,10 +347,8 @@ impl StreamProcessorHandle {
             return;
         }
 
-        let batch_entries: Vec<BatchLogEntry> = logs_to_insert
-            .iter()
-            .map(|e| e.to_batch_entry())
-            .collect();
+        let batch_entries: Vec<BatchLogEntry> =
+            logs_to_insert.iter().map(|e| e.to_batch_entry()).collect();
 
         let last_seq = logs_to_insert.last().map(|l| l.sequence).unwrap_or(0);
         let count = logs_to_insert.len() as i64;
@@ -361,14 +369,21 @@ impl StreamProcessorHandle {
 /// Parse the log type and tool name from a Claude stream-json line
 fn parse_stream_json_type(line: &str) -> (String, Option<String>) {
     if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
-        let event_type = json.get("type").and_then(|t| t.as_str()).unwrap_or("unknown");
+        let event_type = json
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown");
 
         let log_type = match event_type {
             "system" => "system",
             "assistant" => "assistant",
             "user" => "tool_result",
             "result" => {
-                if json.get("is_error").and_then(|e| e.as_bool()).unwrap_or(false) {
+                if json
+                    .get("is_error")
+                    .and_then(|e| e.as_bool())
+                    .unwrap_or(false)
+                {
                     "error"
                 } else {
                     "info"
@@ -386,7 +401,9 @@ fn parse_stream_json_type(line: &str) -> (String, Option<String>) {
                 .and_then(|c| c.as_array())
                 .and_then(|arr| {
                     arr.iter()
-                        .find(|block| block.get("type").and_then(|t| t.as_str()) == Some("tool_use"))
+                        .find(|block| {
+                            block.get("type").and_then(|t| t.as_str()) == Some("tool_use")
+                        })
                         .and_then(|block| block.get("name").and_then(|n| n.as_str()))
                         .map(String::from)
                 })
@@ -402,5 +419,47 @@ fn parse_stream_json_type(line: &str) -> (String, Option<String>) {
         (log_type.to_string(), tool_name)
     } else {
         ("info".to_string(), None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_stream_json_type;
+
+    #[test]
+    fn classifies_claude_tool_commands() {
+        let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool-1","name":"mcp__claude-in-chrome__get_page_text","input":{"tabId":42}}]}}"#;
+
+        assert_eq!(
+            parse_stream_json_type(line),
+            (
+                "assistant".to_string(),
+                Some("mcp__claude-in-chrome__get_page_text".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn classifies_current_error_result_subtypes_as_errors() {
+        let line = r#"{"type":"result","subtype":"error_during_execution","is_error":true}"#;
+
+        assert_eq!(parse_stream_json_type(line), ("error".to_string(), None));
+    }
+
+    #[test]
+    fn classifies_task_lifecycle_events_as_system_logs() {
+        for subtype in [
+            "task_started",
+            "task_progress",
+            "task_updated",
+            "task_notification",
+        ] {
+            let line = format!(r#"{{"type":"system","subtype":"{subtype}","task_id":"task-1"}}"#);
+            assert_eq!(
+                parse_stream_json_type(&line),
+                ("system".to_string(), None),
+                "unexpected classification for {subtype}"
+            );
+        }
     }
 }

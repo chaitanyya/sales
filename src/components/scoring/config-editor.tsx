@@ -58,9 +58,7 @@ export function ScoringConfigEditor({ seed }: ScoringConfigEditorProps) {
       <div className="max-w-3xl space-y-6">
         <RequirementsSection
           requirements={config.requiredCharacteristics}
-          onChange={(next) =>
-            setConfig((prev) => ({ ...prev, requiredCharacteristics: next }))
-          }
+          onChange={(next) => setConfig((prev) => ({ ...prev, requiredCharacteristics: next }))}
         />
 
         <SignifiersSection

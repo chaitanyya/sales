@@ -1,6 +1,6 @@
-use rusqlite::{params, Connection, Result as SqliteResult};
 use crate::db::schema::*;
 use crate::jobs::enrichment::{LeadEnrichment, PersonEnrichment};
+use rusqlite::{params, Connection, Result as SqliteResult};
 
 // ============================================================================
 // Lead Queries
@@ -10,8 +10,8 @@ pub fn get_lead(conn: &Connection, id: i64) -> SqliteResult<Option<Lead>> {
     let mut stmt = conn.prepare(
         "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
                 revenue, revenue_range, company_linkedin_url, city, state, country,
-                research_status, researched_at, user_status, created_at, company_profile
-         FROM leads WHERE id = ?1"
+                research_status, researched_at, user_status, created_at, company_profile, notes
+         FROM leads WHERE id = ?1",
     )?;
 
     let mut rows = stmt.query(params![id])?;
@@ -31,11 +31,16 @@ pub fn get_lead(conn: &Connection, id: i64) -> SqliteResult<Option<Lead>> {
             city: row.get(10)?,
             state: row.get(11)?,
             country: row.get(12)?,
-            research_status: row.get::<_, Option<String>>(13)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(13)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(14)?,
-            user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(15)?
+                .unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            notes: row.get(18)?,
         }))
     } else {
         Ok(None)
@@ -46,8 +51,8 @@ pub fn get_all_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
     let mut stmt = conn.prepare(
         "SELECT id, company_name, website, industry, sub_industry, employees, employee_range,
                 revenue, revenue_range, company_linkedin_url, city, state, country,
-                research_status, researched_at, user_status, created_at, company_profile
-         FROM leads ORDER BY company_name ASC"
+                research_status, researched_at, user_status, created_at, company_profile, notes
+         FROM leads ORDER BY company_name ASC",
     )?;
 
     let rows = stmt.query_map([], |row| {
@@ -65,27 +70,44 @@ pub fn get_all_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
             city: row.get(10)?,
             state: row.get(11)?,
             country: row.get(12)?,
-            research_status: row.get::<_, Option<String>>(13)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(13)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(14)?,
-            user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(15)?
+                .unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            notes: row.get(18)?,
         })
     })?;
 
     rows.collect()
 }
 
-pub fn get_adjacent_leads(conn: &Connection, current_id: i64) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
-    let all_ids: Vec<i64> = conn.prepare("SELECT id FROM leads ORDER BY company_name ASC")?
+pub fn get_adjacent_leads(
+    conn: &Connection,
+    current_id: i64,
+) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
+    let all_ids: Vec<i64> = conn
+        .prepare("SELECT id FROM leads ORDER BY company_name ASC")?
         .query_map([], |row| row.get(0))?
         .collect::<SqliteResult<Vec<_>>>()?;
 
     let total = all_ids.len();
     let current_index = all_ids.iter().position(|&id| id == current_id).unwrap_or(0);
 
-    let prev_id = if current_index > 0 { Some(all_ids[current_index - 1]) } else { None };
-    let next_id = if current_index < total - 1 { Some(all_ids[current_index + 1]) } else { None };
+    let prev_id = if current_index > 0 {
+        Some(all_ids[current_index - 1])
+    } else {
+        None
+    };
+    let next_id = if current_index < total - 1 {
+        Some(all_ids[current_index + 1])
+    } else {
+        None
+    };
 
     Ok((prev_id, next_id, current_index + 1, total))
 }
@@ -108,6 +130,14 @@ pub fn update_lead_user_status(conn: &Connection, lead_id: i64, status: &str) ->
     Ok(())
 }
 
+pub fn update_lead_notes(conn: &Connection, lead_id: i64, notes: &str) -> SqliteResult<()> {
+    conn.execute(
+        "UPDATE leads SET notes = NULLIF(?1, '') WHERE id = ?2",
+        params![notes, lead_id],
+    )?;
+    Ok(())
+}
+
 pub fn delete_leads(conn: &Connection, lead_ids: &[i64]) -> SqliteResult<usize> {
     if lead_ids.is_empty() {
         return Ok(0);
@@ -123,7 +153,10 @@ pub fn delete_leads(conn: &Connection, lead_ids: &[i64]) -> SqliteResult<usize> 
 
     // Delete associated scores
     conn.execute(
-        &format!("DELETE FROM lead_scores WHERE lead_id IN ({})", placeholders),
+        &format!(
+            "DELETE FROM lead_scores WHERE lead_id IN ({})",
+            placeholders
+        ),
         rusqlite::params_from_iter(lead_ids.iter()),
     )?;
 
@@ -148,7 +181,7 @@ pub fn get_person(conn: &Connection, id: i64) -> SqliteResult<Option<PersonWithC
                 l.company_name, l.website, l.industry
          FROM people p
          LEFT JOIN leads l ON p.lead_id = l.id
-         WHERE p.id = ?1"
+         WHERE p.id = ?1",
     )?;
 
     let mut rows = stmt.query(params![id])?;
@@ -165,9 +198,13 @@ pub fn get_person(conn: &Connection, id: i64) -> SqliteResult<Option<PersonWithC
             linkedin_url: row.get(7)?,
             year_joined: row.get(8)?,
             person_profile: row.get(9)?,
-            research_status: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(10)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(11)?,
-            user_status: row.get::<_, Option<String>>(12)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(12)?
+                .unwrap_or_else(|| "new".to_string()),
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
@@ -185,7 +222,7 @@ pub fn get_person_raw(conn: &Connection, id: i64) -> SqliteResult<Option<Person>
         "SELECT id, lead_id, first_name, last_name, email, title, management_level,
                 linkedin_url, year_joined, person_profile, research_status, researched_at,
                 user_status, conversation_topics, conversation_generated_at, created_at
-         FROM people WHERE id = ?1"
+         FROM people WHERE id = ?1",
     )?;
 
     let mut rows = stmt.query(params![id])?;
@@ -202,9 +239,13 @@ pub fn get_person_raw(conn: &Connection, id: i64) -> SqliteResult<Option<Person>
             linkedin_url: row.get(7)?,
             year_joined: row.get(8)?,
             person_profile: row.get(9)?,
-            research_status: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(10)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(11)?,
-            user_status: row.get::<_, Option<String>>(12)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(12)?
+                .unwrap_or_else(|| "new".to_string()),
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
@@ -219,7 +260,7 @@ pub fn get_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<Vec<
         "SELECT id, lead_id, first_name, last_name, email, title, management_level,
                 linkedin_url, year_joined, person_profile, research_status, researched_at,
                 user_status, conversation_topics, conversation_generated_at, created_at
-         FROM people WHERE lead_id = ?1 ORDER BY last_name ASC, first_name ASC"
+         FROM people WHERE lead_id = ?1 ORDER BY last_name ASC, first_name ASC",
     )?;
 
     let rows = stmt.query_map(params![lead_id], |row| {
@@ -234,9 +275,13 @@ pub fn get_people_for_lead(conn: &Connection, lead_id: i64) -> SqliteResult<Vec<
             linkedin_url: row.get(7)?,
             year_joined: row.get(8)?,
             person_profile: row.get(9)?,
-            research_status: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(10)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(11)?,
-            user_status: row.get::<_, Option<String>>(12)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(12)?
+                .unwrap_or_else(|| "new".to_string()),
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
@@ -254,7 +299,7 @@ pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>>
                 l.company_name, l.website, l.industry
          FROM people p
          LEFT JOIN leads l ON p.lead_id = l.id
-         ORDER BY p.last_name ASC, p.first_name ASC"
+         ORDER BY p.last_name ASC, p.first_name ASC",
     )?;
 
     let rows = stmt.query_map([], |row| {
@@ -269,9 +314,13 @@ pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>>
             linkedin_url: row.get(7)?,
             year_joined: row.get(8)?,
             person_profile: row.get(9)?,
-            research_status: row.get::<_, Option<String>>(10)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(10)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(11)?,
-            user_status: row.get::<_, Option<String>>(12)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(12)?
+                .unwrap_or_else(|| "new".to_string()),
             conversation_topics: row.get(13)?,
             conversation_generated_at: row.get(14)?,
             created_at: row.get(15)?,
@@ -284,16 +333,28 @@ pub fn get_all_people(conn: &Connection) -> SqliteResult<Vec<PersonWithCompany>>
     rows.collect()
 }
 
-pub fn get_adjacent_people(conn: &Connection, current_id: i64) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
-    let all_ids: Vec<i64> = conn.prepare("SELECT id FROM people ORDER BY last_name ASC, first_name ASC")?
+pub fn get_adjacent_people(
+    conn: &Connection,
+    current_id: i64,
+) -> SqliteResult<(Option<i64>, Option<i64>, usize, usize)> {
+    let all_ids: Vec<i64> = conn
+        .prepare("SELECT id FROM people ORDER BY last_name ASC, first_name ASC")?
         .query_map([], |row| row.get(0))?
         .collect::<SqliteResult<Vec<_>>>()?;
 
     let total = all_ids.len();
     let current_index = all_ids.iter().position(|&id| id == current_id).unwrap_or(0);
 
-    let prev_id = if current_index > 0 { Some(all_ids[current_index - 1]) } else { None };
-    let next_id = if current_index < total - 1 { Some(all_ids[current_index + 1]) } else { None };
+    let prev_id = if current_index > 0 {
+        Some(all_ids[current_index - 1])
+    } else {
+        None
+    };
+    let next_id = if current_index < total - 1 {
+        Some(all_ids[current_index + 1])
+    } else {
+        None
+    };
 
     Ok((prev_id, next_id, current_index + 1, total))
 }
@@ -309,7 +370,11 @@ pub fn insert_person(conn: &Connection, data: &NewPerson) -> SqliteResult<i64> {
 }
 
 #[allow(dead_code)] // API function for batch people insertion
-pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPerson]) -> SqliteResult<()> {
+pub fn insert_people_for_lead(
+    conn: &Connection,
+    lead_id: i64,
+    people: &[NewPerson],
+) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp();
     for p in people {
         conn.execute(
@@ -321,7 +386,11 @@ pub fn insert_people_for_lead(conn: &Connection, lead_id: i64, people: &[NewPers
     Ok(())
 }
 
-pub fn update_person_user_status(conn: &Connection, person_id: i64, status: &str) -> SqliteResult<()> {
+pub fn update_person_user_status(
+    conn: &Connection,
+    person_id: i64,
+    status: &str,
+) -> SqliteResult<()> {
     conn.execute(
         "UPDATE people SET user_status = ?1 WHERE id = ?2",
         params![status, person_id],
@@ -350,7 +419,7 @@ pub fn delete_people(conn: &Connection, person_ids: &[i64]) -> SqliteResult<usiz
 pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str) -> SqliteResult<Option<Prompt>> {
     let mut stmt = conn.prepare(
         "SELECT id, type, content, created_at, updated_at
-         FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1"
+         FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
     )?;
 
     let mut rows = stmt.query(params![prompt_type])?;
@@ -368,15 +437,21 @@ pub fn get_prompt_by_type(conn: &Connection, prompt_type: &str) -> SqliteResult<
     }
 }
 
-pub fn save_prompt_by_type(conn: &Connection, prompt_type: &str, content: &str) -> SqliteResult<i64> {
+pub fn save_prompt_by_type(
+    conn: &Connection,
+    prompt_type: &str,
+    content: &str,
+) -> SqliteResult<i64> {
     let now = chrono::Utc::now().timestamp();
 
     // Check if exists
-    let existing: Option<i64> = conn.query_row(
-        "SELECT id FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
-        params![prompt_type],
-        |row| row.get(0),
-    ).ok();
+    let existing: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM prompts WHERE type = ?1 ORDER BY id DESC LIMIT 1",
+            params![prompt_type],
+            |row| row.get(0),
+        )
+        .ok();
 
     if let Some(id) = existing {
         conn.execute(
@@ -401,7 +476,7 @@ pub fn get_active_scoring_config(conn: &Connection) -> SqliteResult<Option<Parse
     let mut stmt = conn.prepare(
         "SELECT id, name, is_active, required_characteristics, demand_signifiers,
                 tier_hot_min, tier_warm_min, tier_nurture_min, created_at, updated_at
-         FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
+         FROM scoring_config WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
     )?;
 
     let mut rows = stmt.query([])?;
@@ -414,8 +489,10 @@ pub fn get_active_scoring_config(conn: &Connection) -> SqliteResult<Option<Parse
             id: row.get(0)?,
             name: row.get(1)?,
             is_active: row.get(2)?,
-            required_characteristics: serde_json::from_str(&required_chars).unwrap_or(serde_json::Value::Array(vec![])),
-            demand_signifiers: serde_json::from_str(&demand_sigs).unwrap_or(serde_json::Value::Array(vec![])),
+            required_characteristics: serde_json::from_str(&required_chars)
+                .unwrap_or(serde_json::Value::Array(vec![])),
+            demand_signifiers: serde_json::from_str(&demand_sigs)
+                .unwrap_or(serde_json::Value::Array(vec![])),
             tier_hot_min: row.get(5)?,
             tier_warm_min: row.get(6)?,
             tier_nurture_min: row.get(7)?,
@@ -427,6 +504,7 @@ pub fn get_active_scoring_config(conn: &Connection) -> SqliteResult<Option<Parse
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn save_scoring_config(
     conn: &Connection,
     name: &str,
@@ -468,7 +546,7 @@ pub fn get_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<Option<Pa
     let mut stmt = conn.prepare(
         "SELECT id, lead_id, config_id, passes_requirements, requirement_results,
                 total_score, score_breakdown, tier, scoring_notes, scored_at, created_at
-         FROM lead_scores WHERE lead_id = ?1 ORDER BY id DESC LIMIT 1"
+         FROM lead_scores WHERE lead_id = ?1 ORDER BY id DESC LIMIT 1",
     )?;
 
     let mut rows = stmt.query(params![lead_id])?;
@@ -482,9 +560,11 @@ pub fn get_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<Option<Pa
             lead_id: row.get(1)?,
             config_id: row.get(2)?,
             passes_requirements: row.get(3)?,
-            requirement_results: serde_json::from_str(&req_results).unwrap_or(serde_json::Value::Array(vec![])),
+            requirement_results: serde_json::from_str(&req_results)
+                .unwrap_or(serde_json::Value::Array(vec![])),
             total_score: row.get(5)?,
-            score_breakdown: serde_json::from_str(&score_breakdown).unwrap_or(serde_json::Value::Array(vec![])),
+            score_breakdown: serde_json::from_str(&score_breakdown)
+                .unwrap_or(serde_json::Value::Array(vec![])),
             tier: row.get(7)?,
             scoring_notes: row.get(8)?,
             scored_at: row.get(9)?,
@@ -511,7 +591,7 @@ pub fn get_unscored_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
     let mut stmt = conn.prepare(
         "SELECT l.id, l.company_name, l.website, l.industry, l.sub_industry, l.employees, l.employee_range,
                 l.revenue, l.revenue_range, l.company_linkedin_url, l.city, l.state, l.country,
-                l.research_status, l.researched_at, l.user_status, l.created_at, l.company_profile
+                l.research_status, l.researched_at, l.user_status, l.created_at, l.company_profile, l.notes
          FROM leads l
          LEFT JOIN lead_scores ls ON l.id = ls.lead_id
          WHERE ls.id IS NULL
@@ -533,17 +613,23 @@ pub fn get_unscored_leads(conn: &Connection) -> SqliteResult<Vec<Lead>> {
             city: row.get(10)?,
             state: row.get(11)?,
             country: row.get(12)?,
-            research_status: row.get::<_, Option<String>>(13)?.unwrap_or_else(|| "pending".to_string()),
+            research_status: row
+                .get::<_, Option<String>>(13)?
+                .unwrap_or_else(|| "pending".to_string()),
             researched_at: row.get(14)?,
-            user_status: row.get::<_, Option<String>>(15)?.unwrap_or_else(|| "new".to_string()),
+            user_status: row
+                .get::<_, Option<String>>(15)?
+                .unwrap_or_else(|| "new".to_string()),
             created_at: row.get(16)?,
             company_profile: row.get(17)?,
+            notes: row.get(18)?,
         })
     })?;
 
     rows.collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn save_lead_score(
     conn: &Connection,
     lead_id: i64,
@@ -558,20 +644,37 @@ pub fn save_lead_score(
     let now = chrono::Utc::now().timestamp();
 
     // Delete existing scores for this lead
-    conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
+    conn.execute(
+        "DELETE FROM lead_scores WHERE lead_id = ?1",
+        params![lead_id],
+    )?;
 
     conn.execute(
         "INSERT INTO lead_scores (lead_id, config_id, passes_requirements, requirement_results,
          total_score, score_breakdown, tier, scoring_notes, scored_at, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![lead_id, config_id, passes_requirements, requirement_results, total_score, score_breakdown, tier, scoring_notes, now, now],
+        params![
+            lead_id,
+            config_id,
+            passes_requirements,
+            requirement_results,
+            total_score,
+            score_breakdown,
+            tier,
+            scoring_notes,
+            now,
+            now
+        ],
     )?;
 
     Ok(conn.last_insert_rowid())
 }
 
 pub fn delete_lead_score(conn: &Connection, lead_id: i64) -> SqliteResult<()> {
-    conn.execute("DELETE FROM lead_scores WHERE lead_id = ?1", params![lead_id])?;
+    conn.execute(
+        "DELETE FROM lead_scores WHERE lead_id = ?1",
+        params![lead_id],
+    )?;
     Ok(())
 }
 
@@ -655,7 +758,11 @@ pub fn update_job_claude_session(
 }
 
 #[allow(dead_code)] // API function for job event index tracking
-pub fn update_job_last_event_index(conn: &Connection, job_id: &str, index: i64) -> SqliteResult<()> {
+pub fn update_job_last_event_index(
+    conn: &Connection,
+    job_id: &str,
+    index: i64,
+) -> SqliteResult<()> {
     conn.execute(
         "UPDATE jobs SET last_event_index = ?1 WHERE id = ?2",
         params![index, job_id],
@@ -678,7 +785,11 @@ pub fn update_job_stream_stats(
     Ok(())
 }
 
-pub fn update_job_completion_state(conn: &Connection, job_id: &str, state: Option<&str>) -> SqliteResult<()> {
+pub fn update_job_completion_state(
+    conn: &Connection,
+    job_id: &str,
+    state: Option<&str>,
+) -> SqliteResult<()> {
     conn.execute(
         "UPDATE jobs SET completion_state = ?1 WHERE id = ?2",
         params![state, job_id],
@@ -871,10 +982,7 @@ pub fn cleanup_old_jobs(conn: &Connection, days: i64) -> SqliteResult<usize> {
     )?;
 
     // Then delete old jobs
-    let deleted = conn.execute(
-        "DELETE FROM jobs WHERE created_at < ?1",
-        params![cutoff],
-    )?;
+    let deleted = conn.execute("DELETE FROM jobs WHERE created_at < ?1", params![cutoff])?;
 
     Ok(deleted)
 }
@@ -918,11 +1026,13 @@ pub fn insert_job_logs_batch_with_source(
     let now = chrono::Utc::now().timestamp_millis();
     let mut stmt = conn.prepare(
         "INSERT INTO job_logs (job_id, log_type, content, tool_name, timestamp, sequence, source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     )?;
 
     for (job_id, log_type, content, tool_name, sequence) in logs {
-        stmt.execute(params![job_id, log_type, content, tool_name, now, sequence, source])?;
+        stmt.execute(params![
+            job_id, log_type, content, tool_name, now, sequence, source
+        ])?;
     }
 
     Ok(())
@@ -938,18 +1048,23 @@ pub struct BatchLogEntry {
     pub source: String,
 }
 
-pub fn insert_job_logs_batch_full(
-    conn: &Connection,
-    logs: &[BatchLogEntry],
-) -> SqliteResult<()> {
+pub fn insert_job_logs_batch_full(conn: &Connection, logs: &[BatchLogEntry]) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp_millis();
     let mut stmt = conn.prepare(
         "INSERT INTO job_logs (job_id, log_type, content, tool_name, timestamp, sequence, source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     )?;
 
     for log in logs {
-        stmt.execute(params![log.job_id, log.log_type, log.content, log.tool_name, now, log.sequence, log.source])?;
+        stmt.execute(params![
+            log.job_id,
+            log.log_type,
+            log.content,
+            log.tool_name,
+            now,
+            log.sequence,
+            log.source
+        ])?;
     }
 
     Ok(())
@@ -991,7 +1106,9 @@ pub fn get_job_logs(
                 tool_name: row.get(4)?,
                 timestamp: row.get(5)?,
                 sequence: row.get(6)?,
-                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+                source: row
+                    .get::<_, Option<String>>(7)?
+                    .unwrap_or_else(|| "stdout".to_string()),
             });
         }
     } else {
@@ -1005,7 +1122,9 @@ pub fn get_job_logs(
                 tool_name: row.get(4)?,
                 timestamp: row.get(5)?,
                 sequence: row.get(6)?,
-                source: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "stdout".to_string()),
+                source: row
+                    .get::<_, Option<String>>(7)?
+                    .unwrap_or_else(|| "stdout".to_string()),
             });
         }
     }
@@ -1024,16 +1143,10 @@ pub fn get_job_log_count(conn: &Connection, job_id: &str) -> SqliteResult<i64> {
 
 pub fn delete_job(conn: &Connection, job_id: &str) -> SqliteResult<()> {
     // Delete logs first (foreign key constraint)
-    conn.execute(
-        "DELETE FROM job_logs WHERE job_id = ?1",
-        params![job_id],
-    )?;
+    conn.execute("DELETE FROM job_logs WHERE job_id = ?1", params![job_id])?;
 
     // Delete the job
-    conn.execute(
-        "DELETE FROM jobs WHERE id = ?1",
-        params![job_id],
-    )?;
+    conn.execute("DELETE FROM jobs WHERE id = ?1", params![job_id])?;
 
     Ok(())
 }
@@ -1043,9 +1156,8 @@ pub fn delete_job(conn: &Connection, job_id: &str) -> SqliteResult<()> {
 // ============================================================================
 
 pub fn get_settings(conn: &Connection) -> SqliteResult<Settings> {
-    let mut stmt = conn.prepare(
-        "SELECT model, use_chrome, updated_at FROM settings WHERE id = 1"
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT model, use_chrome, updated_at FROM settings WHERE id = 1")?;
 
     let mut rows = stmt.query([])?;
 
@@ -1058,26 +1170,28 @@ pub fn get_settings(conn: &Connection) -> SqliteResult<Settings> {
     } else {
         // Return defaults if no settings exist
         Ok(Settings {
-            model: "sonnet".to_string(),
+            model: crate::model_config::default_model().to_string(),
             use_chrome: false,
             updated_at: chrono::Utc::now().timestamp_millis(),
         })
     }
 }
 
-pub fn update_settings(
-    conn: &Connection,
-    model: &str,
-    use_chrome: bool,
-) -> SqliteResult<()> {
+pub fn update_settings(conn: &Connection, model: &str, use_chrome: bool) -> SqliteResult<()> {
     let now = chrono::Utc::now().timestamp_millis();
-    eprintln!("[db] Executing UPDATE settings: model='{}', use_chrome={}", model, use_chrome);
+    eprintln!(
+        "[db] Executing UPDATE settings: model='{}', use_chrome={}",
+        model, use_chrome
+    );
     let rows_affected = conn.execute(
         "INSERT OR REPLACE INTO settings (id, model, use_chrome, updated_at)
          VALUES (1, ?1, ?2, ?3)",
         params![model, use_chrome as i64, now],
     )?;
-    eprintln!("[db] UPDATE settings completed: {} rows affected", rows_affected);
+    eprintln!(
+        "[db] UPDATE settings completed: {} rows affected",
+        rows_affected
+    );
     Ok(())
 }
 

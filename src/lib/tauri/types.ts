@@ -21,6 +21,7 @@ export interface Lead {
   userStatus: string;
   createdAt: number;
   companyProfile: string | null;
+  notes: string | null;
 }
 
 export interface NewLead {
@@ -166,6 +167,7 @@ export interface LeadWithScore {
   userStatus: string;
   createdAt: number;
   companyProfile: string | null;
+  notes: string | null;
   score: LeadScore | null;
 }
 
@@ -214,11 +216,7 @@ export interface OnboardingStatus {
 // ============================================================================
 
 export type JobType =
-  | "company_research"
-  | "person_research"
-  | "scoring"
-  | "conversation"
-  | "lead_finder";
+  "company_research" | "person_research" | "scoring" | "conversation" | "lead_finder";
 export type JobStatus = "queued" | "running" | "completed" | "error" | "timeout" | "cancelled";
 
 export interface Job {
@@ -258,4 +256,3 @@ export interface JobLog {
   sequence: number;
   source: "stdout" | "stderr" | "internal";
 }
-

@@ -2,15 +2,16 @@ mod commands;
 mod db;
 mod events;
 mod jobs;
+mod model_config;
 mod prompts;
 
-use db::{DbState, get_db_path};
+use db::{get_db_path, DbState};
 use jobs::JobQueue;
 use tauri::{
-    Manager,
     image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -20,8 +21,7 @@ pub fn run() {
         .setup(|app| {
             // Initialize database
             let db_path = get_db_path();
-            let db_state = DbState::new(db_path)
-                .expect("Failed to initialize database");
+            let db_state = DbState::new(db_path).expect("Failed to initialize database");
 
             // Clone the connection Arc for recovery before moving db_state
             let conn_for_recovery = db_state.conn.clone();
@@ -94,6 +94,7 @@ pub fn run() {
             commands::get_adjacent_leads,
             commands::insert_lead,
             commands::update_lead_user_status,
+            commands::update_lead_notes,
             commands::delete_leads,
             // Person commands
             commands::get_person,
@@ -147,7 +148,11 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             // Handle macOS dock icon click
-            if let tauri::RunEvent::Reopen { has_visible_windows, .. } = event {
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } = event
+            {
                 if !has_visible_windows {
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.show();

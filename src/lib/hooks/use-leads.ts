@@ -66,4 +66,3 @@ export function useLeadDetail(leadId: number): {
     refresh,
   };
 }
-

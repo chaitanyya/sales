@@ -189,10 +189,7 @@ function PeopleList({ people }: { people: Person[] }) {
     <div className="space-y-2">
       {people.map((person) => {
         const status = (person.researchStatus || "pending") as
-          | "pending"
-          | "in_progress"
-          | "completed"
-          | "failed";
+          "pending" | "in_progress" | "completed" | "failed";
         const statusColors = {
           pending: "bg-muted-foreground/20",
           in_progress: "bg-yellow-500/20",

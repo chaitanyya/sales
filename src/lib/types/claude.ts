@@ -86,10 +86,7 @@ export interface ClaudeToolResultBlock {
 }
 
 export type ClaudeContentBlock =
-  | ClaudeTextBlock
-  | ClaudeToolUseBlock
-  | ClaudeThinkingBlock
-  | ClaudeToolResultBlock;
+  ClaudeTextBlock | ClaudeToolUseBlock | ClaudeThinkingBlock | ClaudeToolResultBlock;
 
 // System init event
 interface ClaudeSystemInitEvent {
@@ -103,6 +100,45 @@ interface ClaudeSystemInitEvent {
   claude_code_version: string;
   agents?: string[];
   uuid: string;
+}
+
+interface ClaudeTaskStartedEvent {
+  type: "system";
+  subtype: "task_started";
+  task_id: string;
+  description: string;
+  subagent_type?: string;
+  skip_transcript?: boolean;
+}
+
+interface ClaudeTaskProgressEvent {
+  type: "system";
+  subtype: "task_progress";
+  task_id: string;
+  description: string;
+  summary?: string;
+  last_tool_name?: string;
+  skip_transcript?: boolean;
+}
+
+interface ClaudeTaskUpdatedEvent {
+  type: "system";
+  subtype: "task_updated";
+  task_id: string;
+  patch: {
+    status?: "pending" | "running" | "completed" | "failed" | "killed" | "paused";
+    description?: string;
+    error?: string;
+  };
+}
+
+interface ClaudeTaskNotificationEvent {
+  type: "system";
+  subtype: "task_notification";
+  task_id: string;
+  status: "completed" | "failed" | "stopped";
+  summary: string;
+  skip_transcript?: boolean;
 }
 
 // Assistant message event
@@ -138,7 +174,12 @@ interface ClaudeUserEvent {
 // Result event
 interface ClaudeResultEvent {
   type: "result";
-  subtype: "success" | "error";
+  subtype:
+    | "success"
+    | "error_during_execution"
+    | "error_max_turns"
+    | "error_max_budget_usd"
+    | "error_max_structured_output_retries";
   is_error: boolean;
   duration_ms: number;
   total_cost_usd: number;
@@ -147,7 +188,12 @@ interface ClaudeResultEvent {
   session_id: string;
   uuid: string;
   usage?: ClaudeUsage;
-  permission_denials?: string[];
+  permission_denials?: Array<{
+    tool_name: string;
+    tool_use_id: string;
+    tool_input: Record<string, unknown>;
+  }>;
+  errors?: string[];
 }
 
 // Content block streaming events
@@ -184,6 +230,10 @@ interface ClaudeBrowserEvent {
 // Union type of all stream events
 export type ClaudeStreamEvent =
   | ClaudeSystemInitEvent
+  | ClaudeTaskStartedEvent
+  | ClaudeTaskProgressEvent
+  | ClaudeTaskUpdatedEvent
+  | ClaudeTaskNotificationEvent
   | ClaudeAssistantEvent
   | ClaudeUserEvent
   | ClaudeResultEvent

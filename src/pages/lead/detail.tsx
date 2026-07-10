@@ -22,12 +22,13 @@ import {
 } from "@/components/layout/entity-detail-layout";
 import { useLeadDetail } from "@/lib/hooks/use-leads";
 import { formatShortDate } from "@/lib/utils";
+import { updateLeadNotes } from "@/lib/tauri/commands";
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const leadId = parseInt(id || "", 10);
 
-  const { lead, score, people, adjacentLeads, isLoading, error } = useLeadDetail(leadId);
+  const { lead, score, people, adjacentLeads, isLoading, error, refresh } = useLeadDetail(leadId);
 
   if (isNaN(leadId)) {
     return <Navigate to="/lead" replace />;
@@ -189,6 +190,14 @@ export default function LeadDetailPage() {
       }
       activityContent={activityContent}
       sidebarContent={sidebarContent}
+      note={{
+        id: lead.id,
+        value: lead.notes ?? "",
+        onSave: async (notes) => {
+          await updateLeadNotes(lead.id, notes);
+          await refresh();
+        },
+      }}
     />
   );
 }

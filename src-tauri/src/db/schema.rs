@@ -25,6 +25,7 @@ pub struct Lead {
     pub user_status: String,
     pub created_at: i64,
     pub company_profile: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -27,4 +27,3 @@ pub struct JobMetadata {
     /// For CompanyResearch/PersonResearch: enrichment.json path for structured data
     pub enrichment_output_path: Option<PathBuf>,
 }
-

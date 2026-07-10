@@ -65,4 +65,3 @@ export function usePersonDetail(personId: number): {
     refresh,
   };
 }
-

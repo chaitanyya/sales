@@ -1,5 +1,5 @@
-use rusqlite::{Connection, Result as SqliteResult, params};
 use crate::prompts;
+use rusqlite::{params, Connection, Result as SqliteResult};
 
 /// Seed default data into the database on fresh install.
 /// Uses INSERT OR IGNORE patterns to be idempotent.
@@ -17,7 +17,10 @@ fn seed_prompts(conn: &Connection) -> SqliteResult<()> {
     let prompt_types = [
         ("company", prompts::defaults::COMPANY),
         ("person", prompts::defaults::PERSON),
-        ("conversation_topics", prompts::defaults::CONVERSATION_TOPICS),
+        (
+            "conversation_topics",
+            prompts::defaults::CONVERSATION_TOPICS,
+        ),
     ];
 
     for (prompt_type, content) in prompt_types {
@@ -43,11 +46,10 @@ fn seed_prompts(conn: &Connection) -> SqliteResult<()> {
 /// Only inserts if no scoring config exists.
 fn seed_scoring_config(conn: &Connection) -> SqliteResult<()> {
     // Check if any scoring config exists
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM scoring_config)",
-        [],
-        |row| row.get(0),
-    )?;
+    let exists: bool =
+        conn.query_row("SELECT EXISTS(SELECT 1 FROM scoring_config)", [], |row| {
+            row.get(0)
+        })?;
 
     if exists {
         return Ok(());
@@ -119,9 +121,9 @@ fn seed_scoring_config(conn: &Connection) -> SqliteResult<()> {
             "default",
             required_characteristics.to_string(),
             demand_signifiers.to_string(),
-            80,  // tier_hot_min
-            50,  // tier_warm_min
-            30,  // tier_nurture_min
+            80, // tier_hot_min
+            50, // tier_warm_min
+            30, // tier_nurture_min
             now,
             now,
         ],

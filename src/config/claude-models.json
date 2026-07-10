@@ -1,0 +1,29 @@
+{
+  "defaultModel": "claude-sonnet-5",
+  "models": [
+    {
+      "value": "claude-fable-5",
+      "label": "Claude Fable 5",
+      "icon": "brain",
+      "description": "Highest capability for long-running agentic work"
+    },
+    {
+      "value": "claude-opus-4-8",
+      "label": "Claude Opus 4.8",
+      "icon": "brain",
+      "description": "Complex reasoning and agentic coding"
+    },
+    {
+      "value": "claude-sonnet-5",
+      "label": "Claude Sonnet 5",
+      "icon": "lightning",
+      "description": "Fast frontier model for everyday work"
+    },
+    {
+      "value": "claude-haiku-4-5",
+      "label": "Claude Haiku 4.5",
+      "icon": "lightning",
+      "description": "Fastest model for lightweight tasks"
+    }
+  ]
+}

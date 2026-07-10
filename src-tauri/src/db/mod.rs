@@ -1,13 +1,13 @@
-pub mod schema;
 pub mod queries;
+pub mod schema;
 pub mod seed;
 
 use rusqlite::{Connection, Result as SqliteResult};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-pub use schema::*;
 pub use queries::*;
+pub use schema::*;
 
 /// Database state managed by Tauri
 /// Uses Arc<Mutex<Connection>> for safe sharing across async tasks
@@ -62,7 +62,8 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
             researched_at INTEGER,
             user_status TEXT DEFAULT 'new',
             created_at INTEGER NOT NULL,
-            company_profile TEXT
+            company_profile TEXT,
+            notes TEXT
         );
 
         CREATE TABLE IF NOT EXISTS people (
@@ -170,17 +171,30 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
         -- App settings table (single row)
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
-            model TEXT NOT NULL DEFAULT 'sonnet',
+            model TEXT NOT NULL DEFAULT 'claude-sonnet-5',
             use_chrome INTEGER NOT NULL DEFAULT 0,
             updated_at INTEGER NOT NULL
         );
 
         -- Insert default settings if not exists
         INSERT OR IGNORE INTO settings (id, model, use_chrome, updated_at)
-        VALUES (1, 'sonnet', 0, strftime('%s', 'now') * 1000);
+        VALUES (1, 'claude-sonnet-5', 0, strftime('%s', 'now') * 1000);
 
+        UPDATE settings SET model = 'claude-sonnet-5' WHERE model = 'sonnet';
+        UPDATE settings SET model = 'claude-opus-4-8' WHERE model = 'opus';
         "#,
     )?;
+
+    let configured_model: String =
+        conn.query_row("SELECT model FROM settings WHERE id = 1", [], |row| {
+            row.get(0)
+        })?;
+    if !crate::model_config::is_supported_model(&configured_model) {
+        conn.execute(
+            "UPDATE settings SET model = ?1 WHERE id = 1",
+            [crate::model_config::default_model()],
+        )?;
+    }
 
     // Run migrations for new columns
     run_migrations(conn)?;
@@ -190,6 +204,21 @@ fn init_schema(conn: &Connection) -> SqliteResult<()> {
 
 /// Run database migrations for new columns
 fn run_migrations(conn: &Connection) -> SqliteResult<()> {
+    fn column_exists(conn: &Connection, table: &str, column: &str) -> bool {
+        let query = format!("PRAGMA table_info({table})");
+        conn.prepare(&query)
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<SqliteResult<Vec<_>>>()
+            })
+            .map(|columns| columns.iter().any(|name| name == column))
+            .unwrap_or(false)
+    }
+
+    if !column_exists(conn, "leads", "notes") {
+        conn.execute("ALTER TABLE leads ADD COLUMN notes TEXT", [])?;
+    }
+
     // Helper to check if a column has NOT NULL constraint
     fn column_has_notnull(conn: &Connection, table: &str, column: &str) -> bool {
         let query = format!("PRAGMA table_info({})", table);
@@ -262,4 +291,58 @@ pub fn get_db_path() -> PathBuf {
         .join("qual");
 
     data_dir.join("data.db")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{init_schema, run_migrations};
+    use crate::db::{get_lead, insert_lead, update_lead_notes, NewLead};
+    use rusqlite::Connection;
+
+    #[test]
+    fn lead_notes_round_trip_and_can_be_cleared() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_schema(&conn).unwrap();
+        let lead_id = insert_lead(
+            &conn,
+            &NewLead {
+                company_name: "Acme".to_string(),
+                website: None,
+                city: None,
+                state: None,
+                country: None,
+            },
+        )
+        .unwrap();
+
+        update_lead_notes(&conn, lead_id, "Follow up next Tuesday").unwrap();
+        assert_eq!(
+            get_lead(&conn, lead_id).unwrap().unwrap().notes.as_deref(),
+            Some("Follow up next Tuesday")
+        );
+
+        update_lead_notes(&conn, lead_id, "").unwrap();
+        assert_eq!(get_lead(&conn, lead_id).unwrap().unwrap().notes, None);
+    }
+
+    #[test]
+    fn existing_leads_table_gets_notes_column() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE leads (id INTEGER PRIMARY KEY, company_name TEXT NOT NULL)",
+            [],
+        )
+        .unwrap();
+
+        run_migrations(&conn).unwrap();
+
+        let has_notes = conn
+            .prepare("PRAGMA table_info(leads)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .flatten()
+            .any(|column| column == "notes");
+        assert!(has_notes);
+    }
 }

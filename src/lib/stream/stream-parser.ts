@@ -127,6 +127,8 @@ function parseSystemEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry
 
   const sys = event as unknown as Record<string, unknown>;
 
+  if (sys.skip_transcript === true) return null;
+
   switch (sys.subtype) {
     case "init":
       return {
@@ -135,12 +137,44 @@ function parseSystemEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry
         timestamp,
       };
     case "task_progress": {
-      const desc = sys.description ? String(sys.description) : "";
+      const desc = sys.summary
+        ? String(sys.summary)
+        : sys.description
+          ? String(sys.description)
+          : "";
       const toolName = sys.last_tool_name ? String(sys.last_tool_name) : undefined;
       return {
         type: "progress",
         content: desc,
         toolName: toolName ? formatToolName(toolName) : undefined,
+        timestamp,
+      };
+    }
+    case "task_started":
+      return {
+        type: "progress",
+        content: `Started task: ${String(sys.description || sys.task_id || "unknown")}`,
+        toolName: sys.subagent_type ? String(sys.subagent_type) : undefined,
+        timestamp,
+      };
+    case "task_updated": {
+      const patch =
+        typeof sys.patch === "object" && sys.patch !== null
+          ? (sys.patch as Record<string, unknown>)
+          : {};
+      const status = String(patch.status || "updated");
+      const detail = patch.error || patch.description || sys.task_id || "unknown";
+      return {
+        type: status === "failed" || patch.error ? "error" : "progress",
+        content: `Task ${status}: ${String(detail)}`,
+        timestamp,
+      };
+    }
+    case "task_notification": {
+      const status = String(sys.status || "completed");
+      return {
+        type: status === "failed" ? "error" : "info",
+        content: `Task ${status}: ${String(sys.summary || sys.task_id || "unknown")}`,
         timestamp,
       };
     }
@@ -276,9 +310,11 @@ function parseResultEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry
   const entries: LogEntry[] = [];
   const resultEvent = event as {
     subtype?: string;
+    is_error?: boolean;
     duration_ms?: number;
     num_turns?: number;
-    permission_denials?: string[];
+    errors?: string[];
+    permission_denials?: Array<string | { tool_name?: string }>;
   };
   const durationSec = resultEvent.duration_ms ? (resultEvent.duration_ms / 1000).toFixed(1) : "?";
 
@@ -288,10 +324,12 @@ function parseResultEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry
       content: `Completed in ${durationSec}s (${resultEvent.num_turns || "?"} turns)`,
       timestamp,
     });
-  } else if (resultEvent.subtype === "error") {
+  } else if (resultEvent.is_error || resultEvent.subtype?.startsWith("error")) {
     entries.push({
       type: "error",
-      content: `Failed after ${durationSec}s`,
+      content: resultEvent.errors?.length
+        ? `Failed after ${durationSec}s: ${resultEvent.errors.join("; ")}`
+        : `Failed after ${durationSec}s (${resultEvent.subtype || "unknown error"})`,
       timestamp,
     });
   } else {
@@ -303,9 +341,12 @@ function parseResultEvent(event: ClaudeStreamEvent, timestamp: number): LogEntry
   }
 
   if (resultEvent.permission_denials && resultEvent.permission_denials.length > 0) {
+    const deniedTools = resultEvent.permission_denials.map((denial) =>
+      typeof denial === "string" ? denial : denial.tool_name || "unknown tool"
+    );
     entries.push({
       type: "error",
-      content: `Permission denied: ${resultEvent.permission_denials.join(", ")}`,
+      content: `Permission denied: ${deniedTools.join(", ")}`,
       timestamp,
     });
   }

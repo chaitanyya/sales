@@ -1,10 +1,10 @@
-use std::fs;
-use std::path::PathBuf;
-use tauri::{ipc::Channel, State, AppHandle, Manager};
 use crate::db::{self, DbState};
 use crate::events::{emit_lead_updated, emit_person_updated};
-use crate::jobs::{JobQueue, StreamEvent, JobMetadata, JobType, EntityContext, EntityType};
+use crate::jobs::{EntityContext, EntityType, JobMetadata, JobQueue, JobType, StreamEvent};
 use crate::prompts::get_default_prompt;
+use std::fs;
+use std::path::PathBuf;
+use tauri::{ipc::Channel, AppHandle, Manager, State};
 
 // ============================================================================
 // Research Commands
@@ -34,7 +34,10 @@ pub async fn start_research(
             .map(|job| job.id)
     };
     if let Some(job_id) = existing_job_id {
-        eprintln!("[research] Cancelling existing job {} for lead {}", job_id, lead_id);
+        eprintln!(
+            "[research] Cancelling existing job {} for lead {}",
+            job_id, lead_id
+        );
         let _ = queue.kill_job(&job_id).await;
     }
 
@@ -52,7 +55,8 @@ pub async fn start_research(
         conn.execute(
             "UPDATE leads SET research_status = 'in_progress' WHERE id = ?1",
             rusqlite::params![lead_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Emit event so frontend updates immediately
@@ -65,7 +69,8 @@ pub async fn start_research(
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
-        let content = cp.map(|p| p.content)
+        let content = cp
+            .map(|p| p.content)
             .or_else(|| get_default_prompt("company").map(String::from));
         (content, co)
     };
@@ -75,11 +80,15 @@ pub async fn start_research(
         .ok_or_else(|| "No company prompt configured".to_string())?;
 
     // Set up output directory
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let output_dir = data_dir.join("research");
     fs::create_dir_all(&output_dir).ok();
 
-    let company_slug = lead.company_name
+    let company_slug = lead
+        .company_name
         .to_lowercase()
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { '_' })
@@ -134,18 +143,20 @@ pub async fn start_research(
 
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
     // The callback is now just for any additional custom logic
-    let job_id = queue.start_job_with_callback(
-        app.app_handle().clone(),
-        full_prompt,
-        working_dir,
-        on_event.clone(),
-        metadata,
-        entity_label,
-        Some(entity_context),
-        move |_meta, _output, _success| {
-            // CompletionHandler handles all completion logic
-        },
-    ).await?;
+    let job_id = queue
+        .start_job_with_callback(
+            app.app_handle().clone(),
+            full_prompt,
+            working_dir,
+            on_event.clone(),
+            metadata,
+            entity_label,
+            Some(entity_context),
+            move |_meta, _output, _success| {
+                // CompletionHandler handles all completion logic
+            },
+        )
+        .await?;
 
     Ok(ResearchResult {
         job_id,
@@ -170,7 +181,10 @@ pub async fn start_person_research(
             .map(|job| job.id)
     };
     if let Some(job_id) = existing_job_id {
-        eprintln!("[research] Cancelling existing job {} for person {}", job_id, person_id);
+        eprintln!(
+            "[research] Cancelling existing job {} for person {}",
+            job_id, person_id
+        );
         let _ = queue.kill_job(&job_id).await;
     }
 
@@ -194,7 +208,8 @@ pub async fn start_person_research(
         conn.execute(
             "UPDATE people SET research_status = 'in_progress' WHERE id = ?1",
             rusqlite::params![person_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Emit event so frontend updates immediately
@@ -207,7 +222,8 @@ pub async fn start_person_research(
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
-        let content = pp.map(|p| p.content)
+        let content = pp
+            .map(|p| p.content)
             .or_else(|| get_default_prompt("person").map(String::from));
         (content, co)
     };
@@ -217,7 +233,10 @@ pub async fn start_person_research(
         .ok_or_else(|| "No person prompt configured".to_string())?;
 
     // Set up output directory
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let output_dir = data_dir.join("research");
     fs::create_dir_all(&output_dir).ok();
 
@@ -275,18 +294,20 @@ pub async fn start_person_research(
     };
 
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
-    let job_id = queue.start_job_with_callback(
-        app.app_handle().clone(),
-        full_prompt,
-        working_dir,
-        on_event.clone(),
-        metadata,
-        entity_label,
-        Some(entity_context),
-        move |_meta, _output, _success| {
-            // CompletionHandler handles all completion logic
-        },
-    ).await?;
+    let job_id = queue
+        .start_job_with_callback(
+            app.app_handle().clone(),
+            full_prompt,
+            working_dir,
+            on_event.clone(),
+            metadata,
+            entity_label,
+            Some(entity_context),
+            move |_meta, _output, _success| {
+                // CompletionHandler handles all completion logic
+            },
+        )
+        .await?;
 
     Ok(ResearchResult {
         job_id,
@@ -303,11 +324,14 @@ pub async fn kill_job(
 ) -> Result<(), String> {
     // Try in-memory cancellation first
     match queue.kill_job(&job_id).await {
-        Ok(()) => return Ok(()),
+        Ok(()) => Ok(()),
         Err(_) => {
             // Job not in active_jobs — it may be a stuck/orphaned job.
             // Try to kill the process by PID from the database, then mark it cancelled.
-            eprintln!("[kill_job] job_id={} not in active_jobs, attempting DB cleanup", job_id);
+            eprintln!(
+                "[kill_job] job_id={} not in active_jobs, attempting DB cleanup",
+                job_id
+            );
             let conn = db_state.conn.lock().map_err(|e| e.to_string())?;
             if let Ok(Some(job)) = crate::db::get_job(&conn, &job_id) {
                 // Kill the process if we have a PID and it's still "running"
@@ -320,7 +344,13 @@ pub async fn kill_job(
                     }
                 }
                 // Update DB status to cancelled
-                let _ = crate::db::update_job_status(&conn, &job_id, "cancelled", None, Some("Force-cancelled stuck job"));
+                let _ = crate::db::update_job_status(
+                    &conn,
+                    &job_id,
+                    "cancelled",
+                    None,
+                    Some("Force-cancelled stuck job"),
+                );
                 // Reset entity status based on job type
                 let rollback_status = "pending";
                 match job.job_type.as_str() {
@@ -351,9 +381,7 @@ pub async fn kill_job(
 }
 
 #[tauri::command]
-pub async fn get_active_jobs(
-    queue: State<'_, JobQueue>,
-) -> Result<Vec<String>, String> {
+pub async fn get_active_jobs(queue: State<'_, JobQueue>) -> Result<Vec<String>, String> {
     Ok(queue.get_active_jobs().await)
 }
 
@@ -420,7 +448,10 @@ fn build_research_prompt(
     }
 
     full_prompt.push_str(prompt);
-    full_prompt.push_str(&format!("\n\n# Company Information\n\nCompany Name: {}\n", lead.company_name));
+    full_prompt.push_str(&format!(
+        "\n\n# Company Information\n\nCompany Name: {}\n",
+        lead.company_name
+    ));
 
     if let Some(website) = &lead.website {
         full_prompt.push_str(&format!("Website: {}\n", website));
@@ -490,7 +521,10 @@ fn build_person_research_prompt(
 
     // Add company information if available
     if let Some(l) = lead {
-        full_prompt.push_str(&format!("\n# Company Information\n\nCompany: {}\n", l.company_name));
+        full_prompt.push_str(&format!(
+            "\n# Company Information\n\nCompany: {}\n",
+            l.company_name
+        ));
         if let Some(website) = &l.website {
             full_prompt.push_str(&format!("Website: {}\n", website));
         }
@@ -525,7 +559,10 @@ pub async fn start_find_leads(
     };
 
     // Set up output directory
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let output_dir = data_dir.join("lead_finder");
     fs::create_dir_all(&output_dir).ok();
 
@@ -560,24 +597,29 @@ pub async fn start_find_leads(
         enrichment_output_path: None,
     };
 
-    let entity_label = format!("Find Leads: {}", if icp_description.len() > 50 {
-        format!("{}...", &icp_description[..50])
-    } else {
-        icp_description.clone()
-    });
+    let entity_label = format!(
+        "Find Leads: {}",
+        if icp_description.len() > 50 {
+            format!("{}...", &icp_description[..50])
+        } else {
+            icp_description.clone()
+        }
+    );
 
-    let job_id = queue.start_job_with_callback(
-        app.app_handle().clone(),
-        full_prompt,
-        working_dir,
-        on_event.clone(),
-        metadata,
-        entity_label,
-        None, // No entity status to rollback
-        move |_meta, _output, _success| {
-            // CompletionHandler handles all completion logic
-        },
-    ).await?;
+    let job_id = queue
+        .start_job_with_callback(
+            app.app_handle().clone(),
+            full_prompt,
+            working_dir,
+            on_event.clone(),
+            metadata,
+            entity_label,
+            None, // No entity status to rollback
+            move |_meta, _output, _success| {
+                // CompletionHandler handles all completion logic
+            },
+        )
+        .await?;
 
     Ok(ResearchResult {
         job_id,
@@ -593,10 +635,7 @@ fn build_find_leads_prompt(
     let mut prompt = String::new();
 
     if let Some(overview) = company_overview {
-        prompt.push_str(&format!(
-            "# About Our Company\n\n{}\n\n---\n\n",
-            overview
-        ));
+        prompt.push_str(&format!("# About Our Company\n\n{}\n\n---\n\n", overview));
     }
 
     prompt.push_str(&format!(
@@ -662,7 +701,10 @@ pub async fn start_scoring(
             .map(|job| job.id)
     };
     if let Some(job_id) = existing_job_id {
-        eprintln!("[research] Cancelling existing scoring job {} for lead {}", job_id, lead_id);
+        eprintln!(
+            "[research] Cancelling existing scoring job {} for lead {}",
+            job_id, lead_id
+        );
         let _ = queue.kill_job(&job_id).await;
     }
 
@@ -672,8 +714,7 @@ pub async fn start_scoring(
         let l = db::get_lead(&conn, lead_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "Lead not found".to_string())?;
-        let p = db::get_people_for_lead(&conn, lead_id)
-            .map_err(|e| e.to_string())?;
+        let p = db::get_people_for_lead(&conn, lead_id).map_err(|e| e.to_string())?;
         (l, p)
     };
 
@@ -686,11 +727,15 @@ pub async fn start_scoring(
     };
 
     // Set up output directory
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let output_dir = data_dir.join("scoring");
     fs::create_dir_all(&output_dir).ok();
 
-    let company_slug = lead.company_name
+    let company_slug = lead
+        .company_name
         .to_lowercase()
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { '_' })
@@ -725,18 +770,20 @@ pub async fn start_scoring(
 
     // Note: Scoring jobs don't have a research_status to reset, so no entity context needed
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
-    let job_id = queue.start_job_with_callback(
-        app.app_handle().clone(),
-        full_prompt,
-        working_dir,
-        on_event.clone(),
-        metadata,
-        entity_label,
-        None, // No entity status to rollback for scoring
-        move |_meta, _output, _success| {
-            // CompletionHandler handles all completion logic
-        },
-    ).await?;
+    let job_id = queue
+        .start_job_with_callback(
+            app.app_handle().clone(),
+            full_prompt,
+            working_dir,
+            on_event.clone(),
+            metadata,
+            entity_label,
+            None, // No entity status to rollback for scoring
+            move |_meta, _output, _success| {
+                // CompletionHandler handles all completion logic
+            },
+        )
+        .await?;
 
     Ok(ResearchResult {
         job_id,
@@ -764,7 +811,10 @@ pub async fn start_conversation_generation(
             .map(|job| job.id)
     };
     if let Some(job_id) = existing_job_id {
-        eprintln!("[research] Cancelling existing conversation job {} for person {}", job_id, person_id);
+        eprintln!(
+            "[research] Cancelling existing conversation job {} for person {}",
+            job_id, person_id
+        );
         let _ = queue.kill_job(&job_id).await;
     }
 
@@ -789,7 +839,8 @@ pub async fn start_conversation_generation(
         let co = db::get_prompt_by_type(&conn, "company_overview").map_err(|e| e.to_string())?;
 
         // Use DB prompt or fall back to default
-        let content = cp.map(|p| p.content)
+        let content = cp
+            .map(|p| p.content)
             .or_else(|| get_default_prompt("conversation_topics").map(String::from));
         (content, co)
     };
@@ -798,7 +849,10 @@ pub async fn start_conversation_generation(
         .ok_or_else(|| "No conversation topics prompt configured".to_string())?;
 
     // Set up output directory
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
     let output_dir = data_dir.join("conversations");
     fs::create_dir_all(&output_dir).ok();
 
@@ -807,7 +861,8 @@ pub async fn start_conversation_generation(
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { '_' })
         .collect::<String>();
-    let conversation_path = output_dir.join(format!("conversation_{}_{}.md", person_id, person_slug));
+    let conversation_path =
+        output_dir.join(format!("conversation_{}_{}.md", person_id, person_slug));
 
     // Build conversation prompt
     let full_prompt = build_conversation_prompt(
@@ -845,18 +900,20 @@ pub async fn start_conversation_generation(
 
     // Note: Conversation jobs don't have a research_status to reset, so no entity context needed
     // Note: CompletionHandler in queue.rs handles all database updates and file cleanup
-    let job_id = queue.start_job_with_callback(
-        app.app_handle().clone(),
-        full_prompt,
-        working_dir,
-        on_event.clone(),
-        metadata,
-        entity_label,
-        None, // No entity status to rollback for conversation
-        move |_meta, _output, _success| {
-            // CompletionHandler handles all completion logic
-        },
-    ).await?;
+    let job_id = queue
+        .start_job_with_callback(
+            app.app_handle().clone(),
+            full_prompt,
+            working_dir,
+            on_event.clone(),
+            metadata,
+            entity_label,
+            None, // No entity status to rollback for conversation
+            move |_meta, _output, _success| {
+                // CompletionHandler handles all completion logic
+            },
+        )
+        .await?;
 
     Ok(ResearchResult {
         job_id,
@@ -875,25 +932,30 @@ fn build_scoring_prompt(
     output_path: &std::path::Path,
 ) -> String {
     // Parse required characteristics and demand signifiers from JSON
-    let required_chars: Vec<serde_json::Value> = config.required_characteristics
+    let required_chars: Vec<serde_json::Value> = config
+        .required_characteristics
         .as_array()
         .cloned()
         .unwrap_or_default();
-    let demand_sigs: Vec<serde_json::Value> = config.demand_signifiers
+    let demand_sigs: Vec<serde_json::Value> = config
+        .demand_signifiers
         .as_array()
         .cloned()
         .unwrap_or_default();
 
     // Filter enabled items
-    let enabled_reqs: Vec<_> = required_chars.iter()
+    let enabled_reqs: Vec<_> = required_chars
+        .iter()
         .filter(|c| c.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false))
         .collect();
-    let enabled_sigs: Vec<_> = demand_sigs.iter()
+    let enabled_sigs: Vec<_> = demand_sigs
+        .iter()
         .filter(|s| s.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false))
         .collect();
 
     // Calculate total weight
-    let total_weight: f64 = enabled_sigs.iter()
+    let total_weight: f64 = enabled_sigs
+        .iter()
         .map(|s| s.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.0))
         .sum();
 
@@ -904,36 +966,54 @@ fn build_scoring_prompt(
     let req_formatted = if enabled_reqs.is_empty() {
         "No required characteristics defined.".to_string()
     } else {
-        enabled_reqs.iter().enumerate().map(|(i, c)| {
-            let name = c.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown");
-            let desc = c.get("description").and_then(|v| v.as_str()).unwrap_or("");
-            format!("{}. {}\n   - {}", i + 1, name, desc)
-        }).collect::<Vec<_>>().join("\n")
+        enabled_reqs
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let name = c.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                let desc = c.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                format!("{}. {}\n   - {}", i + 1, name, desc)
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     // Format demand signifiers
     let sig_formatted = if enabled_sigs.is_empty() {
         "No demand signifiers defined.".to_string()
     } else {
-        enabled_sigs.iter().enumerate().map(|(i, s)| {
-            let name = s.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown");
-            let desc = s.get("description").and_then(|v| v.as_str()).unwrap_or("");
-            let weight = s.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let percentage = if total_weight > 0.0 {
-                ((weight / total_weight) * 100.0).round() as i32
-            } else {
-                0
-            };
-            format!("{}. {} (Weight: {}/10, {}% of total score)\n   - {}",
-                i + 1, name, weight as i32, percentage, desc)
-        }).collect::<Vec<_>>().join("\n")
+        enabled_sigs
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let name = s.get("name").and_then(|v| v.as_str()).unwrap_or("Unknown");
+                let desc = s.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                let weight = s.get("weight").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let percentage = if total_weight > 0.0 {
+                    ((weight / total_weight) * 100.0).round() as i32
+                } else {
+                    0
+                };
+                format!(
+                    "{}. {} (Weight: {}/10, {}% of total score)\n   - {}",
+                    i + 1,
+                    name,
+                    weight as i32,
+                    percentage,
+                    desc
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     // Get IDs for JSON example
-    let req_ids: Vec<String> = enabled_reqs.iter()
+    let req_ids: Vec<String> = enabled_reqs
+        .iter()
         .filter_map(|c| c.get("id").and_then(|v| v.as_str()).map(String::from))
         .collect();
-    let sig_ids: Vec<String> = enabled_sigs.iter()
+    let sig_ids: Vec<String> = enabled_sigs
+        .iter()
         .filter_map(|s| s.get("id").and_then(|v| v.as_str()).map(String::from))
         .collect();
 
@@ -964,7 +1044,8 @@ fn build_scoring_prompt(
         0
     };
 
-    format!(r#"You are a lead scoring analyst. Your task is to evaluate the following company as a sales lead and provide a detailed scoring assessment.
+    format!(
+        r#"You are a lead scoring analyst. Your task is to evaluate the following company as a sales lead and provide a detailed scoring assessment.
 
 COMPANY INFORMATION:
 {lead_context}
@@ -1048,12 +1129,18 @@ IMPORTANT NOTES:
 
 Begin your analysis now."#,
         config.tier_hot_min,
-        config.tier_warm_min, config.tier_hot_min - 1,
-        config.tier_nurture_min, config.tier_warm_min - 1,
+        config.tier_warm_min,
+        config.tier_hot_min - 1,
+        config.tier_nurture_min,
+        config.tier_warm_min - 1,
         config.tier_nurture_min,
         output_path.display(),
-        example_req_id, example_req_name,
-        example_sig_id, example_sig_name, example_sig_weight, example_weighted_score,
+        example_req_id,
+        example_req_name,
+        example_sig_id,
+        example_sig_name,
+        example_sig_weight,
+        example_weighted_score,
         req_ids.join(", "),
         sig_ids.join(", "),
         total_weight as i32
@@ -1079,7 +1166,8 @@ fn build_conversation_prompt(
     };
 
     // Format person context
-    let person_context = format!(
+    let person_context =
+        format!(
         "Name: {} {}\nTitle: {}\nEmail: {}\nLinkedIn: {}\nManagement Level: {}\nYear Joined: {}",
         person.first_name,
         person.last_name,
@@ -1161,12 +1249,34 @@ fn format_lead_context(lead: &db::Lead, people: &[db::Person]) -> String {
         format!("Company Name: {}", lead.company_name),
         format!("Website: {}", lead.website.as_deref().unwrap_or("N/A")),
         format!("Industry: {}", lead.industry.as_deref().unwrap_or("N/A")),
-        format!("Sub-Industry: {}", lead.sub_industry.as_deref().unwrap_or("N/A")),
-        format!("Employees: {}", lead.employees.map(|e| e.to_string()).unwrap_or_else(|| "N/A".to_string())),
-        format!("Employee Range: {}", lead.employee_range.as_deref().unwrap_or("N/A")),
-        format!("Revenue: {}", lead.revenue.map(|r| r.to_string()).unwrap_or_else(|| "N/A".to_string())),
-        format!("Revenue Range: {}", lead.revenue_range.as_deref().unwrap_or("N/A")),
-        format!("LinkedIn: {}", lead.company_linkedin_url.as_deref().unwrap_or("N/A")),
+        format!(
+            "Sub-Industry: {}",
+            lead.sub_industry.as_deref().unwrap_or("N/A")
+        ),
+        format!(
+            "Employees: {}",
+            lead.employees
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "N/A".to_string())
+        ),
+        format!(
+            "Employee Range: {}",
+            lead.employee_range.as_deref().unwrap_or("N/A")
+        ),
+        format!(
+            "Revenue: {}",
+            lead.revenue
+                .map(|r| r.to_string())
+                .unwrap_or_else(|| "N/A".to_string())
+        ),
+        format!(
+            "Revenue Range: {}",
+            lead.revenue_range.as_deref().unwrap_or("N/A")
+        ),
+        format!(
+            "LinkedIn: {}",
+            lead.company_linkedin_url.as_deref().unwrap_or("N/A")
+        ),
         format!("City: {}", lead.city.as_deref().unwrap_or("N/A")),
         format!("State: {}", lead.state.as_deref().unwrap_or("N/A")),
         format!("Country: {}", lead.country.as_deref().unwrap_or("N/A")),

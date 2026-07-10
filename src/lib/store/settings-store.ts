@@ -1,19 +1,24 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { getSettings, updateSettings as updateSettingsCmd } from "@/lib/tauri/commands";
+import modelConfig from "@/config/claude-models.json";
 
-export type ClaudeModel = "opus" | "sonnet";
+export type ClaudeModel =
+  "claude-fable-5" | "claude-opus-4-8" | "claude-sonnet-5" | "claude-haiku-4-5";
 
 export interface ModelOption {
   value: ClaudeModel;
   label: string;
   icon: "brain" | "lightning";
+  description: string;
 }
 
-export const MODEL_OPTIONS: ModelOption[] = [
-  { value: "opus", label: "Claude Opus", icon: "brain" },
-  { value: "sonnet", label: "Claude Sonnet", icon: "lightning" },
-];
+export const MODEL_OPTIONS = modelConfig.models as ModelOption[];
+export const DEFAULT_MODEL = modelConfig.defaultModel as ClaudeModel;
+
+export function isClaudeModel(value: string): value is ClaudeModel {
+  return MODEL_OPTIONS.some((model) => model.value === value);
+}
 
 interface SettingsState {
   selectedModel: ClaudeModel;
@@ -28,7 +33,7 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
-  selectedModel: "sonnet",
+  selectedModel: DEFAULT_MODEL,
   useChrome: false,
   isLoading: false,
   isInitialized: false,
@@ -42,7 +47,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     try {
       const settings = await getSettings();
       set({
-        selectedModel: settings.model as ClaudeModel,
+        selectedModel: isClaudeModel(settings.model) ? settings.model : DEFAULT_MODEL,
         useChrome: settings.useChrome,
         isInitialized: true,
       });

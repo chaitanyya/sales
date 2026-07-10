@@ -42,6 +42,10 @@ export async function updateLeadUserStatus(leadId: number, status: string): Prom
   return invoke("update_lead_user_status", { leadId, status });
 }
 
+export async function updateLeadNotes(leadId: number, notes: string): Promise<void> {
+  return invoke("update_lead_notes", { leadId, notes });
+}
+
 export async function deleteLeads(leadIds: number[]): Promise<number> {
   return invoke("delete_leads", { leadIds });
 }

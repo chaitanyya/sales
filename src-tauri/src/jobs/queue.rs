@@ -1,19 +1,19 @@
+use super::completion_handler::CompletionHandler;
+use super::result_parser::JobMetadata;
+use super::stream_processor::StreamProcessor;
+use crate::db::{DbState, NewJob};
+use crate::events;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::ipc::Channel;
+use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, Mutex, Semaphore};
-use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use super::result_parser::JobMetadata;
-use super::stream_processor::StreamProcessor;
-use super::completion_handler::CompletionHandler;
-use crate::db::{DbState, NewJob};
-use crate::events;
 
 /// Entity type for tracking which kind of entity a job operates on
 #[derive(Debug, Clone, Copy)]
@@ -95,7 +95,6 @@ impl JobGuard {
     fn defuse(&mut self) {
         self.defused = true;
     }
-
 }
 
 impl Drop for JobGuard {
@@ -105,7 +104,10 @@ impl Drop for JobGuard {
         }
 
         // We can't use async in drop, so we spawn a blocking task for cleanup
-        eprintln!("[job_queue] JobGuard drop triggered for job_id={} - cleaning up", self.job_id);
+        eprintln!(
+            "[job_queue] JobGuard drop triggered for job_id={} - cleaning up",
+            self.job_id
+        );
 
         let job_id = self.job_id.clone();
         let active_jobs = self.active_jobs.clone();
@@ -126,12 +128,21 @@ impl Drop for JobGuard {
                 }
 
                 // Update job status to error
-                db_update_job_status(&db_conn, &job_id, "error", None, Some("Job aborted unexpectedly"));
+                db_update_job_status(
+                    &db_conn,
+                    &job_id,
+                    "error",
+                    None,
+                    Some("Job aborted unexpectedly"),
+                );
                 events::emit_job_status_changed(&app_handle, job_id, "error".to_string(), None);
             });
         } else {
             // Fallback: synchronous cleanup (just the DB updates)
-            eprintln!("[job_queue] No tokio runtime available for async cleanup of job_id={}", self.job_id);
+            eprintln!(
+                "[job_queue] No tokio runtime available for async cleanup of job_id={}",
+                self.job_id
+            );
 
             // Reset entity status if context provided
             if let Some(ref ctx) = entity_context {
@@ -139,7 +150,13 @@ impl Drop for JobGuard {
             }
 
             // Update job status to error
-            db_update_job_status(&db_conn, &job_id, "error", None, Some("Job aborted unexpectedly"));
+            db_update_job_status(
+                &db_conn,
+                &job_id,
+                "error",
+                None,
+                Some("Job aborted unexpectedly"),
+            );
         }
     }
 }
@@ -154,7 +171,10 @@ async fn graceful_shutdown(mut child: Child, job_id: &str) {
         use nix::unistd::Pid;
 
         if let Some(pid) = child.id() {
-            eprintln!("[job_queue] job_id={} Sending SIGTERM to pid {}", job_id, pid);
+            eprintln!(
+                "[job_queue] job_id={} Sending SIGTERM to pid {}",
+                job_id, pid
+            );
             if let Err(e) = kill(Pid::from_raw(pid as i32), Signal::SIGTERM) {
                 eprintln!("[job_queue] job_id={} SIGTERM failed: {}", job_id, e);
             }
@@ -162,21 +182,28 @@ async fn graceful_shutdown(mut child: Child, job_id: &str) {
     }
 
     // Wait for graceful exit with timeout
-    let graceful_result = tokio::time::timeout(
-        Duration::from_secs(GRACEFUL_SHUTDOWN_SECS),
-        child.wait()
-    ).await;
+    let graceful_result =
+        tokio::time::timeout(Duration::from_secs(GRACEFUL_SHUTDOWN_SECS), child.wait()).await;
 
     match graceful_result {
         Ok(Ok(status)) => {
-            eprintln!("[job_queue] job_id={} Process exited gracefully with status: {:?}", job_id, status);
+            eprintln!(
+                "[job_queue] job_id={} Process exited gracefully with status: {:?}",
+                job_id, status
+            );
             return;
         }
         Ok(Err(e)) => {
-            eprintln!("[job_queue] job_id={} Error waiting for process: {}", job_id, e);
+            eprintln!(
+                "[job_queue] job_id={} Error waiting for process: {}",
+                job_id, e
+            );
         }
         Err(_) => {
-            eprintln!("[job_queue] job_id={} Graceful shutdown timeout, sending SIGKILL", job_id);
+            eprintln!(
+                "[job_queue] job_id={} Graceful shutdown timeout, sending SIGKILL",
+                job_id
+            );
         }
     }
 
@@ -188,7 +215,10 @@ async fn graceful_shutdown(mut child: Child, job_id: &str) {
     // Always wait to reap zombie process
     match child.wait().await {
         Ok(status) => {
-            eprintln!("[job_queue] job_id={} Process reaped with status: {:?}", job_id, status);
+            eprintln!(
+                "[job_queue] job_id={} Process reaped with status: {:?}",
+                job_id, status
+            );
         }
         Err(e) => {
             eprintln!("[job_queue] job_id={} Error reaping process: {}", job_id, e);
@@ -218,6 +248,7 @@ impl JobQueue {
     /// - Queue timeout (semaphore acquisition fails after 30s)
     /// - Job cancellation before running
     /// - Any error before job starts
+    #[allow(clippy::too_many_arguments)]
     pub async fn start_job_with_callback<F>(
         &self,
         app: AppHandle,
@@ -241,10 +272,13 @@ impl JobQueue {
         // Register the job in memory
         {
             let mut jobs = active_jobs.lock().await;
-            jobs.insert(job_id.clone(), ActiveJob {
-                cancel_tx,
-                status: "queued".to_string(),
-            });
+            jobs.insert(
+                job_id.clone(),
+                ActiveJob {
+                    cancel_tx,
+                    status: "queued".to_string(),
+                },
+            );
         }
 
         // Persist job to database
@@ -261,7 +295,10 @@ impl JobQueue {
             let db_state: tauri::State<'_, DbState> = app.state();
             let conn = db_state.conn.lock().map_err(|e| e.to_string())?;
             let settings = crate::db::get_settings(&conn).map_err(|e| e.to_string())?;
-            eprintln!("[job_queue] job_id={} Using settings: model='{}', use_chrome={}", job_id, settings.model, settings.use_chrome);
+            eprintln!(
+                "[job_queue] job_id={} Using settings: model='{}', use_chrome={}",
+                job_id, settings.model, settings.use_chrome
+            );
             let new_job = NewJob {
                 id: job_id.clone(),
                 job_type: job_type_str.to_string(),
@@ -277,7 +314,13 @@ impl JobQueue {
         };
 
         // Emit job created event
-        events::emit_job_created(&app, job_id.clone(), job_type_str.to_string(), metadata.entity_id, entity_label);
+        events::emit_job_created(
+            &app,
+            job_id.clone(),
+            job_type_str.to_string(),
+            metadata.entity_id,
+            entity_label,
+        );
 
         let job_id_clone = job_id.clone();
         let app_clone = app.clone();
@@ -305,10 +348,22 @@ impl JobQueue {
             let db_conn_for_status = db_conn.clone();
 
             // Helper to update job status in DB and emit event
-            let update_job_status = move |status: &str, exit_code: Option<i32>, error_msg: Option<&str>| {
-                db_update_job_status(&db_conn_for_status, &job_id_for_status, status, exit_code, error_msg);
-                events::emit_job_status_changed(&app_for_status, job_id_for_status.clone(), status.to_string(), exit_code);
-            };
+            let update_job_status =
+                move |status: &str, exit_code: Option<i32>, error_msg: Option<&str>| {
+                    db_update_job_status(
+                        &db_conn_for_status,
+                        &job_id_for_status,
+                        status,
+                        exit_code,
+                        error_msg,
+                    );
+                    events::emit_job_status_changed(
+                        &app_for_status,
+                        job_id_for_status.clone(),
+                        status.to_string(),
+                        exit_code,
+                    );
+                };
 
             // Try to acquire semaphore with queue timeout
             let permit = tokio::select! {
@@ -411,7 +466,12 @@ impl JobQueue {
             args.push(prompt);
 
             // Debug: log the command being executed
-            eprintln!("[job_queue] job_id={} Executing: {} {}", job_id_clone, claude_path, args.join(" "));
+            eprintln!(
+                "[job_queue] job_id={} Executing: {} {}",
+                job_id_clone,
+                claude_path,
+                args.join(" ")
+            );
 
             // Spawn the process with kill_on_drop for safety
             let mut child = match Command::new(&claude_path)
@@ -425,14 +485,20 @@ impl JobQueue {
             {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[job_queue] job_id={} Failed to spawn claude: {}", job_id_clone, e);
+                    eprintln!(
+                        "[job_queue] job_id={} Failed to spawn claude: {}",
+                        job_id_clone, e
+                    );
                     if let Err(send_err) = on_event.send(StreamEvent {
                         job_id: job_id_clone.clone(),
                         event_type: "error".to_string(),
                         content: format!("Failed to spawn claude: {}", e),
                         timestamp: chrono::Utc::now().timestamp_millis(),
                     }) {
-                        eprintln!("[job_queue] job_id={} Failed to send error event: {}", job_id_clone, send_err);
+                        eprintln!(
+                            "[job_queue] job_id={} Failed to send error event: {}",
+                            job_id_clone, send_err
+                        );
                     }
                     active_jobs.lock().await.remove(&job_id_clone);
                     drop(permit);
@@ -440,7 +506,11 @@ impl JobQueue {
                     if let Some(ref ctx) = entity_context {
                         db_reset_entity_status(&db_conn, ctx, &app_clone);
                     }
-                    update_job_status("error", None, Some(&format!("Failed to spawn claude: {}", e)));
+                    update_job_status(
+                        "error",
+                        None,
+                        Some(&format!("Failed to spawn claude: {}", e)),
+                    );
                     job_guard.defuse(); // Cleanup handled manually
                     on_complete(metadata, String::new(), false);
                     return;
@@ -453,11 +523,8 @@ impl JobQueue {
             }
 
             // Create StreamProcessor for unified stream handling
-            let stream_processor = StreamProcessor::new(
-                job_id_clone.clone(),
-                db_conn.clone(),
-                app_clone.clone(),
-            );
+            let stream_processor =
+                StreamProcessor::new(job_id_clone.clone(), db_conn.clone(), app_clone.clone());
 
             // Take stdout and stderr
             let stdout = child.stdout.take();
@@ -471,7 +538,9 @@ impl JobQueue {
                     let reader = BufReader::new(stdout);
                     let mut lines = reader.lines();
                     while let Ok(Some(line)) = lines.next_line().await {
-                        processor_stdout.process_stdout_line(line, &on_event_stdout).await;
+                        processor_stdout
+                            .process_stdout_line(line, &on_event_stdout)
+                            .await;
                     }
                     // Flush any remaining buffered logs
                     processor_stdout.flush_buffer().await;
@@ -486,7 +555,9 @@ impl JobQueue {
                     let reader = BufReader::new(stderr);
                     let mut lines = reader.lines();
                     while let Ok(Some(line)) = lines.next_line().await {
-                        processor_stderr.process_stderr_line(line, &on_event_stderr).await;
+                        processor_stderr
+                            .process_stderr_line(line, &on_event_stderr)
+                            .await;
                     }
                     // Flush any remaining buffered logs
                     processor_stderr.flush_buffer().await;
@@ -525,24 +596,40 @@ impl JobQueue {
             };
 
             // Wait for stream tasks to complete with timeout to prevent hanging
-            if let Err(_) = tokio::time::timeout(
+            if tokio::time::timeout(
                 Duration::from_secs(STREAM_DRAIN_TIMEOUT_SECS),
-                stdout_handle
-            ).await {
-                eprintln!("[job_queue] job_id={} Stdout stream drain timeout", job_id_clone);
+                stdout_handle,
+            )
+            .await
+            .is_err()
+            {
+                eprintln!(
+                    "[job_queue] job_id={} Stdout stream drain timeout",
+                    job_id_clone
+                );
             }
-            if let Err(_) = tokio::time::timeout(
+            if tokio::time::timeout(
                 Duration::from_secs(STREAM_DRAIN_TIMEOUT_SECS),
-                stderr_handle
-            ).await {
-                eprintln!("[job_queue] job_id={} Stderr stream drain timeout", job_id_clone);
+                stderr_handle,
+            )
+            .await
+            .is_err()
+            {
+                eprintln!(
+                    "[job_queue] job_id={} Stderr stream drain timeout",
+                    job_id_clone
+                );
             }
 
             // Finalize stream processor and get completion context
             let completion_ctx = stream_processor.finalize(result.2, result.1).await;
 
             // Update job status in database
-            let error_msg = if !result.2 { Some(format!("Job {} with code {:?}", result.0, result.1)) } else { None };
+            let error_msg = if !result.2 {
+                Some(format!("Job {} with code {:?}", result.0, result.1))
+            } else {
+                None
+            };
             update_job_status(&result.0, result.1, error_msg.as_deref());
 
             // Send completion event
@@ -552,27 +639,46 @@ impl JobQueue {
                 content: format!("Job {} with code {:?}", result.0, result.1),
                 timestamp: chrono::Utc::now().timestamp_millis(),
             }) {
-                eprintln!("[job_queue] job_id={} Failed to send completion event: {}", job_id_clone, e);
+                eprintln!(
+                    "[job_queue] job_id={} Failed to send completion event: {}",
+                    job_id_clone, e
+                );
             }
 
             // Process completion atomically using CompletionHandler
             let completion_handler = CompletionHandler::new(db_conn.clone(), app_clone.clone());
             if let Err(e) = completion_handler.process_completion(&completion_ctx, &metadata) {
-                eprintln!("[job_queue] job_id={} Completion handler error: {}", job_id_clone, e);
+                eprintln!(
+                    "[job_queue] job_id={} Completion handler error: {}",
+                    job_id_clone, e
+                );
                 // Mark entity as failed when completion handler errors
                 completion_handler.mark_entity_failed(&metadata);
                 // Update job status to error
-                db_update_job_status(&db_conn, &job_id_clone, "error", None, Some(&format!("Completion handler error: {}", e)));
+                db_update_job_status(
+                    &db_conn,
+                    &job_id_clone,
+                    "error",
+                    None,
+                    Some(&format!("Completion handler error: {}", e)),
+                );
                 // Emit entity updated event so frontend updates
                 match metadata.job_type {
                     super::result_parser::JobType::CompanyResearch => {
                         events::emit_lead_updated(&app_clone, metadata.entity_id);
                     }
-                    super::result_parser::JobType::PersonResearch | super::result_parser::JobType::Conversation => {
+                    super::result_parser::JobType::PersonResearch
+                    | super::result_parser::JobType::Conversation => {
                         // Get lead_id for the person to emit person-updated event
                         if let Ok(conn) = db_conn.lock() {
-                            if let Ok(Some(person)) = crate::db::get_person_raw(&conn, metadata.entity_id) {
-                                events::emit_person_updated(&app_clone, metadata.entity_id, person.lead_id);
+                            if let Ok(Some(person)) =
+                                crate::db::get_person_raw(&conn, metadata.entity_id)
+                            {
+                                events::emit_person_updated(
+                                    &app_clone,
+                                    metadata.entity_id,
+                                    person.lead_id,
+                                );
                             }
                         }
                     }
@@ -604,7 +710,10 @@ impl JobQueue {
         let mut jobs = self.active_jobs.lock().await;
         if let Some(job) = jobs.remove(job_id) {
             if let Err(e) = job.cancel_tx.send(()).await {
-                eprintln!("[job_queue] job_id={} Failed to send cancel signal: {}", job_id, e);
+                eprintln!(
+                    "[job_queue] job_id={} Failed to send cancel signal: {}",
+                    job_id, e
+                );
             }
             Ok(())
         } else {
@@ -619,7 +728,13 @@ impl JobQueue {
 }
 
 // Helper functions for database operations that work with Arc<Mutex<Connection>>
-fn db_update_job_status(conn: &Arc<std::sync::Mutex<rusqlite::Connection>>, job_id: &str, status: &str, exit_code: Option<i32>, error_msg: Option<&str>) {
+fn db_update_job_status(
+    conn: &Arc<std::sync::Mutex<rusqlite::Connection>>,
+    job_id: &str,
+    status: &str,
+    exit_code: Option<i32>,
+    error_msg: Option<&str>,
+) {
     if let Ok(conn) = conn.lock() {
         let _ = crate::db::update_job_status(&conn, job_id, status, exit_code, error_msg);
     }
@@ -639,18 +754,14 @@ fn db_reset_entity_status(
 ) {
     if let Ok(conn) = conn.lock() {
         let result = match entity_ctx.entity_type {
-            EntityType::Lead => {
-                conn.execute(
-                    "UPDATE leads SET research_status = ?1 WHERE id = ?2",
-                    rusqlite::params![entity_ctx.rollback_status, entity_ctx.entity_id],
-                )
-            }
-            EntityType::Person => {
-                conn.execute(
-                    "UPDATE people SET research_status = ?1 WHERE id = ?2",
-                    rusqlite::params![entity_ctx.rollback_status, entity_ctx.entity_id],
-                )
-            }
+            EntityType::Lead => conn.execute(
+                "UPDATE leads SET research_status = ?1 WHERE id = ?2",
+                rusqlite::params![entity_ctx.rollback_status, entity_ctx.entity_id],
+            ),
+            EntityType::Person => conn.execute(
+                "UPDATE people SET research_status = ?1 WHERE id = ?2",
+                rusqlite::params![entity_ctx.rollback_status, entity_ctx.entity_id],
+            ),
         };
         if let Err(e) = result {
             eprintln!("[job_queue] Failed to reset entity status: {}", e);
@@ -662,7 +773,8 @@ fn db_reset_entity_status(
                 }
                 EntityType::Person => {
                     // Get lead_id for person-updated event
-                    if let Ok(Some(person)) = crate::db::get_person_raw(&conn, entity_ctx.entity_id) {
+                    if let Ok(Some(person)) = crate::db::get_person_raw(&conn, entity_ctx.entity_id)
+                    {
                         events::emit_person_updated(app, entity_ctx.entity_id, person.lead_id);
                     }
                 }
@@ -688,10 +800,15 @@ fn find_claude_path() -> Option<String> {
         {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr = String::from_utf8_lossy(&output.stderr);
-            eprintln!("[job_queue] {} -lc 'which claude': status={}, stdout='{}', stderr='{}'",
-                shell, output.status, stdout, stderr);
+            eprintln!(
+                "[job_queue] {} -lc 'which claude': status={}, stdout='{}', stderr='{}'",
+                shell, output.status, stdout, stderr
+            );
 
-            if output.status.success() && !stdout.is_empty() && std::path::Path::new(&stdout).exists() {
+            if output.status.success()
+                && !stdout.is_empty()
+                && std::path::Path::new(&stdout).exists()
+            {
                 eprintln!("[job_queue] Found claude at: {}", stdout);
                 return Some(stdout);
             }
@@ -701,4 +818,3 @@ fn find_claude_path() -> Option<String> {
     eprintln!("[job_queue] Could not find claude CLI");
     None
 }
-

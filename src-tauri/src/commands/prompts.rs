@@ -1,9 +1,12 @@
-use tauri::State;
 use crate::db::{self, DbState, Prompt};
 use crate::prompts::get_default_prompt;
+use tauri::State;
 
 #[tauri::command]
-pub fn get_prompt_by_type(state: State<'_, DbState>, prompt_type: String) -> Result<Option<Prompt>, String> {
+pub fn get_prompt_by_type(
+    state: State<'_, DbState>,
+    prompt_type: String,
+) -> Result<Option<Prompt>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let db_prompt = db::get_prompt_by_type(&conn, &prompt_type).map_err(|e| e.to_string())?;
 
@@ -24,7 +27,11 @@ pub fn get_prompt_by_type(state: State<'_, DbState>, prompt_type: String) -> Res
 }
 
 #[tauri::command]
-pub fn save_prompt_by_type(state: State<'_, DbState>, prompt_type: String, content: String) -> Result<i64, String> {
+pub fn save_prompt_by_type(
+    state: State<'_, DbState>,
+    prompt_type: String,
+    content: String,
+) -> Result<i64, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::save_prompt_by_type(&conn, &prompt_type, &content).map_err(|e| e.to_string())
 }

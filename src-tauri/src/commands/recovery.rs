@@ -1,18 +1,15 @@
-use tauri::{State, AppHandle};
 use crate::db::DbState;
-use crate::jobs::recovery::{
-    detect_stale_jobs, detect_stuck_leads, detect_stuck_people,
-    recover_stale_jobs, recover_stuck_entities,
-    StaleJobsResult,
-};
 use crate::events;
+use crate::jobs::recovery::{
+    detect_stale_jobs, detect_stuck_leads, detect_stuck_people, recover_stale_jobs,
+    recover_stuck_entities, StaleJobsResult,
+};
+use tauri::{AppHandle, State};
 
 /// Get all stuck entities - entities with "in_progress" status but no active job,
 /// and stale jobs that have been running too long
 #[tauri::command]
-pub fn get_stuck_entities(
-    state: State<'_, DbState>,
-) -> Result<StaleJobsResult, String> {
+pub fn get_stuck_entities(state: State<'_, DbState>) -> Result<StaleJobsResult, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
     let stale_jobs = detect_stale_jobs(&conn)?;
@@ -42,20 +39,25 @@ pub fn reset_entity_status(
             conn.execute(
                 "UPDATE leads SET research_status = ?1 WHERE id = ?2",
                 rusqlite::params![new_status, entity_id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             events::emit_lead_updated(&app, entity_id);
         }
         "person" => {
             conn.execute(
                 "UPDATE people SET research_status = ?1 WHERE id = ?2",
                 rusqlite::params![new_status, entity_id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             // Get lead_id for event
-            let lead_id: Option<i64> = conn.query_row(
-                "SELECT lead_id FROM people WHERE id = ?1",
-                rusqlite::params![entity_id],
-                |row| row.get::<_, Option<i64>>(0),
-            ).ok().flatten();
+            let lead_id: Option<i64> = conn
+                .query_row(
+                    "SELECT lead_id FROM people WHERE id = ?1",
+                    rusqlite::params![entity_id],
+                    |row| row.get::<_, Option<i64>>(0),
+                )
+                .ok()
+                .flatten();
             events::emit_person_updated(&app, entity_id, lead_id);
         }
         _ => {
@@ -68,10 +70,7 @@ pub fn reset_entity_status(
 
 /// Recover all stale jobs and stuck entities
 #[tauri::command]
-pub fn recover_all_stuck(
-    app: AppHandle,
-    state: State<'_, DbState>,
-) -> Result<usize, String> {
+pub fn recover_all_stuck(app: AppHandle, state: State<'_, DbState>) -> Result<usize, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
     let stale_recovered = recover_stale_jobs(&conn, &app)?;

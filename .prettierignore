@@ -15,6 +15,7 @@ dist/
 # Generated files
 drizzle/
 next-env.d.ts
+src-tauri/gen/schemas/
 
 # Lock files
 bun.lock

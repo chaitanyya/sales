@@ -83,4 +83,3 @@ export function ScoreBreakdown({ score }: ScoreBreakdownProps) {
     </div>
   );
 }
-

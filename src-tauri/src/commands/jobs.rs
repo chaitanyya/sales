@@ -1,14 +1,12 @@
-use tauri::State;
 use crate::db::{self, DbState, Job, JobLog};
+use tauri::State;
 
 // ============================================================================
 // Job Commands
 // ============================================================================
 
 #[tauri::command]
-pub async fn get_jobs_active(
-    state: State<'_, DbState>,
-) -> Result<Vec<Job>, String> {
+pub async fn get_jobs_active(state: State<'_, DbState>) -> Result<Vec<Job>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::get_active_jobs_db(&conn).map_err(|e| e.to_string())
 }
@@ -52,10 +50,7 @@ pub async fn cleanup_old_jobs_cmd(
 }
 
 #[tauri::command]
-pub async fn delete_job_cmd(
-    state: State<'_, DbState>,
-    job_id: String,
-) -> Result<(), String> {
+pub async fn delete_job_cmd(state: State<'_, DbState>, job_id: String) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::delete_job(&conn, &job_id).map_err(|e| e.to_string())
 }

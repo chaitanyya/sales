@@ -1,11 +1,21 @@
+import { type FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import {
   IconArrowLeft,
   IconChevronDown,
   IconChevronUp,
   IconStar,
   IconDotsVertical,
+  IconLoader2,
 } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+
+interface NoteConfig {
+  id: number;
+  value: string;
+  onSave: (value: string) => Promise<void>;
+}
 
 interface EntityDetailLayoutProps {
   /** Back link href (e.g., "/lead" or "/people") */
@@ -30,6 +40,54 @@ interface EntityDetailLayoutProps {
   activityContent: React.ReactNode;
   /** Right sidebar content */
   sidebarContent: React.ReactNode;
+  note?: NoteConfig;
+}
+
+function EntityNoteEditor({ note }: { note: NoteConfig }) {
+  const [noteDraft, setNoteDraft] = useState(note.value);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveNote = async (event: FormEvent) => {
+    event.preventDefault();
+    if (isSaving || noteDraft.trim() === note.value.trim()) return;
+
+    setIsSaving(true);
+    try {
+      await note.onSave(noteDraft);
+      setNoteDraft(noteDraft.trim());
+      toast.success(noteDraft.trim() ? "Note saved" : "Note removed");
+    } catch (error) {
+      console.error("Failed to save note:", error);
+      toast.error("Failed to save note");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form className="mt-6" onSubmit={saveNote}>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-muted-foreground focus-within:border-white/20">
+        <input
+          type="text"
+          placeholder="Leave a note..."
+          value={noteDraft}
+          maxLength={5000}
+          disabled={isSaving}
+          onChange={(event) => setNoteDraft(event.target.value)}
+          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground/50"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="ghost"
+          disabled={isSaving || noteDraft.trim() === note.value.trim()}
+          className="h-7 px-2"
+        >
+          {isSaving ? <IconLoader2 className="size-3.5 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 export function EntityDetailLayout({
@@ -44,6 +102,7 @@ export function EntityDetailLayout({
   mainContent,
   activityContent,
   sidebarContent,
+  note,
 }: EntityDetailLayoutProps) {
   return (
     <>
@@ -109,15 +168,7 @@ export function EntityDetailLayout({
               </div>
               <div className="space-y-3">{activityContent}</div>
 
-              <div className="mt-6">
-                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.02] text-sm text-muted-foreground focus-within:border-white/20">
-                  <input
-                    type="text"
-                    placeholder="Leave a note..."
-                    className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground/50"
-                  />
-                </div>
-              </div>
+              {note && <EntityNoteEditor key={`${note.id}:${note.value}`} note={note} />}
             </div>
           </div>
         </div>

@@ -95,14 +95,47 @@ pub struct JobCreatedPayload {
     pub entity_label: String,
 }
 
-pub fn emit_job_status_changed(app: &AppHandle, job_id: String, status: String, exit_code: Option<i32>) {
-    let _ = app.emit("job-status-changed", JobStatusChangedPayload { job_id, status, exit_code });
+pub fn emit_job_status_changed(
+    app: &AppHandle,
+    job_id: String,
+    status: String,
+    exit_code: Option<i32>,
+) {
+    let _ = app.emit(
+        "job-status-changed",
+        JobStatusChangedPayload {
+            job_id,
+            status,
+            exit_code,
+        },
+    );
 }
 
 pub fn emit_job_logs_appended(app: &AppHandle, job_id: String, count: i64, last_sequence: i64) {
-    let _ = app.emit("job-logs-appended", JobLogsAppendedPayload { job_id, count, last_sequence });
+    let _ = app.emit(
+        "job-logs-appended",
+        JobLogsAppendedPayload {
+            job_id,
+            count,
+            last_sequence,
+        },
+    );
 }
 
-pub fn emit_job_created(app: &AppHandle, job_id: String, job_type: String, entity_id: i64, entity_label: String) {
-    let _ = app.emit("job-created", JobCreatedPayload { job_id, job_type, entity_id, entity_label });
+pub fn emit_job_created(
+    app: &AppHandle,
+    job_id: String,
+    job_type: String,
+    entity_id: i64,
+    entity_label: String,
+) {
+    let _ = app.emit(
+        "job-created",
+        JobCreatedPayload {
+            job_id,
+            job_type,
+            entity_id,
+            entity_label,
+        },
+    );
 }

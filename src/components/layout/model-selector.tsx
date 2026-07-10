@@ -10,10 +10,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { useSettingsStore, MODEL_OPTIONS, ClaudeModel } from "@/lib/store/settings-store";
+import {
+  useSettingsStore,
+  MODEL_OPTIONS,
+  DEFAULT_MODEL,
+  ClaudeModel,
+} from "@/lib/store/settings-store";
 
 const ModelIcon = ({ model, className }: { model: ClaudeModel; className?: string }) => {
-  if (model === "opus") {
+  if (MODEL_OPTIONS.find((option) => option.value === model)?.icon === "brain") {
     return <IconBrain className={className} />;
   }
   return <IconBolt className={className} />;
@@ -30,13 +35,15 @@ export function ModelSelector() {
     loadSettings();
   }, [loadSettings]);
 
-  const currentModel = MODEL_OPTIONS.find((m) => m.value === selectedModel) || MODEL_OPTIONS[1];
+  const currentModel =
+    MODEL_OPTIONS.find((model) => model.value === selectedModel) ||
+    MODEL_OPTIONS.find((model) => model.value === DEFAULT_MODEL)!;
 
   if (!isInitialized) {
     return (
       <div className="flex items-center gap-2 w-full px-2 py-1 text-muted-foreground text-sm">
         <IconBolt className="size-3.5" />
-        <span>Sonnet</span>
+        <span>Sonnet 5</span>
       </div>
     );
   }
@@ -57,7 +64,7 @@ export function ModelSelector() {
           <IconChevronDown className="size-3" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-40">
+      <DropdownMenuContent align="start" className="w-52">
         <DropdownMenuLabel>Claude Model</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={selectedModel}
@@ -70,7 +77,7 @@ export function ModelSelector() {
               disabled={isUpdatingModel}
             >
               <ModelIcon model={option.value} className="size-4" />
-              <span>{option.label}</span>
+              <span title={option.description}>{option.label}</span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

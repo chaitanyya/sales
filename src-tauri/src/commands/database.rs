@@ -1,6 +1,9 @@
-use tauri::{AppHandle, State};
-use crate::db::{self, DbState, Lead, LeadWithScore, NewLead, NewPerson, ParsedLeadScore, ParsedScoringConfig, Person, PersonWithCompany};
+use crate::db::{
+    self, DbState, Lead, LeadWithScore, NewLead, NewPerson, ParsedLeadScore, ParsedScoringConfig,
+    Person, PersonWithCompany,
+};
 use crate::events;
+use tauri::{AppHandle, State};
 
 // ============================================================================
 // Lead Commands
@@ -28,9 +31,13 @@ pub struct AdjacentLeadsResult {
 }
 
 #[tauri::command]
-pub fn get_adjacent_leads(state: State<'_, DbState>, current_id: i64) -> Result<AdjacentLeadsResult, String> {
+pub fn get_adjacent_leads(
+    state: State<'_, DbState>,
+    current_id: i64,
+) -> Result<AdjacentLeadsResult, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let (prev, next, idx, total) = db::get_adjacent_leads(&conn, current_id).map_err(|e| e.to_string())?;
+    let (prev, next, idx, total) =
+        db::get_adjacent_leads(&conn, current_id).map_err(|e| e.to_string())?;
     Ok(AdjacentLeadsResult {
         prev_lead: prev,
         next_lead: next,
@@ -40,7 +47,11 @@ pub fn get_adjacent_leads(state: State<'_, DbState>, current_id: i64) -> Result<
 }
 
 #[tauri::command]
-pub fn insert_lead(app: AppHandle, state: State<'_, DbState>, data: NewLead) -> Result<i64, String> {
+pub fn insert_lead(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    data: NewLead,
+) -> Result<i64, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let id = db::insert_lead(&conn, &data).map_err(|e| e.to_string())?;
     drop(conn);
@@ -49,7 +60,12 @@ pub fn insert_lead(app: AppHandle, state: State<'_, DbState>, data: NewLead) -> 
 }
 
 #[tauri::command]
-pub fn update_lead_user_status(app: AppHandle, state: State<'_, DbState>, lead_id: i64, status: String) -> Result<(), String> {
+pub fn update_lead_user_status(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    lead_id: i64,
+    status: String,
+) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::update_lead_user_status(&conn, lead_id, &status).map_err(|e| e.to_string())?;
     drop(conn);
@@ -58,7 +74,30 @@ pub fn update_lead_user_status(app: AppHandle, state: State<'_, DbState>, lead_i
 }
 
 #[tauri::command]
-pub fn delete_leads(app: AppHandle, state: State<'_, DbState>, lead_ids: Vec<i64>) -> Result<usize, String> {
+pub fn update_lead_notes(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    lead_id: i64,
+    notes: String,
+) -> Result<(), String> {
+    let notes = notes.trim();
+    if notes.chars().count() > 5000 {
+        return Err("Lead notes cannot exceed 5,000 characters".to_string());
+    }
+
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    db::update_lead_notes(&conn, lead_id, notes).map_err(|e| e.to_string())?;
+    drop(conn);
+    events::emit_lead_updated(&app, lead_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_leads(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    lead_ids: Vec<i64>,
+) -> Result<usize, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let deleted = db::delete_leads(&conn, &lead_ids).map_err(|e| e.to_string())?;
     drop(conn);
@@ -97,9 +136,13 @@ pub fn get_all_people(state: State<'_, DbState>) -> Result<Vec<PersonWithCompany
 }
 
 #[tauri::command]
-pub fn get_adjacent_people(state: State<'_, DbState>, current_id: i64) -> Result<AdjacentLeadsResult, String> {
+pub fn get_adjacent_people(
+    state: State<'_, DbState>,
+    current_id: i64,
+) -> Result<AdjacentLeadsResult, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let (prev, next, idx, total) = db::get_adjacent_people(&conn, current_id).map_err(|e| e.to_string())?;
+    let (prev, next, idx, total) =
+        db::get_adjacent_people(&conn, current_id).map_err(|e| e.to_string())?;
     Ok(AdjacentLeadsResult {
         prev_lead: prev,
         next_lead: next,
@@ -115,7 +158,12 @@ pub fn insert_person(state: State<'_, DbState>, data: NewPerson) -> Result<i64, 
 }
 
 #[tauri::command]
-pub fn update_person_user_status(app: AppHandle, state: State<'_, DbState>, person_id: i64, status: String) -> Result<(), String> {
+pub fn update_person_user_status(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    person_id: i64,
+    status: String,
+) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     // Get lead_id before update for event emission
     let lead_id = db::get_person_raw(&conn, person_id)
@@ -131,7 +179,11 @@ pub fn update_person_user_status(app: AppHandle, state: State<'_, DbState>, pers
 }
 
 #[tauri::command]
-pub fn delete_people(app: AppHandle, state: State<'_, DbState>, person_ids: Vec<i64>) -> Result<usize, String> {
+pub fn delete_people(
+    app: AppHandle,
+    state: State<'_, DbState>,
+    person_ids: Vec<i64>,
+) -> Result<usize, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let deleted = db::delete_people(&conn, &person_ids).map_err(|e| e.to_string())?;
     drop(conn);
@@ -146,12 +198,15 @@ pub fn delete_people(app: AppHandle, state: State<'_, DbState>, person_ids: Vec<
 // ============================================================================
 
 #[tauri::command]
-pub fn get_active_scoring_config(state: State<'_, DbState>) -> Result<Option<ParsedScoringConfig>, String> {
+pub fn get_active_scoring_config(
+    state: State<'_, DbState>,
+) -> Result<Option<ParsedScoringConfig>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::get_active_scoring_config(&conn).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn save_scoring_config(
     state: State<'_, DbState>,
     name: String,
@@ -181,7 +236,10 @@ pub fn save_scoring_config(
 // ============================================================================
 
 #[tauri::command]
-pub fn get_lead_score(state: State<'_, DbState>, lead_id: i64) -> Result<Option<ParsedLeadScore>, String> {
+pub fn get_lead_score(
+    state: State<'_, DbState>,
+    lead_id: i64,
+) -> Result<Option<ParsedLeadScore>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     db::get_lead_score(&conn, lead_id).map_err(|e| e.to_string())
 }
@@ -199,6 +257,7 @@ pub fn get_unscored_leads(state: State<'_, DbState>) -> Result<Vec<Lead>, String
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn save_lead_score(
     state: State<'_, DbState>,
     lead_id: i64,
@@ -251,39 +310,43 @@ pub fn get_onboarding_status(state: State<'_, DbState>) -> Result<OnboardingStat
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
     // Check for company overview prompt
-    let has_company_overview: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM prompts WHERE type = 'company_overview')",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(false);
+    let has_company_overview: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM prompts WHERE type = 'company_overview')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     // Check for any lead
-    let has_lead: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM leads)",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(false);
+    let has_lead: bool = conn
+        .query_row("SELECT EXISTS(SELECT 1 FROM leads)", [], |row| row.get(0))
+        .unwrap_or(false);
 
     // Check for researched lead
-    let has_researched_lead: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM leads WHERE research_status = 'completed')",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(false);
+    let has_researched_lead: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM leads WHERE research_status = 'completed')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     // Check for scored lead
-    let has_scored_lead: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM lead_scores)",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(false);
+    let has_scored_lead: bool = conn
+        .query_row("SELECT EXISTS(SELECT 1 FROM lead_scores)", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(false);
 
     // Check for researched person
-    let has_researched_person: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM people WHERE research_status = 'completed')",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(false);
+    let has_researched_person: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM people WHERE research_status = 'completed')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     // Check for conversation topics
     let has_conversation_topics: bool = conn.query_row(

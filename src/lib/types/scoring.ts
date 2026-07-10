@@ -1,8 +1,4 @@
-export type {
-  ScoringTier,
-  RequiredCharacteristic,
-  DemandSignifier,
-} from "@/lib/tauri/types";
+export type { ScoringTier, RequiredCharacteristic, DemandSignifier } from "@/lib/tauri/types";
 
 export type { LeadScore as ParsedLeadScore } from "@/lib/tauri/types";
 export type { ScoringConfig as ParsedScoringConfig } from "@/lib/tauri/types";
@@ -110,4 +106,3 @@ export const defaultScoringConfig = {
   tierWarmMin: 50,
   tierNurtureMin: 30,
 };
-
